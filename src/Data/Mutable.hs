@@ -36,9 +36,14 @@ module Data.Mutable (
     Mutable(..)
   , MutRef(..)
   , RefFor(..)
+  -- * Parts
+  , MutPart(..)
+  , modifyPart, modifyPart'
+  , updatePart, updatePart'
   -- * Instances
   , GMutable, GRef(..), gThawRef, gFreezeRef, gCopyRef
   , thawHKD, freezeHKD, copyHKD
+  , HKDMutPart, hkdMutPart
   , RecRef(..)
 
   -- * ReMutable
@@ -307,6 +312,42 @@ copyHKD
     -> z Identity
     -> m ()
 copyHKD r x = gCopyRef_ (from r) (from x)
+
+newtype MutPart m s a = MutPart { getMutPart :: Ref m s -> Ref m a }
+
+modifyPart :: Mutable m a => MutPart m s a -> Ref m s -> (a -> a) -> m ()
+modifyPart mp = modifyRef . getMutPart mp
+
+modifyPart' :: Mutable m a => MutPart m s a -> Ref m s -> (a -> a) -> m ()
+modifyPart' mp = modifyRef' . getMutPart mp
+
+updatePart :: Mutable m a => MutPart m s a -> Ref m s -> (a -> (a, b)) -> m b
+updatePart mp = updateRef . getMutPart mp
+
+updatePart' :: Mutable m a => MutPart m s a -> Ref m s -> (a -> (a, b)) -> m b
+updatePart' mp = updateRef' . getMutPart mp
+
+class Mutable m (z Identity) => HKDMutPart m z i o where
+    hkdMutPart_ :: (z (RefFor m) -> i a) -> o a
+
+instance (Mutable m (z Identity), Ref m (z Identity) ~ z (RefFor m)) => HKDMutPart m z (K1 i (RefFor m c)) (K1 i (MutPart m (z Identity) c)) where
+    hkdMutPart_ f = K1 $ MutPart $ getRefFor . unK1 . f
+
+instance HKDMutPart m z i o => HKDMutPart m z (M1 a b i) (M1 a b o) where
+    hkdMutPart_ f = M1 $ hkdMutPart_ @m (unM1 . f)
+
+instance (HKDMutPart m z i o, HKDMutPart m z i' o') => HKDMutPart m z (i :*: i') (o :*: o') where
+    hkdMutPart_ f = hkdMutPart_ @m ((\(x:*:_)->x) . f) :*: hkdMutPart_ @m ((\(_:*:y)->y) . f)
+
+hkdMutPart
+    :: forall m z.
+     ( Generic (z (RefFor m))
+     , Generic (z (MutPart m (z Identity)))
+     , HKDMutPart m z (Rep (z (RefFor m))) (Rep (z (MutPart m (z Identity))))
+     )
+    => z (MutPart m (z Identity))
+hkdMutPart = to $ hkdMutPart_ @m @z from
+
 
 newtype ReMutable (s :: Type) m a = ReMutable a
 newtype ReMutableTrans m n = RMT { runRMT :: forall x. m x -> n x }

@@ -1,3 +1,4 @@
 .stack-work/
 mutable.cabal
+*.dump-hi
 *~

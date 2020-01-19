@@ -1,24 +1,26 @@
-{-# LANGUAGE AllowAmbiguousTypes    #-}
-{-# LANGUAGE BangPatterns           #-}
-{-# LANGUAGE DefaultSignatures      #-}
-{-# LANGUAGE DeriveGeneric          #-}
-{-# LANGUAGE DerivingVia            #-}
-{-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE GADTs                  #-}
-{-# LANGUAGE KindSignatures         #-}
-{-# LANGUAGE LambdaCase             #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE NoStarIsType           #-}
-{-# LANGUAGE RankNTypes             #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
-{-# LANGUAGE TupleSections          #-}
-{-# LANGUAGE TypeApplications       #-}
-{-# LANGUAGE TypeFamilyDependencies #-}
-{-# LANGUAGE TypeInType             #-}
-{-# LANGUAGE TypeOperators          #-}
-{-# LANGUAGE UndecidableInstances   #-}
+{-# LANGUAGE AllowAmbiguousTypes        #-}
+{-# LANGUAGE BangPatterns               #-}
+{-# LANGUAGE DefaultSignatures          #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE DerivingVia                #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE FunctionalDependencies     #-}
+{-# LANGUAGE GADTs                      #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures             #-}
+{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE NoStarIsType               #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE TupleSections              #-}
+{-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeFamilyDependencies     #-}
+{-# LANGUAGE TypeInType                 #-}
+{-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE UndecidableInstances       #-}
 
 -- |
 -- Module      : Data.Mutable
@@ -36,7 +38,9 @@ module Data.Mutable (
   , RefFor(..)
   -- * Instances
   , GMutable, GRef(..), gThawRef, gFreezeRef, gCopyRef
+  , thawHKD, freezeHKD, copyHKD
   , RecRef(..)
+
   -- * ReMutable
   , reMutable, reMutableConstraint
   , ReMutable(..), ReMutableTrans(..)
@@ -47,6 +51,7 @@ import           Data.Coerce
 import           Data.Complex
 import           Data.Constraint
 import           Data.Constraint.Unsafe
+import           Data.Functor.Identity
 import           Data.Kind
 import           Data.Primitive.MutVar
 import           Data.Proxy
@@ -113,8 +118,15 @@ instance PrimMonad m => Mutable m (Ratio a)
 instance PrimMonad m => Mutable m Float
 instance PrimMonad m => Mutable m Double
 instance PrimMonad m => Mutable m (Complex a)
+instance PrimMonad m => Mutable m Bool
 
 newtype RefFor m a = RefFor { getRefFor :: Ref m a }
+
+instance Mutable m a => Mutable m (Identity a) where
+    type Ref m (Identity a) = RefFor m a
+    thawRef (Identity x) = RefFor <$> thawRef x
+    freezeRef (RefFor r) = Identity <$> freezeRef r
+    copyRef (RefFor r) (Identity x) = copyRef r x
 
 -- | Newtype wrapper that can provide any type with a 'Mutable' instance.
 -- Can be useful for avoiding orphan instances.
@@ -177,6 +189,24 @@ instance (Monad m, Mutable m a, Mutable m b, Mutable m c, Mutable m d) => Mutabl
     thawRef   (!x, !y, !z, !a) = (,,,) <$> thawRef x   <*> thawRef y   <*> thawRef z   <*> thawRef a
     freezeRef (u , v , w , j ) = (,,,) <$> freezeRef u <*> freezeRef v <*> freezeRef w <*> freezeRef j
     copyRef   (u , v , w , j ) (!x, !y, !z, !a) = copyRef u x *> copyRef v y *> copyRef w z *> copyRef j a
+
+newtype RecRef m f a = RecRef { recRef :: Ref m (f a) }
+
+instance Monad m => Mutable m (Rec f '[]) where
+    type Ref m (Rec f '[]) = Rec (RecRef m f) '[]
+    thawRef   _ = pure RNil
+    freezeRef _ = pure RNil
+    copyRef _ _ = pure ()
+
+instance (Monad m, Mutable m (f a), Mutable m (Rec f as), Ref m (Rec f as) ~ Rec (RecRef m f) as) => Mutable m (Rec f (a ': as)) where
+    type Ref m (Rec f (a ': as)) = Rec (RecRef m f) (a ': as)
+    thawRef   = \case
+      x :& xs -> (:&) <$> (RecRef <$> thawRef x) <*> thawRef xs
+    freezeRef = \case
+      RecRef v :& vs -> (:&) <$> freezeRef v <*> freezeRef vs
+    copyRef = \case
+      RecRef v :& vs -> \case
+        x :& xs -> copyRef v x >> copyRef vs xs
 
 class Monad m => GMutable m f where
     type GRef_ m f = (u :: Type -> Type) | u -> f
@@ -244,23 +274,39 @@ gCopyRef
     -> m ()
 gCopyRef (GRef v) x = gCopyRef_ v (from x)
 
-newtype RecRef m f a = RecRef { recRef :: Ref m (f a) }
+thawHKD
+    :: forall z m.
+    ( Generic (z Identity)
+    , Generic (z (RefFor m))
+    , GMutable m (Rep (z Identity))
+    , GRef_ m (Rep (z Identity)) ~ Rep (z (RefFor m))
+    )
+    => z Identity
+    -> m (z (RefFor m))
+thawHKD = fmap to . gThawRef_ . from
 
-instance Monad m => Mutable m (Rec f '[]) where
-    type Ref m (Rec f '[]) = Rec (RecRef m f) '[]
-    thawRef   _ = pure RNil
-    freezeRef _ = pure RNil
-    copyRef _ _ = pure ()
+freezeHKD
+    :: forall z m.
+    ( Generic (z Identity)
+    , Generic (z (RefFor m))
+    , GMutable m (Rep (z Identity))
+    , GRef_ m (Rep (z Identity)) ~ Rep (z (RefFor m))
+    )
+    => z (RefFor m)
+    -> m (z Identity)
+freezeHKD = fmap to . gFreezeRef_ . from
 
-instance (Monad m, Mutable m (f a), Mutable m (Rec f as), Ref m (Rec f as) ~ Rec (RecRef m f) as) => Mutable m (Rec f (a ': as)) where
-    type Ref m (Rec f (a ': as)) = Rec (RecRef m f) (a ': as)
-    thawRef   = \case
-      x :& xs -> (:&) <$> (RecRef <$> thawRef x) <*> thawRef xs
-    freezeRef = \case
-      RecRef v :& vs -> (:&) <$> freezeRef v <*> freezeRef vs
-    copyRef = \case
-      RecRef v :& vs -> \case
-        x :& xs -> copyRef v x >> copyRef vs xs
+copyHKD
+    :: forall z m.
+    ( Generic (z Identity)
+    , Generic (z (RefFor m))
+    , GMutable m (Rep (z Identity))
+    , GRef_ m (Rep (z Identity)) ~ Rep (z (RefFor m))
+    )
+    => z (RefFor m)
+    -> z Identity
+    -> m ()
+copyHKD r x = gCopyRef_ (from r) (from x)
 
 newtype ReMutable (s :: Type) m a = ReMutable a
 newtype ReMutableTrans m n = RMT { runRMT :: forall x. m x -> n x }

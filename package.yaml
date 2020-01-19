@@ -37,6 +37,8 @@ library:
   - vector-sized
   - constraints
   - reflection
+  - profunctors
+  - generic-lens
 
 # executables:
 #   mutable-exe:

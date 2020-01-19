@@ -32,20 +32,14 @@
 -- Portability : non-portable
 --
 -- Abstract over different types for mutable references of values.
-module Data.Mutable (
+module Data.Mutable.Class (
     Mutable(..)
   , MutRef(..)
   , RefFor(..)
-  -- * Parts
-  , MutPart(..)
-  , modifyPart, modifyPart'
-  , updatePart, updatePart'
   -- * Instances
-  , GMutable, GRef(..), gThawRef, gFreezeRef, gCopyRef
+  , GMutable, GRef_, GRef(..), gThawRef, gFreezeRef, gCopyRef
   , thawHKD, freezeHKD, copyHKD
-  , HKDMutPart, hkdMutPart
   , RecRef(..)
-
   -- * ReMutable
   , reMutable, reMutableConstraint
   , ReMutable(..), ReMutableTrans(..)
@@ -62,20 +56,20 @@ import           Data.Primitive.MutVar
 import           Data.Proxy
 import           Data.Ratio
 import           Data.Reflection
-import           Data.Vinyl                    as V
+import           Data.Vinyl                                as V
 import           Foreign.Storable
 import           GHC.Generics
-import qualified Data.Vector                   as V
-import qualified Data.Vector.Generic           as VG
-import qualified Data.Vector.Generic.Sized     as SVG
-import qualified Data.Vector.Mutable           as MV
-import qualified Data.Vector.Primitive         as VP
-import qualified Data.Vector.Primitive.Mutable as MVP
-import qualified Data.Vector.Storable          as VS
-import qualified Data.Vector.Storable.Mutable  as MVS
-import qualified Data.Vector.Unboxed           as VU
-import qualified Data.Vector.Unboxed.Mutable   as MVU
-import qualified Data.Vinyl.XRec               as X
+import qualified Data.Vector                               as V
+import qualified Data.Vector.Generic                       as VG
+import qualified Data.Vector.Generic.Sized                 as SVG
+import qualified Data.Vector.Mutable                       as MV
+import qualified Data.Vector.Primitive                     as VP
+import qualified Data.Vector.Primitive.Mutable             as MVP
+import qualified Data.Vector.Storable                      as VS
+import qualified Data.Vector.Storable.Mutable              as MVS
+import qualified Data.Vector.Unboxed                       as VU
+import qualified Data.Vector.Unboxed.Mutable               as MVU
+import qualified Data.Vinyl.XRec                           as X
 
 class Monad m => Mutable m a where
     type Ref m a = (v :: Type) | v -> a
@@ -313,42 +307,6 @@ copyHKD
     -> m ()
 copyHKD r x = gCopyRef_ (from r) (from x)
 
-newtype MutPart m s a = MutPart { getMutPart :: Ref m s -> Ref m a }
-
-modifyPart :: Mutable m a => MutPart m s a -> Ref m s -> (a -> a) -> m ()
-modifyPart mp = modifyRef . getMutPart mp
-
-modifyPart' :: Mutable m a => MutPart m s a -> Ref m s -> (a -> a) -> m ()
-modifyPart' mp = modifyRef' . getMutPart mp
-
-updatePart :: Mutable m a => MutPart m s a -> Ref m s -> (a -> (a, b)) -> m b
-updatePart mp = updateRef . getMutPart mp
-
-updatePart' :: Mutable m a => MutPart m s a -> Ref m s -> (a -> (a, b)) -> m b
-updatePart' mp = updateRef' . getMutPart mp
-
-class Mutable m (z Identity) => HKDMutPart m z i o where
-    hkdMutPart_ :: (z (RefFor m) -> i a) -> o a
-
-instance (Mutable m (z Identity), Ref m (z Identity) ~ z (RefFor m)) => HKDMutPart m z (K1 i (RefFor m c)) (K1 i (MutPart m (z Identity) c)) where
-    hkdMutPart_ f = K1 $ MutPart $ getRefFor . unK1 . f
-
-instance HKDMutPart m z i o => HKDMutPart m z (M1 a b i) (M1 a b o) where
-    hkdMutPart_ f = M1 $ hkdMutPart_ @m (unM1 . f)
-
-instance (HKDMutPart m z i o, HKDMutPart m z i' o') => HKDMutPart m z (i :*: i') (o :*: o') where
-    hkdMutPart_ f = hkdMutPart_ @m ((\(x:*:_)->x) . f) :*: hkdMutPart_ @m ((\(_:*:y)->y) . f)
-
-hkdMutPart
-    :: forall m z.
-     ( Generic (z (RefFor m))
-     , Generic (z (MutPart m (z Identity)))
-     , HKDMutPart m z (Rep (z (RefFor m))) (Rep (z (MutPart m (z Identity))))
-     )
-    => z (MutPart m (z Identity))
-hkdMutPart = to $ hkdMutPart_ @m @z from
-
-
 newtype ReMutable (s :: Type) m a = ReMutable a
 newtype ReMutableTrans m n = RMT { runRMT :: forall x. m x -> n x }
 
@@ -398,3 +356,4 @@ reMutableConstraint
 reMutableConstraint f = reify (RMT f) $ \(Proxy :: Proxy s) ->
     case unsafeReMutable @s @m @n @a of
       Sub Data.Constraint.Dict -> Sub Data.Constraint.Dict
+

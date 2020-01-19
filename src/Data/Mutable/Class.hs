@@ -36,6 +36,7 @@ module Data.Mutable.Class (
     Mutable(..)
   , MutRef(..)
   , RefFor(..)
+  , DefaultMutable(..)
   -- * Instances
   , GMutable, GRef_, GRef(..), gThawRef, gFreezeRef, gCopyRef
   , thawHKD, freezeHKD, copyHKD
@@ -102,14 +103,34 @@ class Monad m => Mutable m a where
         x `seq` copyRef v x
         return y
 
-    default thawRef :: (Ref m a ~ MutVar (PrimState m) a, PrimMonad m) => a -> m (Ref m a)
-    thawRef   = newMutVar
-    default freezeRef :: (Ref m a ~ MutVar (PrimState m) a, PrimMonad m) => Ref m a -> m a
-    freezeRef = readMutVar
-    default copyRef :: (Ref m a ~ MutVar (PrimState m) a, PrimMonad m) => Ref m a -> a -> m ()
-    copyRef = writeMutVar
+    default thawRef :: DefaultMutable m a (Ref m a) => a -> m (Ref m a)
+    thawRef   = defaultThawRef
+    default freezeRef :: DefaultMutable m a (Ref m a) => Ref m a -> m a
+    freezeRef = defaultFreezeRef
+    default copyRef :: DefaultMutable m a (Ref m a) => Ref m a -> a -> m ()
+    copyRef = defaultCopyRef
 
     {-# MINIMAL #-}
+
+class DefaultMutable m a r where
+    defaultThawRef   :: a -> m r
+    defaultFreezeRef :: r -> m a 
+    defaultCopyRef   :: r -> a -> m ()
+
+instance (PrimMonad m, s ~ PrimState m) => DefaultMutable m a (MutVar s a) where
+    defaultThawRef   = newMutVar
+    defaultFreezeRef = readMutVar
+    defaultCopyRef   = writeMutVar
+    
+instance (Generic a, GMutable m (Rep a)) => DefaultMutable m a (GRef m a) where
+    defaultThawRef   = gThawRef
+    defaultFreezeRef = gFreezeRef
+    defaultCopyRef   = gCopyRef
+
+instance (Generic (z Identity), Generic (z (RefFor m)), GMutable m (Rep (z Identity)), GRef_ m (Rep (z Identity)) ~ Rep (z (RefFor m))) => DefaultMutable m (z Identity) (z (RefFor m)) where
+    defaultThawRef   = thawHKD
+    defaultFreezeRef = freezeHKD
+    defaultCopyRef   = copyHKD
 
 instance PrimMonad m => Mutable m Int
 instance PrimMonad m => Mutable m Integer

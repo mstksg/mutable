@@ -33,7 +33,6 @@ module Data.Mutable.MutPart (
   , FieldMut, fieldMut
   ) where
 
-import           Control.Monad.Primitive
 import           Data.Functor.Identity
 import           Data.Kind
 import           Data.Mutable.Class
@@ -83,15 +82,6 @@ hkdMutPart
      )
     => z (MutPart m (z Identity))
 hkdMutPart = to $ hkdMutPart_ @m @z from
-
-data Foo = Foo { fInt :: Int, fDouble :: Double }
-  deriving (Generic, Show)
-
-instance PrimMonad m => Mutable m Foo where
-    type Ref m Foo = GRef m Foo
-    thawRef = gThawRef
-    freezeRef = gFreezeRef
-    copyRef = gCopyRef
 
 class (Mutable m s, Mutable m a) => FieldMut fld m s a | fld s -> a where
     fieldMut :: p fld -> MutPart m s a

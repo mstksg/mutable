@@ -1,27 +1,21 @@
-{-# LANGUAGE AllowAmbiguousTypes        #-}
-{-# LANGUAGE BangPatterns               #-}
-{-# LANGUAGE DefaultSignatures          #-}
-{-# LANGUAGE DeriveGeneric              #-}
-{-# LANGUAGE DerivingVia                #-}
-{-# LANGUAGE EmptyCase                  #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE FunctionalDependencies     #-}
-{-# LANGUAGE GADTs                      #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE KindSignatures             #-}
-{-# LANGUAGE LambdaCase                 #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE NoStarIsType               #-}
-{-# LANGUAGE RankNTypes                 #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE StandaloneDeriving         #-}
-{-# LANGUAGE TupleSections              #-}
-{-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE TypeFamilyDependencies     #-}
-{-# LANGUAGE TypeInType                 #-}
-{-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE AllowAmbiguousTypes    #-}
+{-# LANGUAGE BangPatterns           #-}
+{-# LANGUAGE DefaultSignatures      #-}
+{-# LANGUAGE DerivingVia            #-}
+{-# LANGUAGE EmptyCase              #-}
+{-# LANGUAGE FlexibleContexts       #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE GADTs                  #-}
+{-# LANGUAGE LambdaCase             #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE NoStarIsType           #-}
+{-# LANGUAGE RankNTypes             #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE TypeApplications       #-}
+{-# LANGUAGE TypeFamilyDependencies #-}
+{-# LANGUAGE TypeInType             #-}
+{-# LANGUAGE TypeOperators          #-}
+{-# LANGUAGE UndecidableInstances   #-}
 
 -- |
 -- Module      : Data.Mutable.Class
@@ -32,7 +26,8 @@
 -- Stability   : experimental
 -- Portability : non-portable
 --
--- Abstract over different types for mutable references of values.
+-- Abstract over different types for piecewise-mutable references of
+-- values.  Think of these as 
 module Data.Mutable.Class (
     Mutable(..)
   , modifyRef, modifyRef'
@@ -42,7 +37,7 @@ module Data.Mutable.Class (
   , DefaultMutable(..)
   -- * Instances
   -- ** Generic
-  , GMutable(GRef_), GRef(..), gThawRef, gFreezeRef, gCopyRef
+  , GRef(..), gThawRef, gFreezeRef, gCopyRef, GMutable (GRef_)
   -- ** Higher-Kinded Data Pattern
   , thawHKD, freezeHKD, copyHKD
   -- ** Miscellaneous
@@ -81,9 +76,9 @@ import qualified Data.Vinyl.XRec               as X
 -- The associated type @'Ref' m a@ links any @a@ to the type of its
 -- canonical mutable version.
 --
--- The /benefit/ of this typeclass, instead of just using 'IORef' or
--- 'MutVar' or specific mutable versions like 'Vector' and 'MVector', is
--- two-fold:
+-- The /benefit/ of this typeclass, instead of just using
+-- 'Data.IORef.IORef' or 'MutVar' or specific mutable versions like
+-- 'V.Vector' and 'MV.MVector', is two-fold:
 --
 -- *   Piecewise-mutable values, so you can write to only one part and not
 --     others.  This also allows for cheaper "writes", even if you replace
@@ -109,7 +104,7 @@ import qualified Data.Vinyl.XRec               as X
 -- @
 -- data TwoVectors = TV
 --     { tvInt    :: 'V.Vector' Int
---     , tvDouble :: 'V.Vector' Double
+--     , tvDouble :: Vector Double
 --     }
 --   deriving Generic
 --
@@ -129,7 +124,7 @@ import qualified Data.Vinyl.XRec               as X
 -- from "Data.Mutable.MutPart").  It does this by internally allocating two
 -- 'MV.MVector's.  If the two vectors are large, this can be much more
 -- efficient to modify (if you are modifying /several times/) than by just
--- doing alterations on 'TwoVector's.
+-- doing alterations on @TwoVector@s.
 --
 -- If you are using the "higher-kinded" data pattern, a la
 -- <https://reasonablypolymorphic.com/blog/higher-kinded-data/>, then we
@@ -137,8 +132,8 @@ import qualified Data.Vinyl.XRec               as X
 --
 -- @
 -- data TwoVectors f = TV
---      { tvInt    :: 'HKD' f ('V.Vector' Int)
---      , tvDouble :: 'HKD' f ('V.Vector' Double)
+--      { tvInt    :: 'X.HKD' f ('V.Vector' Int)
+--      , tvDouble :: HKD f (Vector Double)
 --      }
 --   deriving Generic
 --
@@ -154,9 +149,9 @@ import qualified Data.Vinyl.XRec               as X
 -- ghci> :t tvr
 -- TV ('RefFor' IO)
 -- ghci> :t is
--- 'MVector' RealWorld Int
+-- 'MV.MVector' RealWorld Int
 -- ghci> :t ds
--- 'MVector' RealWorld Double
+-- 'MV.MVector' RealWorld Double
 -- @
 --
 -- So 'thawRef' will actually just get you the same record type but with
@@ -254,7 +249,8 @@ class Monad m => Mutable m a where
     -- @
     --
     -- For non-composite (like 'Int'), this is often called the "new var"
-    -- function, like 'newIOVar' / 'newSTRef' / 'newMutVar' etc.
+    -- function, like 'Data.IORef.newIORef' / 'Data.STRef.newSTRef'
+    -- / 'newMutVar' etc.
     thawRef   :: a -> m (Ref m a)
 
     -- | "Freeze" a mutable value into its pure/persistent version.
@@ -272,7 +268,8 @@ class Monad m => Mutable m a where
     -- @
     --
     -- For non-composite (like 'Int'), this is often called the "read var"
-    -- function, like 'readIOVar' / 'readSTRef' / 'readMutVar' etc.
+    -- function, like 'Data.IORef.readIORef' / 'Data.STRef.readSTRef'
+    -- / 'readMutVar' etc.
     freezeRef :: Ref m a -> m a
 
     -- | Overwrite a mutable value by provivding a pure/persistent value.
@@ -291,6 +288,10 @@ class Monad m => Mutable m a where
     -- Note that if @a@ is a composite type (with an appropriate composite
     -- reference), this will be done "piecewise": it'll write to each
     -- mutable component separately.
+    --
+    -- For non-composite (like 'Int'), this is often called the "write var"
+    -- function, like 'Data.IORef.writeIORef' / 'Data.STRef.writeSTRef'
+    -- / 'writeMutVar' etc.
     copyRef   :: Ref m a -> a -> m ()
 
     default thawRef :: DefaultMutable m a (Ref m a) => a -> m (Ref m a)
@@ -346,8 +347,8 @@ updateRef' v f = do
 -- instance Mutable m MyType
 --     type Ref m MyType = GRef m MyType
 --
--- -- or, using the HKD pattern, like
--- <https://reasonablypolymorphic.com/blog/higher-kinded-data/>
+-- -- or, using the higher-kinded data pattern, like
+-- -- <https://reasonablypolymorphic.com/blog/higher-kinded-data/>
 -- instance Mutable m (MyTypeF Identity)
 --     type Ref m (MyTypeF Identity) = MyTypeF (RefFor m)
 -- @
@@ -561,10 +562,14 @@ instance (GMutable m f, GMutable m g, PrimMonad m) => GMutable m (f :+: g) where
 -- Foo 3 4.5
 -- ghci> 'Data.Mutable.MutPart.freezePart' ('Data.Mutable.MutPart.fieldMut' #fInt) r
 -- 3
--- ghci> 'Data.Mutable.MutPart.copyPart' ('Data.Mutable.MutPart.fieldMut' #fDouble) 1.23
--- ghci> 'freezeRef' r
+-- ghci> 'Data.Mutable.MutPart.copyPart' (fieldMut #fDouble) 1.23
+-- ghci> freezeRef r
 -- Foo 3 1.23
 -- @
+--
+-- Note that this is basically just a bunch of tupled refs for a product
+-- type.  For a sum type (with multiple constructors), an extra layer of
+-- indirection is added to account for the dynamically changable shape.
 --
 -- See 'Data.Mutable.MutPart.FieldMut'/'Data.Mutable.MutPart.PosMot' for
 -- ways to inspect and mutate the internals of this type (as demonstrated

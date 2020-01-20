@@ -51,8 +51,9 @@ class DefaultMutable m a r
 defaultThawRef :: DefaultMutable m a r => a -> m r
 defaultFreezeRef :: DefaultMutable m a r => r -> m a
 defaultCopyRef :: DefaultMutable m a r => r -> a -> m ()
-class Monad m => GMutable m f
-type family GRef_ m f = (u :: Type -> Type) | u -> f
+class Monad m => GMutable m f where {
+    type family GRef_ m f = (u :: Type -> Type) | u -> f;
+}
 newtype GRef m a
 GRef :: GRef_ m (Rep a) () -> GRef m a
 [unGRef] :: GRef m a -> GRef_ m (Rep a) ()

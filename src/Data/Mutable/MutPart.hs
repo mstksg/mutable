@@ -16,7 +16,7 @@
 
 -- |
 -- Module      : Data.Mutable.MutPart
--- Copyright   : (c) Justin Le 2019
+-- Copyright   : (c) Justin Le 2020
 -- License     : BSD3
 --
 -- Maintainer  : justin@jle.im
@@ -24,7 +24,7 @@
 -- Portability : non-portable
 --
 -- Tools for working with individual components of piecewise-mutable
--- values.  Think of these as being
+-- values.
 module Data.Mutable.MutPart (
     MutPart(..)
   , freezePart, copyPart
@@ -32,22 +32,25 @@ module Data.Mutable.MutPart (
   , updatePart, updatePart'
   -- * Built-in 'MutPart'
   , mutFst, mutSnd
-  , FieldMut, fieldMut, Fld(..)
+  , FieldMut, fieldMut, Label(..)
   , PosMut, posMut
-  , hkdMutParts
+  , hkdMutParts, HKDMutParts
+  , mutRec
   ) where
 
 import           Data.Coerce
 import           Data.Kind
 import           Data.Mutable.Class
+import           Data.Vinyl.Derived
 import           Data.Vinyl.Functor
+import           Data.Vinyl.Lens
 import           GHC.Generics
-import           GHC.OverloadedLabels
 import           GHC.TypeLits
 import qualified Data.GenericLens.Internal              as GL
 import qualified Data.Generics.Internal.Profunctor.Lens as GLP
 import qualified Data.Generics.Product.Fields           as GL
 import qualified Data.Generics.Product.Positions        as GL
+import qualified Data.Vinyl.TypeLevel                   as V
 import qualified Data.Vinyl.XRec                        as X
 
 
@@ -126,6 +129,18 @@ updatePart mp = updateRef . getMutPart mp
 -- reference.
 updatePart' :: Mutable m a => MutPart m s a -> Ref m s -> (a -> (a, b)) -> m b
 updatePart' mp = updateRef' . getMutPart mp
+
+-- | A 'MutPart' for a field in a vinyl 'Rec', automatically generated as
+-- the first field with a matching type.  This is polymorphic to work over
+-- both 'Rec' and 'ARec'.
+mutRec
+    :: forall a as f rec m.
+     ( Ref m (rec f as) ~ rec (RecRef m f) as
+     , RecElem rec a a as as (V.RIndex a as)
+     , RecElemFCtx rec (RecRef m f)
+     )
+    => MutPart m (rec f as) (f a)
+mutRec = MutPart $ getRecRef . rget @a @as @(RecRef m f) @rec
 
 -- | Typeclass used to implement 'hkdMutParts'.  See documentation of
 -- 'hkdMutParts' for more information.
@@ -214,17 +229,17 @@ class (Mutable m s, Mutable m a) => FieldMut (fld :: Symbol) m s a | fld s -> a 
     -- Foo 3 1.23
     -- @
     --
-    -- However, you can use it without OverloadedLabels by using 'Fld' with
+    -- However, you can use it without OverloadedLabels by using 'Label' with
     -- TypeApplications:
     --
     -- @
-    -- ghci> 'freezePart' ('fieldMut' ('Fld' @"fInt")) r
+    -- ghci> 'freezePart' ('fieldMut' ('Label' @"fInt")) r
     -- 3
     -- @
     --
     -- This and 'posMut' are the main ways to generate a 'MutPart' for
     -- a type whose mutable reference is 'GRef'.
-    fieldMut :: Fld fld -> MutPart m s a
+    fieldMut :: Label fld -> MutPart m s a
 
 instance
       ( Mutable m s
@@ -238,13 +253,6 @@ instance
 
 data HasTotalFieldPSym :: Symbol -> GL.TyFun (Type -> Type) (Maybe Type)
 type instance GL.Eval (HasTotalFieldPSym sym) tt = GL.HasTotalFieldP sym tt
-
--- | Used (with its 'IsLabel' instance) for 'fieldMut'.
-data Fld (fld :: Symbol) = Fld
-  deriving Show
-
-instance (s ~ s') => IsLabel s (Fld s') where
-    fromLabel = Fld
 
 -- | Create a 'MutPart' for a position in a sum type.  Should work for any
 -- type with one constructor whose mutable reference is 'GRef'.  See

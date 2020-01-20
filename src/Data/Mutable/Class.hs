@@ -19,15 +19,15 @@
 
 -- |
 -- Module      : Data.Mutable.Class
--- Copyright   : (c) Justin Le 2019
+-- Copyright   : (c) Justin Le 2020
 -- License     : BSD3
 --
 -- Maintainer  : justin@jle.im
 -- Stability   : experimental
 -- Portability : non-portable
 --
--- Abstract over different types for piecewise-mutable references of
--- values.  Think of these as 
+-- Provides the 'Mutable' typeclass and various helpers.  See
+-- 'Data.Mutable' for the main "entrypoint".
 module Data.Mutable.Class (
     Mutable(..)
   , modifyRef, modifyRef'
@@ -68,6 +68,8 @@ import qualified Data.Vector.Storable          as VS
 import qualified Data.Vector.Storable.Mutable  as MVS
 import qualified Data.Vector.Unboxed           as VU
 import qualified Data.Vector.Unboxed.Mutable   as MVU
+import qualified Data.Vinyl.ARec               as V
+import qualified Data.Vinyl.TypeLevel          as V
 import qualified Data.Vinyl.XRec               as X
 
 -- | An instance of @'Mutable' m a@ means that @a@ can be stored
@@ -84,7 +86,8 @@ import qualified Data.Vinyl.XRec               as X
 --     others.  This also allows for cheaper "writes", even if you replace
 --     the whole value: you don't need to ever synthesize an entire new
 --     value, you can keep each component in a separate variable until you
---     'freezeRef' it out.
+--     'freezeRef' it out.  This can be especially useful for composite
+--     data types containing large structures like 'V.Vector'.
 -- *   Generic abstractions (similar to 'Show'), so you can automatically
 --     derive instances while preserving piecewise-ness.  For example, the
 --     instance
@@ -124,7 +127,8 @@ import qualified Data.Vinyl.XRec               as X
 -- from "Data.Mutable.MutPart").  It does this by internally allocating two
 -- 'MV.MVector's.  If the two vectors are large, this can be much more
 -- efficient to modify (if you are modifying /several times/) than by just
--- doing alterations on @TwoVector@s.
+-- doing alterations on @TwoVector@s.  It is also much better for large
+-- vectors if you plan on modifying only a single item in the vector.
 --
 -- If you are using the "higher-kinded" data pattern, a la
 -- <https://reasonablypolymorphic.com/blog/higher-kinded-data/>, then we
@@ -465,7 +469,7 @@ instance (Monad m, Mutable m a, Mutable m b, Mutable m c, Mutable m d) => Mutabl
     copyRef   (u , v , w , j ) (!x, !y, !z, !a) = copyRef u x *> copyRef v y *> copyRef w z *> copyRef j a
 
 -- | 'Ref' for components in a vinyl 'Rec'.
-newtype RecRef m f a = RecRef { recRef :: Ref m (f a) }
+newtype RecRef m f a = RecRef { getRecRef :: Ref m (f a) }
 
 instance Monad m => Mutable m (Rec f '[]) where
     type Ref m (Rec f '[]) = Rec (RecRef m f) '[]
@@ -482,6 +486,14 @@ instance (Monad m, Mutable m (f a), Mutable m (Rec f as), Ref m (Rec f as) ~ Rec
     copyRef = \case
       RecRef v :& vs -> \case
         x :& xs -> copyRef v x >> copyRef vs xs
+
+instance (Monad m, RecApplicative as, V.NatToInt (V.RLength as), RPureConstrained (V.IndexableField as) as, Mutable m (Rec f as), Ref m (Rec f as) ~ Rec (RecRef m f) as) => Mutable m (ARec f as) where
+    type Ref m (ARec f as) = ARec (RecRef m f) as
+
+    -- TODO: we can do better
+    thawRef   = fmap toARec . thawRef   . fromARec
+    freezeRef = fmap toARec . freezeRef . fromARec
+    copyRef r x = copyRef (fromARec r) (fromARec x)
 
 -- | Class for automatic generation of 'Ref' for 'Generic' instances.  See
 -- 'GRef' for more information.

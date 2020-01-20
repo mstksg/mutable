@@ -10,7 +10,8 @@
 @version 0.1.0.0
 
 
--- | Abstract over different types for mutable references of values.
+-- | Abstract over different types for piecewise-mutable references of
+--   values. Think of these as
 module Data.Mutable.Class
 
 -- | An instance of <tt><a>Mutable</a> m a</tt> means that <tt>a</tt> can
@@ -20,8 +21,8 @@ module Data.Mutable.Class
 --   the type of its canonical mutable version.
 --   
 --   The <i>benefit</i> of this typeclass, instead of just using
---   <tt>IORef</tt> or <a>MutVar</a> or specific mutable versions like
---   <tt>Vector</tt> and <tt>MVector</tt>, is two-fold:
+--   <a>IORef</a> or <a>MutVar</a> or specific mutable versions like
+--   <a>Vector</a> and <a>MVector</a>, is two-fold:
 --   
 --   <ul>
 --   <li>Piecewise-mutable values, so you can write to only one part and
@@ -45,7 +46,7 @@ module Data.Mutable.Class
 --   <pre>
 --   data TwoVectors = TV
 --       { tvInt    :: <a>Vector</a> Int
---       , tvDouble :: <a>Vector</a> Double
+--       , tvDouble :: Vector Double
 --       }
 --     deriving Generic
 --   
@@ -74,8 +75,8 @@ module Data.Mutable.Class
 --   
 --   <pre>
 --   data TwoVectors f = TV
---        { tvInt    :: <tt>HKD</tt> f (<a>Vector</a> Int)
---        , tvDouble :: <tt>HKD</tt> f (<a>Vector</a> Double)
+--        { tvInt    :: <a>HKD</a> f (<a>Vector</a> Int)
+--        , tvDouble :: HKD f (Vector Double)
 --        }
 --     deriving Generic
 --   
@@ -91,9 +92,9 @@ module Data.Mutable.Class
 --   ghci&gt; :t tvr
 --   TV (<a>RefFor</a> IO)
 --   ghci&gt; :t is
---   <tt>MVector</tt> RealWorld Int
+--   <a>MVector</a> RealWorld Int
 --   ghci&gt; :t ds
---   <tt>MVector</tt> RealWorld Double
+--   <a>MVector</a> RealWorld Double
 --   </pre>
 --   
 --   So <a>thawRef</a> will actually just get you the same record type but
@@ -195,7 +196,7 @@ class Monad m => Mutable m a where {
 --   </pre>
 --   
 --   For non-composite (like <a>Int</a>), this is often called the "new
---   var" function, like <tt>newIOVar</tt> <i> <tt>newSTRef</tt> </i>
+--   var" function, like <a>newIORef</a> / <a>newSTRef</a> /
 --   <a>newMutVar</a> etc.
 thawRef :: Mutable m a => a -> m (Ref m a)
 
@@ -214,7 +215,7 @@ thawRef :: Mutable m a => a -> m (Ref m a)
 --   </pre>
 --   
 --   For non-composite (like <a>Int</a>), this is often called the "read
---   var" function, like <tt>readIOVar</tt> <i> <tt>readSTRef</tt> </i>
+--   var" function, like <a>readIORef</a> / <a>readSTRef</a> /
 --   <a>readMutVar</a> etc.
 freezeRef :: Mutable m a => Ref m a -> m a
 
@@ -235,6 +236,10 @@ freezeRef :: Mutable m a => Ref m a -> m a
 --   Note that if <tt>a</tt> is a composite type (with an appropriate
 --   composite reference), this will be done "piecewise": it'll write to
 --   each mutable component separately.
+--   
+--   For non-composite (like <a>Int</a>), this is often called the "write
+--   var" function, like <a>writeIORef</a> / <a>writeSTRef</a> /
+--   <a>writeMutVar</a> etc.
 copyRef :: Mutable m a => Ref m a -> a -> m ()
 
 -- | <a>Thaw</a> a pure/persistent value into its mutable version, which
@@ -251,7 +256,7 @@ copyRef :: Mutable m a => Ref m a -> a -> m ()
 --   </pre>
 --   
 --   For non-composite (like <a>Int</a>), this is often called the "new
---   var" function, like <tt>newIOVar</tt> <i> <tt>newSTRef</tt> </i>
+--   var" function, like <a>newIORef</a> / <a>newSTRef</a> /
 --   <a>newMutVar</a> etc.
 thawRef :: (Mutable m a, DefaultMutable m a (Ref m a)) => a -> m (Ref m a)
 
@@ -270,7 +275,7 @@ thawRef :: (Mutable m a, DefaultMutable m a (Ref m a)) => a -> m (Ref m a)
 --   </pre>
 --   
 --   For non-composite (like <a>Int</a>), this is often called the "read
---   var" function, like <tt>readIOVar</tt> <i> <tt>readSTRef</tt> </i>
+--   var" function, like <a>readIORef</a> / <a>readSTRef</a> /
 --   <a>readMutVar</a> etc.
 freezeRef :: (Mutable m a, DefaultMutable m a (Ref m a)) => Ref m a -> m a
 
@@ -291,6 +296,10 @@ freezeRef :: (Mutable m a, DefaultMutable m a (Ref m a)) => Ref m a -> m a
 --   Note that if <tt>a</tt> is a composite type (with an appropriate
 --   composite reference), this will be done "piecewise": it'll write to
 --   each mutable component separately.
+--   
+--   For non-composite (like <a>Int</a>), this is often called the "write
+--   var" function, like <a>writeIORef</a> / <a>writeSTRef</a> /
+--   <a>writeMutVar</a> etc.
 copyRef :: (Mutable m a, DefaultMutable m a (Ref m a)) => Ref m a -> a -> m ()
 
 -- | Apply a pure function on an immutable value onto a value stored in a
@@ -343,8 +352,8 @@ RefFor :: Ref m a -> RefFor m a
 --   instance Mutable m MyType
 --       type Ref m MyType = GRef m MyType
 --   
---   -- or, using the HKD pattern, like
---   <a>https://reasonablypolymorphic.com/blog/higher-kinded-data/</a>
+--   -- or, using the higher-kinded data pattern, like
+--   -- <a>https://reasonablypolymorphic.com/blog/higher-kinded-data/</a>
 --   instance Mutable m (MyTypeF Identity)
 --       type Ref m (MyTypeF Identity) = MyTypeF (RefFor m)
 --   </pre>
@@ -352,12 +361,6 @@ class DefaultMutable m a r
 defaultThawRef :: DefaultMutable m a r => a -> m r
 defaultFreezeRef :: DefaultMutable m a r => r -> m a
 defaultCopyRef :: DefaultMutable m a r => r -> a -> m ()
-
--- | Class for automatic generation of <a>Ref</a> for <a>Generic</a>
---   instances. See <a>GRef</a> for more information.
-class Monad m => GMutable m f where {
-    type family GRef_ m f = (u :: Type -> Type) | u -> f;
-}
 
 -- | Automatically generate a piecewise mutable reference for any
 --   <a>Generic</a> instance.
@@ -377,10 +380,14 @@ class Monad m => GMutable m f where {
 --   Foo 3 4.5
 --   ghci&gt; <a>freezePart</a> (<a>fieldMut</a> #fInt) r
 --   3
---   ghci&gt; <a>copyPart</a> (<a>fieldMut</a> #fDouble) 1.23
---   ghci&gt; <a>freezeRef</a> r
+--   ghci&gt; <a>copyPart</a> (fieldMut #fDouble) 1.23
+--   ghci&gt; freezeRef r
 --   Foo 3 1.23
 --   </pre>
+--   
+--   Note that this is basically just a bunch of tupled refs for a product
+--   type. For a sum type (with multiple constructors), an extra layer of
+--   indirection is added to account for the dynamically changable shape.
 --   
 --   See <a>FieldMut</a>/<a>PosMot</a> for ways to inspect and mutate the
 --   internals of this type (as demonstrated above).
@@ -417,6 +424,12 @@ gFreezeRef :: (Generic a, GMutable m (Rep a)) => GRef m a -> m a
 --   the <a>Ref</a> class. See documentation for <a>GRef</a> for more
 --   information.
 gCopyRef :: (Generic a, GMutable m (Rep a)) => GRef m a -> a -> m ()
+
+-- | Class for automatic generation of <a>Ref</a> for <a>Generic</a>
+--   instances. See <a>GRef</a> for more information.
+class Monad m => GMutable m f where {
+    type family GRef_ m f = (u :: Type -> Type) | u -> f;
+}
 
 -- | Default <a>copyRef</a> for the higher-kinded data pattern, a la
 --   <a>https://reasonablypolymorphic.com/blog/higher-kinded-data/</a>.
@@ -497,28 +510,192 @@ instance (GHC.Base.Monad m, Data.Mutable.Class.Mutable m a, Data.Mutable.Class.M
 instance (GHC.Base.Monad m, Data.Mutable.Class.Mutable m a, Data.Mutable.Class.Mutable m b, Data.Mutable.Class.Mutable m c, Data.Mutable.Class.Mutable m d) => Data.Mutable.Class.Mutable m (a, b, c, d)
 instance (Control.Monad.Primitive.PrimMonad m, s GHC.Types.~ Control.Monad.Primitive.PrimState m) => Data.Mutable.Class.DefaultMutable m a (Data.Primitive.MutVar.MutVar s a)
 
+
+-- | Tools for working with individual components of piecewise-mutable
+--   values. Think of these as being
 module Data.Mutable.MutPart
+
+-- | A <tt><a>MutPart</a> m s a</tt> is a way to "zoom into" an <tt>a</tt>,
+--   as a part of a mutable reference on <tt>s</tt>. This allows you to
+--   only modify a single <tt>a</tt> part of the <tt>s</tt>, without
+--   touching the rest.
+--   
+--   An example that is commonly found in the ecosystem is something like
+--   (flipped) <tt>write :: Int -&gt; <a>MVector</a> s a -&gt; a -&gt; m
+--   ()</tt> from <a>Data.Vector.Mutable</a> --- <tt>write 3 ::
+--   <a>MVector</a> s a -&gt; a -&gt; m ()</tt>, for instance, lets you
+--   modify a specific part of the vector without touching the rest.
+--   
+--   You would <i>use</i> a <a>MutPart</a> using <a>freezePart</a>,
+--   <a>copyPart</a>, <a>modifyPart</a>, etc.
+--   
+--   For non-composite types, there won't really be any meaningful values.
+--   However, we have them for many composite types. For example, for
+--   tuples:
+--   
+--   <pre>
+--   <a>mutFst</a> :: <a>MutPart</a> m (a, b) a
+--   <a>mutSnd</a> :: MutPart m (a, b) b
+--   </pre>
+--   
+--   <pre>
+--   ghci&gt; r &lt;- <a>thawRef</a> (2, 4)
+--   ghci&gt; <a>copyPart</a> mutFst r 100
+--   ghci&gt; <a>freezeRef</a> r
+--   (100, 4)
+--   </pre>
+--   
+--   If you are using <a>GRef</a> as an automatically-defined mutable
+--   reference, then the easiest way to create these for your mutable types
+--   are with <a>fieldMut</a> and <a>posMut</a>.
+--   
+--   If you are using the "Higher-kinded data" pattern, then there's an
+--   easy way to generate a <a>MutPart</a> for every single field, if you
+--   have a product type --- see <a>hkdMutParts</a> for more information.
 newtype MutPart m s a
 MutPart :: (Ref m s -> Ref m a) -> MutPart m s a
 [getMutPart] :: MutPart m s a -> Ref m s -> Ref m a
+
+-- | With a <a>MutPart</a>, read out a specific part of a <a>Ref</a>.
 freezePart :: Mutable m a => MutPart m s a -> Ref m s -> m a
+
+-- | With a <a>MutPart</a>, overwrite into a specific part of a <a>Ref</a>.
 copyPart :: Mutable m a => MutPart m s a -> Ref m s -> a -> m ()
+
+-- | With a <a>MutPart</a>, modify a specific part of a <a>Ref</a> with a
+--   pure function.
 modifyPart :: Mutable m a => MutPart m s a -> Ref m s -> (a -> a) -> m ()
+
+-- | <a>modifyPart</a>, but forces the result before storing it back in the
+--   reference.
 modifyPart' :: Mutable m a => MutPart m s a -> Ref m s -> (a -> a) -> m ()
+
+-- | <a>updateRef</a>, under a <a>MutPart</a> to only modify a specific
+--   part of a <a>Ref</a>.
 updatePart :: Mutable m a => MutPart m s a -> Ref m s -> (a -> (a, b)) -> m b
+
+-- | <a>updatePart</a>, but forces the result before storing it back in the
+--   reference.
 updatePart' :: Mutable m a => MutPart m s a -> Ref m s -> (a -> (a, b)) -> m b
-hkdMutPart :: forall m z. (Generic (z (RefFor m)), Generic (z (MutPart m (z Identity))), HKDMutPart m z (Rep (z (RefFor m))) (Rep (z (MutPart m (z Identity))))) => z (MutPart m (z Identity))
+
+-- | <a>MutPart</a> into the first field of a tuple reference.
+mutFst :: MutPart m (a, b) a
+
+-- | <a>MutPart</a> into the second field of a tuple reference.
+mutSnd :: MutPart m (a, b) b
+
+-- | Create a <a>MutPart</a> for a field name. Should work for any type
+--   with one constructor whose mutable reference is <a>GRef</a>. See
+--   <a>fieldMut</a> for usage directions.
 class (Mutable m s, Mutable m a) => FieldMut (fld :: Symbol) m s a | fld s -> a
+
+-- | Create a <a>MutPart</a> for a field name. Should work for any type
+--   with one constructor whose mutable reference is <a>GRef</a>.
+--   
+--   Is meant to be used with OverloadedLabels:
+--   
+--   <pre>
+--   data Foo = Foo { fInt :: Int, fDouble :: Double }
+--     deriving (Generic, Show)
+--   
+--   instance Mutable m Foo where
+--       type Ref m Foo = <a>GRef</a> m Foo
+--   </pre>
+--   
+--   <pre>
+--   ghci&gt; r &lt;- <a>thawRef</a> (Foo 3 4.5)
+--   ghci&gt; <a>freezePart</a> (<a>fieldMut</a> #fInt) r
+--   3
+--   ghci&gt; <a>copyPart</a> (fieldMut #fDouble) 1.23
+--   ghci&gt; <a>freezeRef</a> r
+--   Foo 3 1.23
+--   </pre>
+--   
+--   However, you can use it without OverloadedLabels by using <a>Fld</a>
+--   with TypeApplications:
+--   
+--   <pre>
+--   ghci&gt; <a>freezePart</a> (<a>fieldMut</a> (<a>Fld</a> @"fInt")) r
+--   3
+--   </pre>
+--   
+--   This and <a>posMut</a> are the main ways to generate a <a>MutPart</a>
+--   for a type whose mutable reference is <a>GRef</a>.
 fieldMut :: FieldMut fld m s a => Fld fld -> MutPart m s a
+
+-- | Used (with its <a>IsLabel</a> instance) for <a>fieldMut</a>.
 data Fld (fld :: Symbol)
 Fld :: Fld (fld :: Symbol)
+
+-- | Create a <a>MutPart</a> for a position in a sum type. Should work for
+--   any type with one constructor whose mutable reference is <a>GRef</a>.
+--   See <a>posMut</a> for usage directions.
 class (Mutable m s, Mutable m a) => PosMut (i :: Nat) m s a | i s -> a
+
+-- | Create a <a>MutPart</a> for a position in a sum type. Should work for
+--   any type with one constructor whose mutable reference is <a>GRef</a>.
+--   
+--   Meant to be used with TypeApplications:
+--   
+--   <pre>
+--   data Foo = Foo Int Double
+--     deriving (Generic, Show)
+--   
+--   instance Mutable m Foo where
+--       type Ref m Foo = <a>GRef</a> m Foo
+--   </pre>
+--   
+--   <pre>
+--   ghci&gt; r &lt;- <a>thawRef</a> (Foo 3 4.5)
+--   ghci&gt; <a>freezePart</a> (<a>posMut</a> <tt>1) r
+--   3
+--   ghci&gt; <a>copyPart</a> (posMut </tt>2) 1.23
+--   ghci&gt; <a>freezeRef</a> r
+--   Foo 3 1.23
+--   </pre>
+--   
+--   This and <a>fieldMut</a> are the main ways to generate a
+--   <a>MutPart</a> for a type whose mutable reference is <a>GRef</a>.
 posMut :: PosMut i m s a => MutPart m s a
+
+-- | If you are using the "higher-kinded data" pattern, a la
+--   <a>https://reasonablypolymorphic.com/blog/higher-kinded-data/</a>, and
+--   you have the appropriate instance for <a>Ref</a>, then you can use
+--   this to generate a <a>MutPart</a> for every field, if you have a type
+--   with only one constructor.
+--   
+--   <pre>
+--   data MyTypeF f = MT
+--        { fInt    :: f Int
+--        , fDouble :: f Double
+--        }
+--     deriving Generic
+--   
+--   instance Mutable (MyTypeF <a>Identity</a>) where
+--       type Ref (MyTypeF <a>Identity</a>) = MyTypeF (<a>RefFor</a> m)
+--   
+--   mx :: MutPart (MyTypeF Identity) (<a>Vector</a> Int)
+--   my :: MutPart (MyTypeF Identity) (V.Vector Double)
+--   MT mx my = hkdMutParts @MyTypeF
+--   </pre>
+--   
+--   <pre>
+--   ghci&gt; r &lt;- thawRef (MT 3 4.5)
+--   ghci&gt; <a>freezePart</a> mx r
+--   3
+--   ghci&gt; <a>copyPart</a> (fDouble (hkdMutParts @MyTypeF)) r 12.3
+--   ghci&gt; <a>freezeRef</a> r
+--   MT 3 12.3
+--   </pre>
+hkdMutParts :: forall z m. (Generic (z (RefFor m)), Generic (z (MutPart m (z Identity))), HKDMutParts m z (Rep (z (RefFor m))) (Rep (z (MutPart m (z Identity))))) => z (MutPart m (z Identity))
 instance GHC.Show.Show (Data.Mutable.MutPart.Fld fld)
 instance (Data.Mutable.Class.Mutable m s, Data.Mutable.Class.Mutable m a, Data.Mutable.Class.Ref m s GHC.Types.~ Data.Mutable.Class.GRef m s, gref GHC.Types.~ Data.Mutable.MutPart.Fst (Data.Mutable.MutPart.Traverse (Data.Mutable.Class.GRef_ m (Data.Generics.Product.Internal.Positions.CRep s)) 1), GHC.Types.Coercible (Data.Mutable.Class.GRef_ m (GHC.Generics.Rep s) ()) (gref ()), Data.Generics.Product.Internal.GLens.GLens' (Data.Mutable.MutPart.HasTotalPositionPSym i) gref (Data.Mutable.Class.Ref m a), Data.Generics.Product.Positions.HasPosition' i s a) => Data.Mutable.MutPart.PosMut i m s a
 instance (Data.Mutable.Class.Mutable m s, Data.Mutable.Class.Mutable m a, Data.Mutable.Class.Ref m s GHC.Types.~ Data.Mutable.Class.GRef m s, Data.Generics.Product.Internal.GLens.GLens' (Data.Mutable.MutPart.HasTotalFieldPSym fld) (Data.Mutable.Class.GRef_ m (GHC.Generics.Rep s)) (Data.Mutable.Class.Ref m a), Data.Generics.Product.Fields.HasField' fld s a) => Data.Mutable.MutPart.FieldMut fld m s a
 instance (s GHC.Types.~ s') => GHC.OverloadedLabels.IsLabel s (Data.Mutable.MutPart.Fld s')
-instance (Data.Mutable.Class.Mutable m (z Data.Vinyl.Functor.Identity), Data.Mutable.Class.Ref m (z Data.Vinyl.Functor.Identity) GHC.Types.~ z (Data.Mutable.Class.RefFor m)) => Data.Mutable.MutPart.HKDMutPart m z (GHC.Generics.K1 i (Data.Mutable.Class.RefFor m c)) (GHC.Generics.K1 i (Data.Mutable.MutPart.MutPart m (z Data.Vinyl.Functor.Identity) c))
-instance Data.Mutable.Class.Mutable m (z Data.Vinyl.Functor.Identity) => Data.Mutable.MutPart.HKDMutPart m z GHC.Generics.U1 GHC.Generics.U1
-instance forall k (m :: * -> *) (z :: (* -> *) -> *) (i :: k -> *) (o :: k -> *) a (b :: GHC.Generics.Meta). Data.Mutable.MutPart.HKDMutPart m z i o => Data.Mutable.MutPart.HKDMutPart m z (GHC.Generics.M1 a b i) (GHC.Generics.M1 a b o)
-instance forall k (m :: * -> *) (z :: (* -> *) -> *) (i :: k -> *) (o :: k -> *) (i' :: k -> *) (o' :: k -> *). (Data.Mutable.MutPart.HKDMutPart m z i o, Data.Mutable.MutPart.HKDMutPart m z i' o') => Data.Mutable.MutPart.HKDMutPart m z (i GHC.Generics.:*: i') (o GHC.Generics.:*: o')
+instance (Data.Mutable.Class.Mutable m (z Data.Vinyl.Functor.Identity), Data.Mutable.Class.Ref m (z Data.Vinyl.Functor.Identity) GHC.Types.~ z (Data.Mutable.Class.RefFor m)) => Data.Mutable.MutPart.HKDMutParts m z (GHC.Generics.K1 i (Data.Mutable.Class.RefFor m c)) (GHC.Generics.K1 i (Data.Mutable.MutPart.MutPart m (z Data.Vinyl.Functor.Identity) c))
+instance (Data.Mutable.Class.Mutable m (z Data.Vinyl.Functor.Identity), Data.Mutable.Class.Ref m (z Data.Vinyl.Functor.Identity) GHC.Types.~ z (Data.Mutable.Class.RefFor m)) => Data.Mutable.MutPart.HKDMutParts m z GHC.Generics.U1 GHC.Generics.U1
+instance (Data.Mutable.Class.Mutable m (z Data.Vinyl.Functor.Identity), Data.Mutable.Class.Ref m (z Data.Vinyl.Functor.Identity) GHC.Types.~ z (Data.Mutable.Class.RefFor m), (TypeError ...)) => Data.Mutable.MutPart.HKDMutParts m z GHC.Generics.V1 GHC.Generics.V1
+instance forall k (m :: * -> *) (z :: (* -> *) -> *) (i :: k -> *) (o :: k -> *) a (b :: GHC.Generics.Meta). Data.Mutable.MutPart.HKDMutParts m z i o => Data.Mutable.MutPart.HKDMutParts m z (GHC.Generics.M1 a b i) (GHC.Generics.M1 a b o)
+instance forall k (m :: * -> *) (z :: (* -> *) -> *) (i :: k -> *) (o :: k -> *) (i' :: k -> *) (o' :: k -> *). (Data.Mutable.MutPart.HKDMutParts m z i o, Data.Mutable.MutPart.HKDMutParts m z i' o') => Data.Mutable.MutPart.HKDMutParts m z (i GHC.Generics.:*: i') (o GHC.Generics.:*: o')
+instance forall k (m :: * -> *) (z :: (* -> *) -> *) (i :: k -> *) (i' :: k -> *) (o :: k -> *). (Data.Mutable.Class.Mutable m (z Data.Vinyl.Functor.Identity), Data.Mutable.Class.Ref m (z Data.Vinyl.Functor.Identity) GHC.Types.~ z (Data.Mutable.Class.RefFor m), (TypeError ...)) => Data.Mutable.MutPart.HKDMutParts m z (i GHC.Generics.:+: i') o
+instance Data.Vinyl.XRec.IsoHKD (Data.Mutable.MutPart.MutPart m s) a

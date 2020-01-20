@@ -696,9 +696,9 @@ hkdMutParts :: forall z m. (Generic (z (RefFor m)), Generic (z (MutPart m (z Ide
 --   <a>hkdMutParts</a> for more information.
 class (Mutable m (z Identity), Ref m (z Identity) ~ z (RefFor m)) => HKDMutParts m z i o
 
--- | A <a>MutPart</a> for a field in a vinyl <tt>Rec</tt>, automatically
+-- | A <a>MutPart</a> for a field in a vinyl <a>Rec</a>, automatically
 --   generated as the first field with a matching type. This is polymorphic
---   to work over both <tt>Rec</tt> and <tt>ARec</tt>.
+--   to work over both <a>Rec</a> and <a>ARec</a>.
 mutRec :: forall a as f rec m. (Ref m (rec f as) ~ rec (RecRef m f) as, RecElem rec a a as as (RIndex a as), RecElemFCtx rec (RecRef m f)) => MutPart m (rec f as) (f a)
 instance (Data.Mutable.Class.Mutable m s, Data.Mutable.Class.Mutable m a, Data.Mutable.Class.Ref m s GHC.Types.~ Data.Mutable.Class.GRef m s, gref GHC.Types.~ Data.Mutable.MutPart.Fst (Data.Mutable.MutPart.Traverse (Data.Mutable.Class.GRef_ m (Data.Generics.Product.Internal.Positions.CRep s)) 1), GHC.Types.Coercible (Data.Mutable.Class.GRef_ m (GHC.Generics.Rep s) ()) (gref ()), Data.Generics.Product.Internal.GLens.GLens' (Data.Mutable.MutPart.HasTotalPositionPSym i) gref (Data.Mutable.Class.Ref m a), Data.Generics.Product.Positions.HasPosition' i s a) => Data.Mutable.MutPart.PosMut i m s a
 instance (Data.Mutable.Class.Mutable m s, Data.Mutable.Class.Mutable m a, Data.Mutable.Class.Ref m s GHC.Types.~ Data.Mutable.Class.GRef m s, Data.Generics.Product.Internal.GLens.GLens' (Data.Mutable.MutPart.HasTotalFieldPSym fld) (Data.Mutable.Class.GRef_ m (GHC.Generics.Rep s)) (Data.Mutable.Class.Ref m a), Data.Generics.Product.Fields.HasField' fld s a) => Data.Mutable.MutPart.FieldMut fld m s a
@@ -1295,7 +1295,7 @@ posMut :: PosMut i m s a => MutPart m s a
 --   </pre>
 hkdMutParts :: forall z m. (Generic (z (RefFor m)), Generic (z (MutPart m (z Identity))), HKDMutParts m z (Rep (z (RefFor m))) (Rep (z (MutPart m (z Identity))))) => z (MutPart m (z Identity))
 
--- | A <a>MutPart</a> for a field in a vinyl <tt>Rec</tt>, automatically
+-- | A <a>MutPart</a> for a field in a vinyl <a>Rec</a>, automatically
 --   generated as the first field with a matching type. This is polymorphic
---   to work over both <tt>Rec</tt> and <tt>ARec</tt>.
+--   to work over both <a>Rec</a> and <a>ARec</a>.
 mutRec :: forall a as f rec m. (Ref m (rec f as) ~ rec (RecRef m f) as, RecElem rec a a as as (RIndex a as), RecElemFCtx rec (RecRef m f)) => MutPart m (rec f as) (f a)

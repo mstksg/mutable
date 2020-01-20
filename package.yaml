@@ -34,7 +34,6 @@ library:
   - vinyl
   - vector
   - primitive
-  - vector-sized
   - constraints
   - reflection
   - profunctors

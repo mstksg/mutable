@@ -35,9 +35,9 @@ module Data.Mutable.MutPart (
   ) where
 
 import           Data.Coerce
-import           Data.Functor.Identity
 import           Data.Kind
 import           Data.Mutable.Class
+import           Data.Vinyl.Functor
 import           GHC.Generics
 import           GHC.OverloadedLabels
 import           GHC.TypeLits
@@ -72,6 +72,9 @@ class Mutable m (z Identity) => HKDMutPart m z i o where
 
 instance (Mutable m (z Identity), Ref m (z Identity) ~ z (RefFor m)) => HKDMutPart m z (K1 i (RefFor m c)) (K1 i (MutPart m (z Identity) c)) where
     hkdMutPart_ f = K1 $ MutPart $ getRefFor . unK1 . f
+
+instance Mutable m (z Identity) => HKDMutPart m z U1 U1 where
+    hkdMutPart_ _ = U1
 
 instance HKDMutPart m z i o => HKDMutPart m z (M1 a b i) (M1 a b o) where
     hkdMutPart_ f = M1 $ hkdMutPart_ @m (unM1 . f)
@@ -127,6 +130,8 @@ instance
 
 data HasTotalPositionPSym :: Nat -> GL.TyFun (Type -> Type) (Maybe Type)
 type instance GL.Eval (HasTotalPositionPSym t) tt = GL.HasTotalPositionP t tt
+
+-- stuff from generic-lens that wasn't exported
 
 type G = Type -> Type
 

@@ -714,6 +714,13 @@ class (Mutable m (z Identity), Ref m (z Identity) ~ z (RefFor m)) => HKDMutParts
 -- | A <a>MutPart</a> for a field in a vinyl <a>Rec</a>, automatically
 --   generated as the first field with a matching type. This is polymorphic
 --   to work over both <a>Rec</a> and <a>ARec</a>.
+--   
+--   <pre>
+--   ghci&gt; r &lt;- <a>thawRef</a> $ [1,2,3] <a>:&amp;</a> [True, False] :&amp; <a>RNil</a>
+--   ghci&gt; modifyPart (mutRec @Bool) r reverse
+--   ghci&gt; freezeRef r
+--   [1,2,3] :&amp; [False, True] :&amp; RNil
+--   </pre>
 mutRec :: forall a as f rec m. (Ref m (rec f as) ~ rec (RecRef m f) as, RecElem rec a a as as (RIndex a as), RecElemFCtx rec (RecRef m f)) => MutPart m (rec f as) (f a)
 instance (Data.Mutable.Class.Mutable m s, Data.Mutable.Class.Mutable m a, Data.Mutable.Class.Ref m s GHC.Types.~ Data.Mutable.Class.GRef m s, gref GHC.Types.~ Data.Mutable.MutPart.Fst (Data.Mutable.MutPart.Traverse (Data.Mutable.Class.GRef_ m (Data.Generics.Product.Internal.Positions.CRep s)) 1), GHC.Types.Coercible (Data.Mutable.Class.GRef_ m (GHC.Generics.Rep s) ()) (gref ()), Data.Generics.Product.Internal.GLens.GLens' (Data.Mutable.MutPart.HasTotalPositionPSym i) gref (Data.Mutable.Class.Ref m a), Data.Generics.Product.Positions.HasPosition' i s a) => Data.Mutable.MutPart.PosMut i m s a
 instance (Data.Mutable.Class.Mutable m s, Data.Mutable.Class.Mutable m a, Data.Mutable.Class.Ref m s GHC.Types.~ Data.Mutable.Class.GRef m s, Data.Generics.Product.Internal.GLens.GLens' (Data.Mutable.MutPart.HasTotalFieldPSym fld) (Data.Mutable.Class.GRef_ m (GHC.Generics.Rep s)) (Data.Mutable.Class.Ref m a), Data.Generics.Product.Fields.HasField' fld s a) => Data.Mutable.MutPart.FieldMut fld m s a
@@ -1332,6 +1339,13 @@ hkdMutParts :: forall z m. (Generic (z (RefFor m)), Generic (z (MutPart m (z Ide
 -- | A <a>MutPart</a> for a field in a vinyl <a>Rec</a>, automatically
 --   generated as the first field with a matching type. This is polymorphic
 --   to work over both <a>Rec</a> and <a>ARec</a>.
+--   
+--   <pre>
+--   ghci&gt; r &lt;- <a>thawRef</a> $ [1,2,3] <a>:&amp;</a> [True, False] :&amp; <a>RNil</a>
+--   ghci&gt; modifyPart (mutRec @Bool) r reverse
+--   ghci&gt; freezeRef r
+--   [1,2,3] :&amp; [False, True] :&amp; RNil
+--   </pre>
 mutRec :: forall a as f rec m. (Ref m (rec f as) ~ rec (RecRef m f) as, RecElem rec a a as as (RIndex a as), RecElemFCtx rec (RecRef m f)) => MutPart m (rec f as) (f a)
 
 -- | Class of monads which can perform primitive state-transformer actions

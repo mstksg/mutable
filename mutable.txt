@@ -39,6 +39,9 @@ module Data.Mutable.Class
 --   that fact.</li>
 --   </ul>
 --   
+--   To modify the specific parts of mutable values, it can be useful to
+--   use the functions in <a>Data.Mutable.MutPart</a>.
+--   
 --   There are facilities to automatically piecewise mutable versions for
 --   user-defined instances of <a>Generic</a>.
 --   
@@ -100,7 +103,10 @@ module Data.Mutable.Class
 --   </pre>
 --   
 --   So <a>thawRef</a> will actually just get you the same record type but
---   with the mutable versions of each field.
+--   with the mutable versions of each field. If you modify the mutable
+--   fields, and then later <a>freezeRef</a> the whole thing, the resulting
+--   frozen value will incorporate all of the changes to the individual
+--   fields.
 class Monad m => Mutable m a where {
     
     -- | Links the type <tt>a</tt> to the type of its canonical mutable
@@ -166,14 +172,23 @@ class Monad m => Mutable m a where {
     --   using <a>DefaultMutable</a>.
     --   
     --   <pre>
-    --   -- | any <a>Generic</a> instance
+    --   data MyType
+    --   
+    --   -- The default setup is OK
+    --   instance Mutable m MyType
+    --   
+    --   -- This is equivalent to the above
+    --   instance Mutable m MyType
+    --       type Ref m MyType = <a>MutVar</a> (<a>PrimState</a> m) MyType
+    --   
+    --   -- any <a>Generic</a> instance
     --   data Foo = Foo { fInt :: Int, fDouble :: Double }
     --     deriving Generic
     --   
     --   instance Mutable m Foo where
     --       type Ref m Foo = <a>GRef</a> m Foo
     --   
-    --   -- | HKD pattern types
+    --   -- HKD pattern types
     --   data Bar f = Bar { bInt :: f Int, bDouble :: f Double }
     --     deriving Generic
     --   
@@ -740,6 +755,9 @@ module Data.Mutable
 --   that fact.</li>
 --   </ul>
 --   
+--   To modify the specific parts of mutable values, it can be useful to
+--   use the functions in <a>Data.Mutable.MutPart</a>.
+--   
 --   There are facilities to automatically piecewise mutable versions for
 --   user-defined instances of <a>Generic</a>.
 --   
@@ -801,7 +819,10 @@ module Data.Mutable
 --   </pre>
 --   
 --   So <a>thawRef</a> will actually just get you the same record type but
---   with the mutable versions of each field.
+--   with the mutable versions of each field. If you modify the mutable
+--   fields, and then later <a>freezeRef</a> the whole thing, the resulting
+--   frozen value will incorporate all of the changes to the individual
+--   fields.
 class Monad m => Mutable m a where {
     
     -- | Links the type <tt>a</tt> to the type of its canonical mutable
@@ -867,14 +888,23 @@ class Monad m => Mutable m a where {
     --   using <a>DefaultMutable</a>.
     --   
     --   <pre>
-    --   -- | any <a>Generic</a> instance
+    --   data MyType
+    --   
+    --   -- The default setup is OK
+    --   instance Mutable m MyType
+    --   
+    --   -- This is equivalent to the above
+    --   instance Mutable m MyType
+    --       type Ref m MyType = <a>MutVar</a> (<a>PrimState</a> m) MyType
+    --   
+    --   -- any <a>Generic</a> instance
     --   data Foo = Foo { fInt :: Int, fDouble :: Double }
     --     deriving Generic
     --   
     --   instance Mutable m Foo where
     --       type Ref m Foo = <a>GRef</a> m Foo
     --   
-    --   -- | HKD pattern types
+    --   -- HKD pattern types
     --   data Bar f = Bar { bInt :: f Int, bDouble :: f Double }
     --     deriving Generic
     --   
@@ -1093,6 +1123,15 @@ class DefaultMutable m a r
 --   internals of this type (as demonstrated above).
 data GRef m a
 
+-- | A <a>MutVar</a> behaves like a single-element mutable array associated
+--   with a primitive state token.
+data MutVar s a
+
+-- | <a>Ref</a> for components in a vinyl <a>Rec</a>.
+newtype RecRef m f a
+RecRef :: Ref m (f a) -> RecRef m f a
+[getRecRef] :: RecRef m f a -> Ref m (f a)
+
 -- | Default <a>copyRef</a> for the higher-kinded data pattern, a la
 --   <a>https://reasonablypolymorphic.com/blog/higher-kinded-data/</a>.
 --   
@@ -1125,11 +1164,6 @@ freezeHKD :: forall z m. (Generic (z Identity), Generic (z (RefFor m)), GMutable
 --   type, independent of the <a>Ref</a> class. See documentation for
 --   <a>Mutable</a> for more information.
 copyHKD :: forall z m. (Generic (z Identity), Generic (z (RefFor m)), GMutable m (Rep (z Identity)), GRef_ m (Rep (z Identity)) ~ Rep (z (RefFor m))) => z (RefFor m) -> z Identity -> m ()
-
--- | <a>Ref</a> for components in a vinyl <a>Rec</a>.
-newtype RecRef m f a
-RecRef :: Ref m (f a) -> RecRef m f a
-[getRecRef] :: RecRef m f a -> Ref m (f a)
 
 -- | A <tt><a>MutPart</a> m s a</tt> is a way to "zoom into" an <tt>a</tt>,
 --   as a part of a mutable reference on <tt>s</tt>. This allows you to
@@ -1299,3 +1333,9 @@ hkdMutParts :: forall z m. (Generic (z (RefFor m)), Generic (z (MutPart m (z Ide
 --   generated as the first field with a matching type. This is polymorphic
 --   to work over both <a>Rec</a> and <a>ARec</a>.
 mutRec :: forall a as f rec m. (Ref m (rec f as) ~ rec (RecRef m f) as, RecElem rec a a as as (RIndex a as), RecElemFCtx rec (RecRef m f)) => MutPart m (rec f as) (f a)
+
+-- | Class of monads which can perform primitive state-transformer actions
+class Monad m => PrimMonad (m :: Type -> Type)
+
+-- | State token type
+type family PrimState (m :: Type -> Type)

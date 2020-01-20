@@ -18,12 +18,11 @@ module Data.Mutable (
   , RefFor(..)
   , DefaultMutable
   -- * Instances
-  -- ** Generic
   , GRef
+  , MutVar
+  , RecRef(..)
   -- ** Higher-Kinded Data Pattern
   , thawHKD, freezeHKD, copyHKD
-  -- ** Miscellaneous
-  , RecRef(..)
   -- * Parts
   , MutPart(..)
   , freezePart, copyPart
@@ -35,8 +34,12 @@ module Data.Mutable (
   , posMut
   , hkdMutParts
   , mutRec
+  -- ** Re-exports
+  , PrimMonad, PrimState
   ) where
 
+import           Control.Monad.Primitive
 import           Data.Mutable.Class
 import           Data.Mutable.MutPart
+import           Data.Primitive.MutVar
 

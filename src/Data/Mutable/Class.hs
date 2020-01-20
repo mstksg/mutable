@@ -99,6 +99,9 @@ import qualified Data.Vinyl.XRec               as X
 --     If @a@ and @b@ are piecwise-mutable, then the instance here will
 --     appropriately utilize that fact.
 --
+-- To modify the specific parts of mutable values, it can be useful to use
+-- the functions in "Data.Mutable.MutPart".
+--
 -- There are facilities to automatically piecewise mutable versions for
 -- user-defined instances of 'Generic'.
 --
@@ -159,7 +162,9 @@ import qualified Data.Vinyl.XRec               as X
 -- @
 --
 -- So 'thawRef' will actually just get you the same record type but with
--- the mutable versions of each field.
+-- the mutable versions of each field.  If you modify the mutable fields,
+-- and then later 'freezeRef' the whole thing, the resulting frozen value
+-- will incorporate all of the changes to the individual fields.
 class Monad m => Mutable m a where
     -- | Links the type @a@ to the type of its canonical mutable version.
     --
@@ -222,14 +227,23 @@ class Monad m => Mutable m a where
     -- 'DefaultMutable'.
     --
     -- @
-    -- -- | any 'Generic' instance
+    -- data MyType
+    --
+    -- -- The default setup is OK
+    -- instance Mutable m MyType
+    --
+    -- -- This is equivalent to the above
+    -- instance Mutable m MyType
+    --     type Ref m MyType = 'MutVar' ('PrimState' m) MyType
+    --
+    -- -- any 'Generic' instance
     -- data Foo = Foo { fInt :: Int, fDouble :: Double }
     --   deriving Generic
     --
     -- instance Mutable m Foo where
     --     type Ref m Foo = 'GRef' m Foo
     --
-    -- -- | HKD pattern types
+    -- -- HKD pattern types
     -- data Bar f = Bar { bInt :: f Int, bDouble :: f Double }
     --   deriving Generic
     --

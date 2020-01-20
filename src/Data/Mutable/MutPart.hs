@@ -130,9 +130,9 @@ updatePart mp = updateRef . getMutPart mp
 updatePart' :: Mutable m a => MutPart m s a -> Ref m s -> (a -> (a, b)) -> m b
 updatePart' mp = updateRef' . getMutPart mp
 
--- | A 'MutPart' for a field in a vinyl 'Rec', automatically generated as
--- the first field with a matching type.  This is polymorphic to work over
--- both 'Rec' and 'ARec'.
+-- | A 'MutPart' for a field in a vinyl 'Data.Vinyl.Rec', automatically
+-- generated as the first field with a matching type.  This is polymorphic
+-- to work over both 'Data.Vinyl.Rec' and 'Data.Vinyl.ARec'.
 mutRec
     :: forall a as f rec m.
      ( Ref m (rec f as) ~ rec (RecRef m f) as

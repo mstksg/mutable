@@ -129,7 +129,7 @@ main = do
     createDirectoryIfMissing True "bench-results"
     defaultMainWith defaultConfig
           { reportFile = Just $ "bench-results/mutable-bench_" ++ tstr ++ ".html"
-          , timeLimit  = 30
+          , timeLimit  = 10
           } [
         bgroup "adt-256" [
           bgroup "part-50M"

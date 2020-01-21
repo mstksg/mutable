@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns                  #-}
+{-# LANGUAGE DataKinds                     #-}
 {-# LANGUAGE DeriveFoldable                #-}
 {-# LANGUAGE DeriveFunctor                 #-}
 {-# LANGUAGE DeriveGeneric                 #-}
@@ -12,6 +13,7 @@
 {-# LANGUAGE QuantifiedConstraints         #-}
 {-# LANGUAGE RankNTypes                    #-}
 {-# LANGUAGE TemplateHaskell               #-}
+{-# LANGUAGE TypeApplications              #-}
 {-# LANGUAGE TypeFamilies                  #-}
 {-# LANGUAGE TypeOperators                 #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
@@ -100,25 +102,37 @@ mutLoop f n x0 = runST $ do
     go 0
     freezeRef r
 
-modifyPartMut :: Int -> ADT -> ADT
-modifyPartMut = mutLoop $ \r -> modifyPart' modPart r (+1)
+modifyPartMutField :: Int -> ADT -> ADT
+modifyPartMutField = mutLoop $ \r -> modifyPart' modPartField r (+1)
 
-modifyWholeMut :: Int -> ADT -> ADT
-modifyWholeMut = mutLoop          $ \r ->
-                   withAllRefV256 r $ \s ->
-                     modifyRef s (+ 1)
+modifyPartMutPos :: Int -> ADT -> ADT
+modifyPartMutPos = mutLoop $ \r -> modifyPart' modPartPos r (+1)
 
--- modifyWholeMut' :: Int -> ADT -> ADT
--- modifyWholeMut' = mutLoop          $ \r ->
---                   withAllRefV16 r $ \s ->
---                     modifyRef s ((fmap . fmap) (+ 1))
+modifyWholeMutField :: Int -> ADT -> ADT
+modifyWholeMutField = mutLoop          $ \r ->
+                        withAllRefV256 (ContT . withAllRefV4Field) r $ \s ->
+                          modifyRef s (+ 1)
 
-modifyPartMutV :: Int -> Vec -> Vec
-modifyPartMutV = mutLoop $ \r -> withMutPart (fieldMut #_v4X) r $ \mv ->
-                    (MV.write mv 0 $!) . (+ 1) =<< MV.read mv 0
+modifyWholeMutPos :: Int -> ADT -> ADT
+modifyWholeMutPos = mutLoop          $ \r ->
+                      withAllRefV256 (ContT . withAllRefV4Pos) r $ \s ->
+                        modifyRef s (+ 1)
 
-modifyWholeMutV :: Int -> Vec -> Vec
-modifyWholeMutV = mutLoop $ \r -> withAllRefV4 r $ \mv -> do
+modifyPartMutVField :: Int -> Vec -> Vec
+modifyPartMutVField = mutLoop $ \r -> withMutPart (fieldMut #_v4X) r $ \mv ->
+                        (MV.write mv 0 $!) . (+ 1) =<< MV.read mv 0
+
+modifyPartMutVPos :: Int -> Vec -> Vec
+modifyPartMutVPos = mutLoop $ \r -> withMutPart (posMut @1) r $ \mv ->
+                      (MV.write mv 0 $!) . (+ 1) =<< MV.read mv 0
+
+modifyWholeMutVField :: Int -> Vec -> Vec
+modifyWholeMutVField = mutLoop $ \r -> withAllRefV4Field r $ \mv -> do
+    forM_ [0 .. MV.length mv - 1] $ \i ->
+      (MV.write mv i $!) . (+ 1) =<< MV.read mv i
+
+modifyWholeMutVPos :: Int -> Vec -> Vec
+modifyWholeMutVPos = mutLoop $ \r -> withAllRefV4Pos r $ \mv -> do
     forM_ [0 .. MV.length mv - 1] $ \i ->
       (MV.write mv i $!) . (+ 1) =<< MV.read mv i
 
@@ -133,22 +147,26 @@ main = do
           } [
         bgroup "adt-256" [
           bgroup "part-50M"
-            [ bench "pure"    $ nf (modifyPartPure 50_000_000) bigADT
-            , bench "mutable" $ nf (modifyPartMut  50_000_000) bigADT
+            [ bench "pure"          $ nf (modifyPartPure     50_000_000) bigADT
+            , bench "mutable-field" $ nf (modifyPartMutField 50_000_000) bigADT
+            , bench "mutable-pos"   $ nf (modifyPartMutPos   50_000_000) bigADT
             ]
         , bgroup "whole-20K"
-            [ bench "pure"    $ nf (modifyWholePure 20_000) bigADT
-            , bench "mutable" $ nf (modifyWholeMut  20_000) bigADT
+            [ bench "pure"          $ nf (modifyWholePure     20_000) bigADT
+            , bench "mutable-field" $ nf (modifyWholeMutField 20_000) bigADT
+            , bench "mutable-pos"   $ nf (modifyWholeMutPos   20_000) bigADT
             ]
         ]
       , bgroup "vector-2M" [
           bgroup "part-100"
-            [ bench "pure"    $ nf (modifyPartPureV 100) bigVec
-            , bench "mutable" $ nf (modifyPartMutV  100) bigVec
+            [ bench "pure"          $ nf (modifyPartPureV     100) bigVec
+            , bench "mutable-field" $ nf (modifyPartMutVField 100) bigVec
+            , bench "mutable-pos"   $ nf (modifyPartMutVPos   100) bigVec
             ]
         , bgroup "whole-3"
-            [ bench "pure"    $ nf (modifyWholePureV 3) bigVec
-            , bench "mutable" $ nf (modifyWholeMutV  3) bigVec
+            [ bench "pure"          $ nf (modifyWholePureV     3) bigVec
+            , bench "mutable-field" $ nf (modifyWholeMutVField 3) bigVec
+            , bench "mutable-pos"   $ nf (modifyWholeMutVPos   3) bigVec
             ]
         ]
 
@@ -162,33 +180,45 @@ main = do
 
 
 
-modPart :: Mutable m a => MutPart m (V256 a) a
-modPart = fieldMut #_v4X
-        . fieldMut #_v4X
-        . fieldMut #_v4X
-        . fieldMut #_v4X
-        . coerceRef
+modPartField :: Mutable m a => MutPart m (V256 a) a
+modPartField = posMut @1
+             . posMut @1
+             . posMut @1
+             . posMut @1
+             . coerceRef
 
-withAllRefV4 :: Mutable m a => Ref m (V4 a) -> (Ref m a -> m ()) -> m ()
-withAllRefV4 r f = do
+modPartPos :: Mutable m a => MutPart m (V256 a) a
+modPartPos = fieldMut #_v4X
+           . fieldMut #_v4X
+           . fieldMut #_v4X
+           . fieldMut #_v4X
+           . coerceRef
+
+withAllRefV4Field :: Mutable m a => Ref m (V4 a) -> (Ref m a -> m ()) -> m ()
+withAllRefV4Field r f = do
     withMutPart (fieldMut #_v4X) r f
     withMutPart (fieldMut #_v4Y) r f
     withMutPart (fieldMut #_v4Z) r f
     withMutPart (fieldMut #_v4W) r f
 
--- withAllRefV16 :: Mutable m a => Ref m (V256 a) -> (Ref m (V4 (V4 a)) -> m ()) -> m ()
--- withAllRefV16 r f = flip runContT pure $ do
---     s   <- ContT . withAllRefV4
---        =<< ContT . withAllRefV4
---        =<< ContT (withMutPart coerceRef r)
---     lift $ f s
+withAllRefV4Pos :: Mutable m a => Ref m (V4 a) -> (Ref m a -> m ()) -> m ()
+withAllRefV4Pos r f = do
+    withMutPart (posMut @1) r f
+    withMutPart (posMut @1) r f
+    withMutPart (posMut @1) r f
+    withMutPart (posMut @1) r f
 
-withAllRefV256 :: Mutable m a => Ref m (V256 a) -> (Ref m a -> m ()) -> m ()
-withAllRefV256 r f = flip runContT pure $ do
-    s   <- ContT . withAllRefV4
-       =<< ContT . withAllRefV4
-       =<< ContT . withAllRefV4
-       =<< ContT . withAllRefV4
+withAllRefV256
+    :: Mutable m a
+    => (forall b. Mutable m b => Ref m (V4 b) -> ContT () m (Ref m b))
+    -> Ref m (V256 a)
+    -> (Ref m a -> m ())
+    -> m ()
+withAllRefV256 a r f = flip runContT pure $ do
+    s   <- a
+       =<< a
+       =<< a
+       =<< a
        =<< ContT (withMutPart coerceRef r)
     lift $ f s
 

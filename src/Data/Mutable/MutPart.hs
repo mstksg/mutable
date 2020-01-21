@@ -279,7 +279,9 @@ class (Mutable m s, Mutable m a) => FieldMut (fld :: Symbol) m s a | fld s -> a 
     -- @
     --
     -- This and 'posMut' are the main ways to generate a 'MutPart' for
-    -- a type whose mutable reference is 'GRef'.
+    -- a type whose mutable reference is 'GRef'.  Note that because all of
+    -- the lookups are done at compile-time, 'fieldMut' and 'posMut' have
+    -- more or less identical performance characteristics.
     fieldMut :: Label fld -> MutPart m s a
 
 instance
@@ -322,7 +324,9 @@ class (Mutable m s, Mutable m a) => PosMut (i :: Nat) m s a | i s -> a where
     -- @
     --
     -- This and 'fieldMut' are the main ways to generate a 'MutPart' for
-    -- a type whose mutable reference is 'GRef'.
+    -- a type whose mutable reference is 'GRef'.  Note that because all of
+    -- the lookups are done at compile-time, 'posMut' and 'fieldMut' have
+    -- more or less identical performance characteristics.
     posMut :: MutPart m s a
 
 instance

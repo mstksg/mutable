@@ -336,7 +336,42 @@ updateRef :: Mutable m a => Ref m a -> (a -> (a, b)) -> m b
 updateRef' :: Mutable m a => Ref m a -> (a -> (a, b)) -> m b
 
 -- | Newtype wrapper that can provide any type with a <a>Mutable</a>
---   instance. Can be useful for avoiding orphan instances.
+--   instance, giving it a "non-piecewise" instance. Can be useful for
+--   avoiding orphan instances yet still utilizing auto-deriving features,
+--   or for overwriting the <a>Mutable</a> instance of other instances.
+--   
+--   For example, let's say you want to auto-derive an instance for your
+--   data type:
+--   
+--   <pre>
+--   data MyType = MT Int Double OtherType
+--     deriving Generic
+--   </pre>
+--   
+--   This is possible if all of <tt>MyType</tt>s fields have <a>Mutable</a>
+--   instances. However, let's say <tt>OtherType</tt> comes from an
+--   external library that you don't have control over, and so you cannot
+--   give it a <a>Mutable</a> instance without incurring an orphan
+--   instance.
+--   
+--   One solution is to wrap it in <a>MutRef</a>:
+--   
+--   <pre>
+--   data MyType = MT Int Double (<a>MutRef</a> OtherType)
+--     deriving Generic
+--   </pre>
+--   
+--   This can then be auto-derived:
+--   
+--   <pre>
+--   instance Mutable m MyType where
+--       type Ref m MyType = GRef m MyType
+--   </pre>
+--   
+--   It can also be used to <i>override</i> a <a>Mutable</a> instance. For
+--   example, even if the <a>Mutable</a> instance of <tt>SomeType</tt> is
+--   piecewise-mutable, the <a>Mutable</a> instance of <tt><a>MutRef</a>
+--   SomeType</tt> will be not be piecewise.
 newtype MutRef a
 MutRef :: a -> MutRef a
 [getMutRef] :: MutRef a -> a
@@ -1028,7 +1063,42 @@ updateRef :: Mutable m a => Ref m a -> (a -> (a, b)) -> m b
 updateRef' :: Mutable m a => Ref m a -> (a -> (a, b)) -> m b
 
 -- | Newtype wrapper that can provide any type with a <a>Mutable</a>
---   instance. Can be useful for avoiding orphan instances.
+--   instance, giving it a "non-piecewise" instance. Can be useful for
+--   avoiding orphan instances yet still utilizing auto-deriving features,
+--   or for overwriting the <a>Mutable</a> instance of other instances.
+--   
+--   For example, let's say you want to auto-derive an instance for your
+--   data type:
+--   
+--   <pre>
+--   data MyType = MT Int Double OtherType
+--     deriving Generic
+--   </pre>
+--   
+--   This is possible if all of <tt>MyType</tt>s fields have <a>Mutable</a>
+--   instances. However, let's say <tt>OtherType</tt> comes from an
+--   external library that you don't have control over, and so you cannot
+--   give it a <a>Mutable</a> instance without incurring an orphan
+--   instance.
+--   
+--   One solution is to wrap it in <a>MutRef</a>:
+--   
+--   <pre>
+--   data MyType = MT Int Double (<a>MutRef</a> OtherType)
+--     deriving Generic
+--   </pre>
+--   
+--   This can then be auto-derived:
+--   
+--   <pre>
+--   instance Mutable m MyType where
+--       type Ref m MyType = GRef m MyType
+--   </pre>
+--   
+--   It can also be used to <i>override</i> a <a>Mutable</a> instance. For
+--   example, even if the <a>Mutable</a> instance of <tt>SomeType</tt> is
+--   piecewise-mutable, the <a>Mutable</a> instance of <tt><a>MutRef</a>
+--   SomeType</tt> will be not be piecewise.
 newtype MutRef a
 MutRef :: a -> MutRef a
 [getMutRef] :: MutRef a -> a

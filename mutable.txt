@@ -200,7 +200,7 @@ class Monad m => Mutable m a where {
 }
 
 -- | <a>Thaw</a> a pure/persistent value into its mutable version, which
---   can be manipulated using <a>modifyRef</a> or other methods specific
+--   can be manipulated using <tt>modifyRef</tt> or other methods specific
 --   for that type (like <a>read</a>).
 --   
 --   Returns the <a>Ref</a> instance, so, for example, for <a>Vector</a>:
@@ -260,7 +260,7 @@ freezeRef :: Mutable m a => Ref m a -> m a
 copyRef :: Mutable m a => Ref m a -> a -> m ()
 
 -- | <a>Thaw</a> a pure/persistent value into its mutable version, which
---   can be manipulated using <a>modifyRef</a> or other methods specific
+--   can be manipulated using <tt>modifyRef</tt> or other methods specific
 --   for that type (like <a>read</a>).
 --   
 --   Returns the <a>Ref</a> instance, so, for example, for <a>Vector</a>:
@@ -406,7 +406,7 @@ defaultCopyRef :: DefaultMutable m a r => r -> a -> m ()
 --   type. For a sum type (with multiple constructors), an extra layer of
 --   indirection is added to account for the dynamically changable shape.
 --   
---   See <a>FieldMut</a>/<a>PosMot</a> for ways to inspect and mutate the
+--   See <a>fieldMut</a>/<a>posMut</a> for ways to inspect and mutate the
 --   internals of this type (as demonstrated above).
 newtype GRef m a
 GRef :: GRef_ m (Rep a) () -> GRef m a
@@ -495,38 +495,7 @@ reMutable :: forall m n a r. (Mutable m a, Monad n) => (forall x. m x -> n x) ->
 --   <tt>n</tt>, then <tt><a>Mutable</a> m a</tt> should also imply
 --   <tt><a>Mutable</a> n a</tt>.
 reMutableConstraint :: forall m n a. (Mutable m a, Monad n) => (forall x. m x -> n x) -> Mutable m a :- Mutable n a
-instance (GHC.Base.Monad n, Data.Mutable.Class.Mutable m a, Data.Reflection.Reifies s (Data.Mutable.Class.ReMutableTrans m n)) => Data.Mutable.Class.Mutable n (Data.Mutable.Class.ReMutable s m a)
-instance (GHC.Generics.Generic a, Data.Mutable.Class.GMutable m (GHC.Generics.Rep a)) => Data.Mutable.Class.DefaultMutable m a (Data.Mutable.Class.GRef m a)
-instance (GHC.Generics.Generic (z Data.Vinyl.Functor.Identity), GHC.Generics.Generic (z (Data.Mutable.Class.RefFor m)), Data.Mutable.Class.GMutable m (GHC.Generics.Rep (z Data.Vinyl.Functor.Identity)), Data.Mutable.Class.GRef_ m (GHC.Generics.Rep (z Data.Vinyl.Functor.Identity)) GHC.Types.~ GHC.Generics.Rep (z (Data.Mutable.Class.RefFor m))) => Data.Mutable.Class.DefaultMutable m (z Data.Vinyl.Functor.Identity) (z (Data.Mutable.Class.RefFor m))
-instance Data.Mutable.Class.Mutable m c => Data.Mutable.Class.GMutable m (GHC.Generics.K1 i c)
-instance GHC.Base.Monad m => Data.Mutable.Class.GMutable m GHC.Generics.U1
-instance GHC.Base.Monad m => Data.Mutable.Class.GMutable m GHC.Generics.V1
-instance (Data.Mutable.Class.GMutable m f, Data.Mutable.Class.GMutable m g) => Data.Mutable.Class.GMutable m (f GHC.Generics.:*: g)
-instance Data.Mutable.Class.GMutable m f => Data.Mutable.Class.GMutable m (GHC.Generics.M1 i c f)
-instance (Data.Mutable.Class.GMutable m f, Data.Mutable.Class.GMutable m g, Control.Monad.Primitive.PrimMonad m) => Data.Mutable.Class.GMutable m (f GHC.Generics.:+: g)
-instance forall u (m :: * -> *) (f :: u -> *). GHC.Base.Monad m => Data.Mutable.Class.Mutable m (Data.Vinyl.Core.Rec f '[])
-instance forall a1 (m :: * -> *) (f :: a1 -> *) (a2 :: a1) (as :: [a1]). (GHC.Base.Monad m, Data.Mutable.Class.Mutable m (f a2), Data.Mutable.Class.Mutable m (Data.Vinyl.Core.Rec f as), Data.Mutable.Class.Ref m (Data.Vinyl.Core.Rec f as) GHC.Types.~ Data.Vinyl.Core.Rec (Data.Mutable.Class.RecRef m f) as) => Data.Mutable.Class.Mutable m (Data.Vinyl.Core.Rec f (a2 : as))
-instance forall k (m :: * -> *) (as :: [k]) (f :: k -> *). (GHC.Base.Monad m, Data.Vinyl.Core.RecApplicative as, Data.Vinyl.TypeLevel.NatToInt (Data.Vinyl.TypeLevel.RLength as), Data.Vinyl.Core.RPureConstrained (Data.Vinyl.ARec.IndexableField as) as, Data.Mutable.Class.Mutable m (Data.Vinyl.Core.Rec f as), Data.Mutable.Class.Ref m (Data.Vinyl.Core.Rec f as) GHC.Types.~ Data.Vinyl.Core.Rec (Data.Mutable.Class.RecRef m f) as) => Data.Mutable.Class.Mutable m (Data.Vinyl.ARec.ARec f as)
-instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Class.Mutable m (Data.Mutable.Class.MutRef a)
-instance Data.Vinyl.XRec.IsoHKD Data.Mutable.Class.MutRef a
-instance Data.Vinyl.XRec.IsoHKD (Data.Mutable.Class.RefFor m) a
-instance Data.Mutable.Class.Mutable m a => Data.Mutable.Class.Mutable m (Data.Vinyl.Functor.Identity a)
-instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Class.Mutable m GHC.Types.Int
-instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Class.Mutable m GHC.Integer.Type.Integer
-instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Class.Mutable m (GHC.Real.Ratio a)
-instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Class.Mutable m GHC.Types.Float
-instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Class.Mutable m GHC.Types.Double
-instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Class.Mutable m (Data.Complex.Complex a)
-instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Class.Mutable m GHC.Types.Bool
-instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Class.Mutable m (Data.Vector.Vector a)
-instance (Control.Monad.Primitive.PrimMonad m, Foreign.Storable.Storable a) => Data.Mutable.Class.Mutable m (Data.Vector.Storable.Vector a)
-instance (Control.Monad.Primitive.PrimMonad m, Data.Vector.Unboxed.Base.Unbox a) => Data.Mutable.Class.Mutable m (Data.Vector.Unboxed.Base.Vector a)
-instance (Control.Monad.Primitive.PrimMonad m, Data.Primitive.Types.Prim a) => Data.Mutable.Class.Mutable m (Data.Vector.Primitive.Vector a)
-instance GHC.Base.Monad m => Data.Mutable.Class.Mutable m ()
-instance (GHC.Base.Monad m, Data.Mutable.Class.Mutable m a, Data.Mutable.Class.Mutable m b) => Data.Mutable.Class.Mutable m (a, b)
-instance (GHC.Base.Monad m, Data.Mutable.Class.Mutable m a, Data.Mutable.Class.Mutable m b, Data.Mutable.Class.Mutable m c) => Data.Mutable.Class.Mutable m (a, b, c)
-instance (GHC.Base.Monad m, Data.Mutable.Class.Mutable m a, Data.Mutable.Class.Mutable m b, Data.Mutable.Class.Mutable m c, Data.Mutable.Class.Mutable m d) => Data.Mutable.Class.Mutable m (a, b, c, d)
-instance (Control.Monad.Primitive.PrimMonad m, s GHC.Types.~ Control.Monad.Primitive.PrimState m) => Data.Mutable.Class.DefaultMutable m a (Data.Primitive.MutVar.MutVar s a)
+instance (GHC.Base.Monad n, Data.Mutable.Internal.Mutable m a, Data.Reflection.Reifies s (Data.Mutable.Class.ReMutableTrans m n)) => Data.Mutable.Internal.Mutable n (Data.Mutable.Class.ReMutable s m a)
 
 
 -- | Tools for working with individual components of piecewise-mutable
@@ -722,14 +691,14 @@ class (Mutable m (z Identity), Ref m (z Identity) ~ z (RefFor m)) => HKDMutParts
 --   [1,2,3] :&amp; [False, True] :&amp; RNil
 --   </pre>
 mutRec :: forall a as f rec m. (Ref m (rec f as) ~ rec (RecRef m f) as, RecElem rec a a as as (RIndex a as), RecElemFCtx rec (RecRef m f)) => MutPart m (rec f as) (f a)
-instance (Data.Mutable.Class.Mutable m s, Data.Mutable.Class.Mutable m a, Data.Mutable.Class.Ref m s GHC.Types.~ Data.Mutable.Class.GRef m s, gref GHC.Types.~ Data.Mutable.MutPart.Fst (Data.Mutable.MutPart.Traverse (Data.Mutable.Class.GRef_ m (Data.Generics.Product.Internal.Positions.CRep s)) 1), GHC.Types.Coercible (Data.Mutable.Class.GRef_ m (GHC.Generics.Rep s) ()) (gref ()), Data.Generics.Product.Internal.GLens.GLens' (Data.Mutable.MutPart.HasTotalPositionPSym i) gref (Data.Mutable.Class.Ref m a), Data.Generics.Product.Positions.HasPosition' i s a) => Data.Mutable.MutPart.PosMut i m s a
-instance (Data.Mutable.Class.Mutable m s, Data.Mutable.Class.Mutable m a, Data.Mutable.Class.Ref m s GHC.Types.~ Data.Mutable.Class.GRef m s, Data.Generics.Product.Internal.GLens.GLens' (Data.Mutable.MutPart.HasTotalFieldPSym fld) (Data.Mutable.Class.GRef_ m (GHC.Generics.Rep s)) (Data.Mutable.Class.Ref m a), Data.Generics.Product.Fields.HasField' fld s a) => Data.Mutable.MutPart.FieldMut fld m s a
-instance (Data.Mutable.Class.Mutable m (z Data.Vinyl.Functor.Identity), Data.Mutable.Class.Ref m (z Data.Vinyl.Functor.Identity) GHC.Types.~ z (Data.Mutable.Class.RefFor m)) => Data.Mutable.MutPart.HKDMutParts m z (GHC.Generics.K1 i (Data.Mutable.Class.RefFor m c)) (GHC.Generics.K1 i (Data.Mutable.MutPart.MutPart m (z Data.Vinyl.Functor.Identity) c))
-instance (Data.Mutable.Class.Mutable m (z Data.Vinyl.Functor.Identity), Data.Mutable.Class.Ref m (z Data.Vinyl.Functor.Identity) GHC.Types.~ z (Data.Mutable.Class.RefFor m)) => Data.Mutable.MutPart.HKDMutParts m z GHC.Generics.U1 GHC.Generics.U1
-instance (Data.Mutable.Class.Mutable m (z Data.Vinyl.Functor.Identity), Data.Mutable.Class.Ref m (z Data.Vinyl.Functor.Identity) GHC.Types.~ z (Data.Mutable.Class.RefFor m), (TypeError ...)) => Data.Mutable.MutPart.HKDMutParts m z GHC.Generics.V1 GHC.Generics.V1
+instance (Data.Mutable.Internal.Mutable m s, Data.Mutable.Internal.Mutable m a, Data.Mutable.Internal.Ref m s GHC.Types.~ Data.Mutable.Internal.GRef m s, gref GHC.Types.~ Data.Mutable.MutPart.Fst (Data.Mutable.MutPart.Traverse (Data.Mutable.Internal.GRef_ m (Data.Generics.Product.Internal.Positions.CRep s)) 1), GHC.Types.Coercible (Data.Mutable.Internal.GRef_ m (GHC.Generics.Rep s) ()) (gref ()), Data.Generics.Product.Internal.GLens.GLens' (Data.Mutable.MutPart.HasTotalPositionPSym i) gref (Data.Mutable.Internal.Ref m a), Data.Generics.Product.Positions.HasPosition' i s a) => Data.Mutable.MutPart.PosMut i m s a
+instance (Data.Mutable.Internal.Mutable m s, Data.Mutable.Internal.Mutable m a, Data.Mutable.Internal.Ref m s GHC.Types.~ Data.Mutable.Internal.GRef m s, Data.Generics.Product.Internal.GLens.GLens' (Data.Mutable.MutPart.HasTotalFieldPSym fld) (Data.Mutable.Internal.GRef_ m (GHC.Generics.Rep s)) (Data.Mutable.Internal.Ref m a), Data.Generics.Product.Fields.HasField' fld s a) => Data.Mutable.MutPart.FieldMut fld m s a
+instance (Data.Mutable.Internal.Mutable m (z Data.Vinyl.Functor.Identity), Data.Mutable.Internal.Ref m (z Data.Vinyl.Functor.Identity) GHC.Types.~ z (Data.Mutable.Internal.RefFor m)) => Data.Mutable.MutPart.HKDMutParts m z (GHC.Generics.K1 i (Data.Mutable.Internal.RefFor m c)) (GHC.Generics.K1 i (Data.Mutable.MutPart.MutPart m (z Data.Vinyl.Functor.Identity) c))
+instance (Data.Mutable.Internal.Mutable m (z Data.Vinyl.Functor.Identity), Data.Mutable.Internal.Ref m (z Data.Vinyl.Functor.Identity) GHC.Types.~ z (Data.Mutable.Internal.RefFor m)) => Data.Mutable.MutPart.HKDMutParts m z GHC.Generics.U1 GHC.Generics.U1
+instance (Data.Mutable.Internal.Mutable m (z Data.Vinyl.Functor.Identity), Data.Mutable.Internal.Ref m (z Data.Vinyl.Functor.Identity) GHC.Types.~ z (Data.Mutable.Internal.RefFor m), (TypeError ...)) => Data.Mutable.MutPart.HKDMutParts m z GHC.Generics.V1 GHC.Generics.V1
 instance forall k (m :: * -> *) (z :: (* -> *) -> *) (i :: k -> *) (o :: k -> *) a (b :: GHC.Generics.Meta). Data.Mutable.MutPart.HKDMutParts m z i o => Data.Mutable.MutPart.HKDMutParts m z (GHC.Generics.M1 a b i) (GHC.Generics.M1 a b o)
 instance forall k (m :: * -> *) (z :: (* -> *) -> *) (i :: k -> *) (o :: k -> *) (i' :: k -> *) (o' :: k -> *). (Data.Mutable.MutPart.HKDMutParts m z i o, Data.Mutable.MutPart.HKDMutParts m z i' o') => Data.Mutable.MutPart.HKDMutParts m z (i GHC.Generics.:*: i') (o GHC.Generics.:*: o')
-instance forall k (m :: * -> *) (z :: (* -> *) -> *) (i :: k -> *) (i' :: k -> *) (o :: k -> *). (Data.Mutable.Class.Mutable m (z Data.Vinyl.Functor.Identity), Data.Mutable.Class.Ref m (z Data.Vinyl.Functor.Identity) GHC.Types.~ z (Data.Mutable.Class.RefFor m), (TypeError ...)) => Data.Mutable.MutPart.HKDMutParts m z (i GHC.Generics.:+: i') o
+instance forall k (m :: * -> *) (z :: (* -> *) -> *) (i :: k -> *) (i' :: k -> *) (o :: k -> *). (Data.Mutable.Internal.Mutable m (z Data.Vinyl.Functor.Identity), Data.Mutable.Internal.Ref m (z Data.Vinyl.Functor.Identity) GHC.Types.~ z (Data.Mutable.Internal.RefFor m), (TypeError ...)) => Data.Mutable.MutPart.HKDMutParts m z (i GHC.Generics.:+: i') o
 instance Data.Vinyl.XRec.IsoHKD (Data.Mutable.MutPart.MutPart m s) a
 
 
@@ -923,7 +892,7 @@ class Monad m => Mutable m a where {
 }
 
 -- | <a>Thaw</a> a pure/persistent value into its mutable version, which
---   can be manipulated using <a>modifyRef</a> or other methods specific
+--   can be manipulated using <tt>modifyRef</tt> or other methods specific
 --   for that type (like <a>read</a>).
 --   
 --   Returns the <a>Ref</a> instance, so, for example, for <a>Vector</a>:
@@ -983,7 +952,7 @@ freezeRef :: Mutable m a => Ref m a -> m a
 copyRef :: Mutable m a => Ref m a -> a -> m ()
 
 -- | <a>Thaw</a> a pure/persistent value into its mutable version, which
---   can be manipulated using <a>modifyRef</a> or other methods specific
+--   can be manipulated using <tt>modifyRef</tt> or other methods specific
 --   for that type (like <a>read</a>).
 --   
 --   Returns the <a>Ref</a> instance, so, for example, for <a>Vector</a>:
@@ -1126,7 +1095,7 @@ class DefaultMutable m a r
 --   type. For a sum type (with multiple constructors), an extra layer of
 --   indirection is added to account for the dynamically changable shape.
 --   
---   See <a>FieldMut</a>/<a>PosMot</a> for ways to inspect and mutate the
+--   See <a>fieldMut</a>/<a>posMut</a> for ways to inspect and mutate the
 --   internals of this type (as demonstrated above).
 data GRef m a
 

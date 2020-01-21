@@ -10,7 +10,9 @@
 @version 0.1.0.0
 
 
--- | Provides <a>Ref</a> instances for various data types.
+-- | Provides <a>Ref</a> instances for various data types, as well as
+--   automatic derivation of instances. See <a>Data.Mutable</a> for more
+--   information.
 module Data.Mutable.Instances
 
 -- | Single linked list cell
@@ -149,11 +151,40 @@ copyHKD :: forall z m. (Generic (z Identity), Generic (z (RefFor m)), GMutable m
 newtype CoerceRef m s a
 CoerceRef :: Ref m a -> CoerceRef m s a
 [getCoerceRef] :: CoerceRef m s a -> Ref m a
+
+-- | Default <a>thawRef</a> for <a>CoerceRef</a>.
+--   
+--   You likely won't ever use this directly, since it is automatically
+--   provided if you have a <a>Mutable</a> instance with <a>CoerceRef</a>
+--   as the <a>Ref</a>. However, it can be useful if you are using a
+--   <tt><a>CoerceRef</a> m s a</tt> just as a normal data type,
+--   independent of the <a>Ref</a> class. See documentation for
+--   <a>CoerceRef</a> for more information.
 thawCoerce :: (Coercible s a, Mutable m a) => s -> m (CoerceRef m s a)
+
+-- | Default <a>freezeRef</a> for <a>CoerceRef</a>.
+--   
+--   You likely won't ever use this directly, since it is automatically
+--   provided if you have a <a>Mutable</a> instance with <a>CoerceRef</a>
+--   as the <a>Ref</a>. However, it can be useful if you are using a
+--   <tt><a>CoerceRef</a> m s a</tt> just as a normal data type,
+--   independent of the <a>Ref</a> class. See documentation for
+--   <a>CoerceRef</a> for more information.
 freezeCoerce :: (Coercible s a, Mutable m a) => CoerceRef m s a -> m s
+
+-- | Default <a>copyRef</a> for <a>CoerceRef</a>.
+--   
+--   You likely won't ever use this directly, since it is automatically
+--   provided if you have a <a>Mutable</a> instance with <a>CoerceRef</a>
+--   as the <a>Ref</a>. However, it can be useful if you are using a
+--   <tt><a>CoerceRef</a> m s a</tt> just as a normal data type,
+--   independent of the <a>Ref</a> class. See documentation for
+--   <a>CoerceRef</a> for more information.
 copyCoerce :: (Coercible s a, Mutable m a) => CoerceRef m s a -> s -> m ()
 
--- | A <a>Ref</a> that works for any instance of <a>Traversable</a>.
+-- | A <a>Ref</a> that works for any instance of <a>Traversable</a>, by
+--   using the fields of the <a>Traversable</a> instance to <i>purely</i>
+--   store mutable references.
 --   
 --   Copying and modifying semantics can be a bit funky.
 --   
@@ -176,8 +207,35 @@ copyCoerce :: (Coercible s a, Mutable m a) => CoerceRef m s a -> s -> m ()
 newtype TraverseRef m f a
 TraverseRef :: f (Ref m a) -> TraverseRef m f a
 [getTraverseRef] :: TraverseRef m f a -> f (Ref m a)
+
+-- | Default <a>thawRef</a> for <a>TraverseRef</a>.
+--   
+--   You likely won't ever use this directly, since it is automatically
+--   provided if you have a <a>Mutable</a> instance with <a>TraverseRef</a>
+--   as the <a>Ref</a>. However, it can be useful if you are using a
+--   <tt><a>TraverseRef</a> m f a</tt> just as a normal data type,
+--   independent of the <a>Ref</a> class. See documentation for
+--   <a>TraverseRef</a> for more information.
 thawTraverse :: (Traversable f, Mutable m a) => f a -> m (TraverseRef m f a)
+
+-- | Default <a>freezeRef</a> for <a>TraverseRef</a>.
+--   
+--   You likely won't ever use this directly, since it is automatically
+--   provided if you have a <a>Mutable</a> instance with <a>TraverseRef</a>
+--   as the <a>Ref</a>. However, it can be useful if you are using a
+--   <tt><a>TraverseRef</a> m f a</tt> just as a normal data type,
+--   independent of the <a>Ref</a> class. See documentation for
+--   <a>TraverseRef</a> for more information.
 freezeTraverse :: (Traversable f, Mutable m a) => TraverseRef m f a -> m (f a)
+
+-- | Default <a>copyRef</a> for <a>TraverseRef</a>.
+--   
+--   You likely won't ever use this directly, since it is automatically
+--   provided if you have a <a>Mutable</a> instance with <a>TraverseRef</a>
+--   as the <a>Ref</a>. However, it can be useful if you are using a
+--   <tt><a>TraverseRef</a> m f a</tt> just as a normal data type,
+--   independent of the <a>Ref</a> class. See documentation for
+--   <a>TraverseRef</a> for more information.
 copyTraverse :: (Traversable f, Mutable m a) => TraverseRef m f a -> f a -> m ()
 
 -- | A <a>Ref</a> for instances of <a>GMutable</a>, which are the
@@ -185,8 +243,35 @@ copyTraverse :: (Traversable f, Mutable m a) => TraverseRef m f a -> f a -> m ()
 newtype GMutableRef m f a
 GMutableRef :: GRef_ m f a -> GMutableRef m f a
 [getGMutableRef] :: GMutableRef m f a -> GRef_ m f a
+
+-- | Default <a>thawRef</a> for <a>GMutableRef</a>.
+--   
+--   You likely won't ever use this directly, since it is automatically
+--   provided if you have a <a>Mutable</a> instance with <a>GMutableRef</a>
+--   as the <a>Ref</a>. However, it can be useful if you are using a
+--   <tt><a>GMutableRef</a> m f a</tt> just as a normal data type,
+--   independent of the <a>Ref</a> class. See documentation for
+--   <a>GMutableRef</a> for more information.
 thawGMutableRef :: GMutable m f => f a -> m (GMutableRef m f a)
+
+-- | Default <a>freezeRef</a> for <a>GMutableRef</a>.
+--   
+--   You likely won't ever use this directly, since it is automatically
+--   provided if you have a <a>Mutable</a> instance with <a>GMutableRef</a>
+--   as the <a>Ref</a>. However, it can be useful if you are using a
+--   <tt><a>GMutableRef</a> m f a</tt> just as a normal data type,
+--   independent of the <a>Ref</a> class. See documentation for
+--   <a>GMutableRef</a> for more information.
 freezeGMutableRef :: GMutable m f => GMutableRef m f a -> m (f a)
+
+-- | Default <a>copyRef</a> for <a>GMutableRef</a>.
+--   
+--   You likely won't ever use this directly, since it is automatically
+--   provided if you have a <a>Mutable</a> instance with <a>GMutableRef</a>
+--   as the <a>Ref</a>. However, it can be useful if you are using a
+--   <tt><a>GMutableRef</a> m f a</tt> just as a normal data type,
+--   independent of the <a>Ref</a> class. See documentation for
+--   <a>GMutableRef</a> for more information.
 copyGMutableRef :: GMutable m f => GMutableRef m f a -> f a -> m ()
 instance Data.Traversable.Traversable f => Data.Traversable.Traversable (Data.Mutable.Instances.TraverseMut f)
 instance Data.Foldable.Foldable f => Data.Foldable.Foldable (Data.Mutable.Instances.TraverseMut f)
@@ -453,7 +538,7 @@ class Monad m => Mutable m a where {
 }
 
 -- | <a>Thaw</a> a pure/persistent value into its mutable version, which
---   can be manipulated using <tt>modifyRef</tt> or other methods specific
+--   can be manipulated using <a>modifyRef</a> or other methods specific
 --   for that type (like <a>read</a>).
 --   
 --   Returns the <a>Ref</a> instance, so, for example, for <a>Vector</a>:
@@ -513,7 +598,7 @@ freezeRef :: Mutable m a => Ref m a -> m a
 copyRef :: Mutable m a => Ref m a -> a -> m ()
 
 -- | <a>Thaw</a> a pure/persistent value into its mutable version, which
---   can be manipulated using <tt>modifyRef</tt> or other methods specific
+--   can be manipulated using <a>modifyRef</a> or other methods specific
 --   for that type (like <a>read</a>).
 --   
 --   Returns the <a>Ref</a> instance, so, for example, for <a>Vector</a>:
@@ -1073,7 +1158,7 @@ class Monad m => Mutable m a where {
 }
 
 -- | <a>Thaw</a> a pure/persistent value into its mutable version, which
---   can be manipulated using <tt>modifyRef</tt> or other methods specific
+--   can be manipulated using <a>modifyRef</a> or other methods specific
 --   for that type (like <a>read</a>).
 --   
 --   Returns the <a>Ref</a> instance, so, for example, for <a>Vector</a>:
@@ -1133,7 +1218,7 @@ freezeRef :: Mutable m a => Ref m a -> m a
 copyRef :: Mutable m a => Ref m a -> a -> m ()
 
 -- | <a>Thaw</a> a pure/persistent value into its mutable version, which
---   can be manipulated using <tt>modifyRef</tt> or other methods specific
+--   can be manipulated using <a>modifyRef</a> or other methods specific
 --   for that type (like <a>read</a>).
 --   
 --   Returns the <a>Ref</a> instance, so, for example, for <a>Vector</a>:
@@ -1336,7 +1421,9 @@ data MutVar s a
 --   It's essentially a special case of <a>GRef</a> for newtypes.
 data CoerceRef m s a
 
--- | A <a>Ref</a> that works for any instance of <a>Traversable</a>.
+-- | A <a>Ref</a> that works for any instance of <a>Traversable</a>, by
+--   using the fields of the <a>Traversable</a> instance to <i>purely</i>
+--   store mutable references.
 --   
 --   Copying and modifying semantics can be a bit funky.
 --   

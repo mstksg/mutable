@@ -51,7 +51,7 @@ import           Data.Vinyl.Functor
 import           Data.Vinyl.Lens
 import           GHC.Generics
 import           GHC.TypeLits
-import qualified Control.Category as C
+import qualified Control.Category                       as C
 import qualified Data.GenericLens.Internal              as GL
 import qualified Data.Generics.Internal.Profunctor.Lens as GLP
 import qualified Data.Generics.Product.Fields           as GL
@@ -98,10 +98,17 @@ import qualified Data.Vinyl.XRec                        as X
 -- a product type --- see 'hkdMutParts' for more information.
 newtype MutPart m s a = MutPart { getMutPart :: Ref m s -> Ref m a }
 
-infixr 9 `compMP`
+-- | Compose two 'MutPart's one after the other.
+--
+-- Note this is also available (albeit flipped in arguments) through the
+-- 'C.Category' instance.
 compMP :: MutPart m a b -> MutPart m b c -> MutPart m a c
 compMP (MutPart f) (MutPart g) = MutPart (g . f)
+infixr 9 `compMP`
 
+-- | The identity 'MutPart': simply focus into the same type itself.
+--
+-- Note this is also available through the 'C.Category' instance.
 idMP :: MutPart m a a
 idMP = MutPart id
 

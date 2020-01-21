@@ -889,7 +889,9 @@ class (Mutable m s, Mutable m a) => FieldMut (fld :: Symbol) m s a | fld s -> a
 --   </pre>
 --   
 --   This and <a>posMut</a> are the main ways to generate a <a>MutPart</a>
---   for a type whose mutable reference is <a>GRef</a>.
+--   for a type whose mutable reference is <a>GRef</a>. Note that because
+--   all of the lookups are done at compile-time, <a>fieldMut</a> and
+--   <a>posMut</a> have more or less identical performance characteristics.
 fieldMut :: FieldMut fld m s a => Label fld -> MutPart m s a
 
 -- | Proxy for label type
@@ -924,7 +926,10 @@ class (Mutable m s, Mutable m a) => PosMut (i :: Nat) m s a | i s -> a
 --   </pre>
 --   
 --   This and <a>fieldMut</a> are the main ways to generate a
---   <a>MutPart</a> for a type whose mutable reference is <a>GRef</a>.
+--   <a>MutPart</a> for a type whose mutable reference is <a>GRef</a>. Note
+--   that because all of the lookups are done at compile-time,
+--   <a>posMut</a> and <a>fieldMut</a> have more or less identical
+--   performance characteristics.
 posMut :: PosMut i m s a => MutPart m s a
 
 -- | If you are using the "higher-kinded data" pattern, a la
@@ -1606,7 +1611,9 @@ mutSnd :: MutPart m (a, b) b
 --   </pre>
 --   
 --   This and <a>posMut</a> are the main ways to generate a <a>MutPart</a>
---   for a type whose mutable reference is <a>GRef</a>.
+--   for a type whose mutable reference is <a>GRef</a>. Note that because
+--   all of the lookups are done at compile-time, <a>fieldMut</a> and
+--   <a>posMut</a> have more or less identical performance characteristics.
 fieldMut :: FieldMut fld m s a => Label fld -> MutPart m s a
 
 -- | Proxy for label type
@@ -1636,7 +1643,10 @@ Label :: Label (a :: Symbol)
 --   </pre>
 --   
 --   This and <a>fieldMut</a> are the main ways to generate a
---   <a>MutPart</a> for a type whose mutable reference is <a>GRef</a>.
+--   <a>MutPart</a> for a type whose mutable reference is <a>GRef</a>. Note
+--   that because all of the lookups are done at compile-time,
+--   <a>posMut</a> and <a>fieldMut</a> have more or less identical
+--   performance characteristics.
 posMut :: PosMut i m s a => MutPart m s a
 
 -- | If you are using the "higher-kinded data" pattern, a la

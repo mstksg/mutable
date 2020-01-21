@@ -834,8 +834,17 @@ updatePart :: Mutable m a => MutPart m s a -> Ref m s -> (a -> (a, b)) -> m b
 -- | <a>updatePart</a>, but forces the result before storing it back in the
 --   reference.
 updatePart' :: Mutable m a => MutPart m s a -> Ref m s -> (a -> (a, b)) -> m b
+
+-- | Compose two <a>MutPart</a>s one after the other.
+--   
+--   Note this is also available (albeit flipped in arguments) through the
+--   <a>Category</a> instance.
 compMP :: MutPart m a b -> MutPart m b c -> MutPart m a c
 infixr 9 `compMP`
+
+-- | The identity <a>MutPart</a>: simply focus into the same type itself.
+--   
+--   Note this is also available through the <a>Category</a> instance.
 idMP :: MutPart m a a
 
 -- | <a>MutPart</a> into the first field of a tuple reference.

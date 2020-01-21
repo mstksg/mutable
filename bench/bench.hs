@@ -166,9 +166,9 @@ main = do
         , bgroup "whole-20K"
             [ bench "pure"      $ nf (modifyWholePure     20_000) bigADT
             , bgroup "mutable" [
-                  bench "field" $ nf (modifyWholeMut (ContT . withAllRefV4Field) 20_000) bigADT
-                , bench "pos"   $ nf (modifyWholeMut (ContT . withAllRefV4Pos  ) 20_000) bigADT
-                , bench "hkd"   $ nf (modifyWholeMutHKD                          20_000) bigADTF
+                  bench "field" $ nf (modifyWholeMut    withAllRefV4Field 20_000) bigADT
+                , bench "pos"   $ nf (modifyWholeMut    withAllRefV4Pos   20_000) bigADT
+                , bench "hkd"   $ nf (modifyWholeMutHKD                   20_000) bigADTF
                 ]
             ]
         ]
@@ -184,9 +184,9 @@ main = do
         , bgroup "whole-3"
             [ bench "pure"      $ nf (modifyWholePureV     3) bigVec
             , bgroup "mutable" [
-                  bench "field" $ nf (modifyWholeMutV (ContT . withAllRefV4Field) 3) bigVec
-                , bench "pos"   $ nf (modifyWholeMutV (ContT . withAllRefV4Pos  ) 3) bigVec
-                , bench "hkd"   $ nf (modifyWholeMutV (ContT . withAllRefV4HKD  ) 3) bigVecF
+                  bench "field" $ nf (modifyWholeMutV withAllRefV4Field 3) bigVec
+                , bench "pos"   $ nf (modifyWholeMutV withAllRefV4Pos   3) bigVec
+                , bench "hkd"   $ nf (modifyWholeMutV withAllRefV4HKD   3) bigVecF
                 ]
             ]
         ]
@@ -238,22 +238,22 @@ modPartHKD = _vf4X vfParts
 
 
 
-withAllRefV4Field :: Mutable m a => Ref m (V4 a) -> (Ref m a -> m ()) -> m ()
-withAllRefV4Field r f = do
+withAllRefV4Field :: Mutable m a => Ref m (V4 a) -> ContT () m (Ref m a)
+withAllRefV4Field r = ContT $ \f -> do
     withMutPart (fieldMut #_v4X) r f
     withMutPart (fieldMut #_v4Y) r f
     withMutPart (fieldMut #_v4Z) r f
     withMutPart (fieldMut #_v4W) r f
 
-withAllRefV4Pos :: Mutable m a => Ref m (V4 a) -> (Ref m a -> m ()) -> m ()
-withAllRefV4Pos r f = do
+withAllRefV4Pos :: Mutable m a => Ref m (V4 a) -> ContT () m (Ref m a)
+withAllRefV4Pos r = ContT $ \f -> do
     withMutPart (posMut @1) r f
-    withMutPart (posMut @1) r f
-    withMutPart (posMut @1) r f
-    withMutPart (posMut @1) r f
+    withMutPart (posMut @2) r f
+    withMutPart (posMut @3) r f
+    withMutPart (posMut @4) r f
 
-withAllRefV4HKD :: forall m a. Mutable m a => V4F a (RefFor m) -> (Ref m a -> m ()) -> m ()
-withAllRefV4HKD r f = do
+withAllRefV4HKD :: forall m a. Mutable m a => V4F a (RefFor m) -> ContT () m (Ref m a)
+withAllRefV4HKD r = ContT $ \f -> do
     withMutPart (_vf4X vfParts) r f
     withMutPart (_vf4Y vfParts) r f
     withMutPart (_vf4Z vfParts) r f
@@ -266,20 +266,17 @@ withAllRefV256
     -> (Ref m a -> m ())
     -> m ()
 withAllRefV256 a r f = flip runContT pure $ do
-    s   <- a
-       =<< a
-       =<< a
-       =<< a
+    s   <- a =<< a =<< a =<< a
        =<< ContT (withMutPart coerceRef r)
     lift $ f s
 
 
 withAllRefV256HKD :: Mutable m a => Ref m (V256F a) -> (Ref m a -> m ()) -> m ()
 withAllRefV256HKD r f = flip runContT pure $ do
-    s   <- ContT . withAllRefV4HKD
-       =<< ContT . withAllRefV4HKD
-       =<< ContT . withAllRefV4HKD
-       =<< ContT . withAllRefV4HKD
+    s   <- withAllRefV4HKD
+       =<< withAllRefV4HKD
+       =<< withAllRefV4HKD
+       =<< withAllRefV4HKD
        =<< ContT (withMutPart coerceRef r)
     lift $ f s
 

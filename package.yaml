@@ -32,7 +32,6 @@ library:
   source-dirs: src
   other-modules:
   - Data.Mutable.Internal
-  - Data.Mutable.Instances
   dependencies:
   - constraints
   - generic-lens

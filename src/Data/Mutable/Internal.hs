@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes    #-}
-{-# LANGUAGE BangPatterns           #-}
 {-# LANGUAGE DefaultSignatures      #-}
 {-# LANGUAGE DerivingVia            #-}
 {-# LANGUAGE EmptyCase              #-}
@@ -11,7 +10,6 @@
 {-# LANGUAGE NoStarIsType           #-}
 {-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
-{-# LANGUAGE TypeApplications       #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE TypeInType             #-}
 {-# LANGUAGE TypeOperators          #-}
@@ -27,14 +25,19 @@ module Data.Mutable.Internal (
   , GRef(..), gThawRef, gFreezeRef, gCopyRef, GMutable (GRef_)
   -- ** Higher-Kinded Data Pattern
   , thawHKD, freezeHKD, copyHKD
+  -- ** Coercible
+  , CoerceRef(..), thawCoerce, freezeCoerce, copyCoerce
   -- ** Traversable
   , TraverseRef(..), thawTraverse, freezeTraverse, copyTraverse
+  -- ** Instances for Generics combinators themselves
+  , GMutableRef(..), thawGMutableRef, freezeGMutableRef, copyGMutableRef
   ) where
 
 import           Control.Monad.Primitive
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.State
 import           Data.Bifunctor
+import           Data.Coerce
 import           Data.Foldable
 import           Data.Kind
 import           Data.List
@@ -341,6 +344,16 @@ instance (Traversable f, Mutable m a) => DefaultMutable m (f a) (TraverseRef m f
     defaultFreezeRef = freezeTraverse
     defaultCopyRef   = copyTraverse
 
+instance (Coercible s a, Mutable m a) => DefaultMutable m s (CoerceRef m s a) where
+    defaultThawRef   = thawCoerce
+    defaultFreezeRef = freezeCoerce
+    defaultCopyRef   = copyCoerce
+
+instance GMutable m f => DefaultMutable m (f a) (GMutableRef m f a) where
+    defaultThawRef   = thawGMutableRef
+    defaultFreezeRef = freezeGMutableRef
+    defaultCopyRef   = copyGMutableRef
+
 -- | A handy newtype wrapper that allows you to partially apply 'Ref'.
 -- @'RefFor' m a@ is the same as @'Ref' m a@, but can be partially applied.
 --
@@ -433,10 +446,36 @@ copyTraverse (TraverseRef rs) xs = evalStateT (traverse_ go rs) (toList xs)
       x <- state $ maybe (Nothing, []) (first Just) . uncons
       lift $ mapM_ (copyRef r) x
 
+-- | A 'Ref' that works by using the 'Mutable' instance of an equivalent
+-- type.  This is useful for newtype wrappers, so you can use the
+-- underlying data type's 'Mutable' instance.
+--
+-- @
+-- newtype MyVec = MyVec ('V.Vector' Double)
+--
+-- instance 'Mutable' m MyVec where
+--     type 'Ref' m MyVec = 'CoerceRef' m s ('V.Vector' Double)
+-- @
+--
+-- The @Ref m MyVec@ uses the a @'MV.MVector' Double@ under the hood.
+--
+-- It's essentially a special case of 'GRef' for newtypes.
+newtype CoerceRef m s a = CoerceRef { getCoerceRef :: Ref m a }
+
+thawCoerce :: (Coercible s a, Mutable m a) => s -> m (CoerceRef m s a)
+thawCoerce = fmap CoerceRef . thawRef . coerce
+
+freezeCoerce :: (Coercible s a, Mutable m a) => CoerceRef m s a -> m s
+freezeCoerce = fmap coerce . freezeRef . getCoerceRef
+
+copyCoerce :: (Coercible s a, Mutable m a) => CoerceRef m s a -> s -> m ()
+copyCoerce (CoerceRef r) = copyRef r . coerce
+
+
 -- | Class for automatic generation of 'Ref' for 'Generic' instances.  See
 -- 'GRef' for more information.
 class Monad m => GMutable m f where
-    type GRef_ m f = (u :: Type -> Type) | u -> f
+    type GRef_ m f = (u :: k -> Type) | u -> f
 
     gThawRef_ :: f a -> m (GRef_ m f a)
     gFreezeRef_ :: GRef_ m f a -> m (f a)
@@ -493,6 +532,34 @@ instance (GMutable m f, GMutable m g, PrimMonad m) => GMutable m (f :+: g) where
       R1 u -> case xy of
         L1 x -> writeMutVar r . L1 =<< gThawRef_ x
         R1 y -> gCopyRef_ u y
+
+-- | A 'Ref' for instances of 'GMutable', which are the "GHC.Generics"
+-- combinators.
+newtype GMutableRef m f a = GMutableRef { getGMutableRef :: GRef_ m f a }
+
+thawGMutableRef :: GMutable m f => f a -> m (GMutableRef m f a)
+thawGMutableRef = fmap GMutableRef . gThawRef_
+
+freezeGMutableRef :: GMutable m f => GMutableRef m f a -> m (f a)
+freezeGMutableRef = gFreezeRef_ . getGMutableRef
+
+copyGMutableRef :: GMutable m f => GMutableRef m f a -> f a -> m ()
+copyGMutableRef (GMutableRef r) = gCopyRef_ r
+
+instance Mutable m c => Mutable m (K1 i c a) where
+    type Ref m (K1 i c a) = GMutableRef m (K1 i c) a
+
+instance Monad m => Mutable m (U1 a) where
+    type Ref m (U1 a) = GMutableRef m U1 a
+
+instance Monad m => Mutable m (V1 a) where
+    type Ref m (V1 a) = GMutableRef m V1 a
+
+instance (GMutable m f, GMutable m g) => Mutable m ((f :*: g) a) where
+    type Ref m ((f :*: g) a) = GMutableRef m (f :*: g) a
+
+instance (GMutable m f, GMutable m g, PrimMonad m) => Mutable m ((f :+: g) a) where
+    type Ref m ((f :+: g) a) = GMutableRef m (f :+: g) a
 
 -- | Automatically generate a piecewise mutable reference for any 'Generic'
 -- instance.

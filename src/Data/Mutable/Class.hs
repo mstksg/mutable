@@ -1,12 +1,8 @@
 {-# LANGUAGE AllowAmbiguousTypes    #-}
-{-# LANGUAGE BangPatterns           #-}
-{-# LANGUAGE DefaultSignatures      #-}
 {-# LANGUAGE DerivingVia            #-}
-{-# LANGUAGE EmptyCase              #-}
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE GADTs                  #-}
-{-# LANGUAGE LambdaCase             #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE NoStarIsType           #-}
 {-# LANGUAGE RankNTypes             #-}
@@ -35,13 +31,6 @@ module Data.Mutable.Class (
   , MutRef(..)
   , RefFor(..)
   , DefaultMutable(..)
-  -- * Instances
-  -- ** Generic
-  , GRef(..), gThawRef, gFreezeRef, gCopyRef, GMutable (GRef_)
-  -- ** Higher-Kinded Data Pattern
-  , thawHKD, freezeHKD, copyHKD
-  -- ** Miscellaneous
-  , RecRef(..)
   -- * Changing underlying monad
   , reMutable, reMutableConstraint
   ) where
@@ -49,7 +38,7 @@ module Data.Mutable.Class (
 import           Data.Constraint
 import           Data.Constraint.Unsafe
 import           Data.Kind
-import           Data.Mutable.Instances
+import           Data.Mutable.Instances ()
 import           Data.Mutable.Internal
 import           Data.Proxy
 import           Data.Reflection

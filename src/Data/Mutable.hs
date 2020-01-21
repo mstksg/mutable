@@ -16,11 +16,13 @@ module Data.Mutable (
   , updateRef, updateRef'
   , MutRef(..)
   , RefFor(..)
-  , DefaultMutable
   -- * Instances
+  , DefaultMutable
   , GRef
   , MutVar
-  , RecRef(..)
+  , CoerceRef
+  , TraverseRef
+  , GMutableRef
   -- ** Higher-Kinded Data Pattern
   , thawHKD, freezeHKD, copyHKD
   -- * Parts
@@ -40,6 +42,7 @@ module Data.Mutable (
 
 import           Control.Monad.Primitive
 import           Data.Mutable.Class
+import           Data.Mutable.Instances
 import           Data.Mutable.MutPart
 import           Data.Primitive.MutVar
 

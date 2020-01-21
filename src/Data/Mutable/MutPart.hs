@@ -41,6 +41,7 @@ module Data.Mutable.MutPart (
 import           Data.Coerce
 import           Data.Kind
 import           Data.Mutable.Class
+import           Data.Mutable.Instances
 import           Data.Vinyl.Derived
 import           Data.Vinyl.Functor
 import           Data.Vinyl.Lens

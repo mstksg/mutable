@@ -23,7 +23,8 @@
 -- Stability   : experimental
 -- Portability : non-portable
 --
--- Provides 'Ref' instances for various data types.
+-- Provides 'Ref' instances for various data types, as well as automatic
+-- derivation of instances.  See "Data.Mutable" for more information.
 module Data.Mutable.Instances (
   -- * Instances
     ListRefCell(..)

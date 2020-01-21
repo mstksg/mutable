@@ -228,8 +228,8 @@ class Monad m => Mutable m a where
     type Ref m a = MutVar (PrimState m) a
 
     -- | "Thaw" a pure/persistent value into its mutable version, which can
-    -- be manipulated using 'modifyRef' or other methods specific for that
-    -- type (like 'MV.read').
+    -- be manipulated using 'Data.Mutable.modifyRef' or other methods
+    -- specific for that type (like 'MV.read').
     --
     -- Returns the 'Ref' instance, so, for example, for 'V.Vector':
     --
@@ -380,7 +380,7 @@ instance X.IsoHKD (RefFor m) a where
 --   deriving Generic
 -- @
 --
--- This is possible if all of 'MyType's fields have 'Mutable' instances.
+-- This is possible if all of @MyType@s fields have 'Mutable' instances.
 -- However, let's say @OtherType@ comes from an external library that you
 -- don't have control over, and so you cannot give it a 'Mutable' instance
 -- without incurring an orphan instance.
@@ -412,7 +412,8 @@ instance X.IsoHKD MutRef a where
     unHKD = MutRef
     toHKD = getMutRef
 
--- | A 'Ref' that works for any instance of 'Traversable'.
+-- | A 'Ref' that works for any instance of 'Traversable', by using the
+-- fields of the 'Traversable' instance to /purely/ store mutable references.
 --
 -- Copying and modifying semantics can be a bit funky.
 --
@@ -433,12 +434,33 @@ instance X.IsoHKD MutRef a where
 --
 newtype TraverseRef m f a = TraverseRef { getTraverseRef :: f (Ref m a) }
 
+-- | Default 'thawRef' for 'TraverseRef'.
+--
+-- You likely won't ever use this directly, since it is automatically
+-- provided if you have a 'Mutable' instance with 'TraverseRef' as the
+-- 'Ref'.  However, it can be useful if you are using a @'TraverseRef'
+-- m f a@ just as a normal data type, independent of the 'Ref' class.  See
+-- documentation for 'TraverseRef' for more information.
 thawTraverse :: (Traversable f, Mutable m a) => f a -> m (TraverseRef m f a)
 thawTraverse = fmap TraverseRef . traverse thawRef
 
+-- | Default 'freezeRef' for 'TraverseRef'.
+--
+-- You likely won't ever use this directly, since it is automatically
+-- provided if you have a 'Mutable' instance with 'TraverseRef' as the
+-- 'Ref'.  However, it can be useful if you are using a @'TraverseRef'
+-- m f a@ just as a normal data type, independent of the 'Ref' class.  See
+-- documentation for 'TraverseRef' for more information.
 freezeTraverse :: (Traversable f, Mutable m a) => TraverseRef m f a -> m (f a)
 freezeTraverse = traverse freezeRef . getTraverseRef
 
+-- | Default 'copyRef' for 'TraverseRef'.
+--
+-- You likely won't ever use this directly, since it is automatically
+-- provided if you have a 'Mutable' instance with 'TraverseRef' as the
+-- 'Ref'.  However, it can be useful if you are using a @'TraverseRef'
+-- m f a@ just as a normal data type, independent of the 'Ref' class.  See
+-- documentation for 'TraverseRef' for more information.
 copyTraverse :: (Traversable f, Mutable m a) => TraverseRef m f a -> f a -> m ()
 copyTraverse (TraverseRef rs) xs = evalStateT (traverse_ go rs) (toList xs)
   where
@@ -462,12 +484,33 @@ copyTraverse (TraverseRef rs) xs = evalStateT (traverse_ go rs) (toList xs)
 -- It's essentially a special case of 'GRef' for newtypes.
 newtype CoerceRef m s a = CoerceRef { getCoerceRef :: Ref m a }
 
+-- | Default 'thawRef' for 'CoerceRef'.
+--
+-- You likely won't ever use this directly, since it is automatically
+-- provided if you have a 'Mutable' instance with 'CoerceRef' as the 'Ref'.
+-- However, it can be useful if you are using a @'CoerceRef' m s a@ just as
+-- a normal data type, independent of the 'Ref' class.  See documentation
+-- for 'CoerceRef' for more information.
 thawCoerce :: (Coercible s a, Mutable m a) => s -> m (CoerceRef m s a)
 thawCoerce = fmap CoerceRef . thawRef . coerce
 
+-- | Default 'freezeRef' for 'CoerceRef'.
+--
+-- You likely won't ever use this directly, since it is automatically
+-- provided if you have a 'Mutable' instance with 'CoerceRef' as the 'Ref'.
+-- However, it can be useful if you are using a @'CoerceRef' m s a@ just as
+-- a normal data type, independent of the 'Ref' class.  See documentation
+-- for 'CoerceRef' for more information.
 freezeCoerce :: (Coercible s a, Mutable m a) => CoerceRef m s a -> m s
 freezeCoerce = fmap coerce . freezeRef . getCoerceRef
 
+-- | Default 'copyRef' for 'CoerceRef'.
+--
+-- You likely won't ever use this directly, since it is automatically
+-- provided if you have a 'Mutable' instance with 'CoerceRef' as the 'Ref'.
+-- However, it can be useful if you are using a @'CoerceRef' m s a@ just as
+-- a normal data type, independent of the 'Ref' class.  See documentation
+-- for 'CoerceRef' for more information.
 copyCoerce :: (Coercible s a, Mutable m a) => CoerceRef m s a -> s -> m ()
 copyCoerce (CoerceRef r) = copyRef r . coerce
 
@@ -537,12 +580,33 @@ instance (GMutable m f, GMutable m g, PrimMonad m) => GMutable m (f :+: g) where
 -- combinators.
 newtype GMutableRef m f a = GMutableRef { getGMutableRef :: GRef_ m f a }
 
+-- | Default 'thawRef' for 'GMutableRef'.
+--
+-- You likely won't ever use this directly, since it is automatically
+-- provided if you have a 'Mutable' instance with 'GMutableRef' as the
+-- 'Ref'.  However, it can be useful if you are using a @'GMutableRef'
+-- m f a@ just as a normal data type, independent of the 'Ref' class.  See
+-- documentation for 'GMutableRef' for more information.
 thawGMutableRef :: GMutable m f => f a -> m (GMutableRef m f a)
 thawGMutableRef = fmap GMutableRef . gThawRef_
 
+-- | Default 'freezeRef' for 'GMutableRef'.
+--
+-- You likely won't ever use this directly, since it is automatically
+-- provided if you have a 'Mutable' instance with 'GMutableRef' as the
+-- 'Ref'.  However, it can be useful if you are using a @'GMutableRef'
+-- m f a@ just as a normal data type, independent of the 'Ref' class.  See
+-- documentation for 'GMutableRef' for more information.
 freezeGMutableRef :: GMutable m f => GMutableRef m f a -> m (f a)
 freezeGMutableRef = gFreezeRef_ . getGMutableRef
 
+-- | Default 'copyRef' for 'GMutableRef'.
+--
+-- You likely won't ever use this directly, since it is automatically
+-- provided if you have a 'Mutable' instance with 'GMutableRef' as the
+-- 'Ref'.  However, it can be useful if you are using a @'GMutableRef'
+-- m f a@ just as a normal data type, independent of the 'Ref' class.  See
+-- documentation for 'GMutableRef' for more information.
 copyGMutableRef :: GMutable m f => GMutableRef m f a -> f a -> m ()
 copyGMutableRef (GMutableRef r) = gCopyRef_ r
 

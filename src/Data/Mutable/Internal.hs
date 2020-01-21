@@ -27,14 +27,21 @@ module Data.Mutable.Internal (
   , GRef(..), gThawRef, gFreezeRef, gCopyRef, GMutable (GRef_)
   -- ** Higher-Kinded Data Pattern
   , thawHKD, freezeHKD, copyHKD
+  -- ** Traversable
+  , TraverseRef(..), thawTraverse, freezeTraverse, copyTraverse
   ) where
 
 import           Control.Monad.Primitive
+import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.State
+import           Data.Bifunctor
+import           Data.Foldable
 import           Data.Kind
+import           Data.List
 import           Data.Primitive.MutVar
 import           Data.Vinyl.Functor
 import           GHC.Generics
-import qualified Data.Vinyl.XRec         as X
+import qualified Data.Vinyl.XRec           as X
 
 -- | An instance of @'Mutable' m a@ means that @a@ can be stored
 -- a mutable reference in monad @m@.
@@ -329,6 +336,11 @@ instance (Generic (z Identity), Generic (z (RefFor m)), GMutable m (Rep (z Ident
     defaultFreezeRef = freezeHKD
     defaultCopyRef   = copyHKD
 
+instance (Traversable f, Mutable m a) => DefaultMutable m (f a) (TraverseRef m f a) where
+    defaultThawRef   = thawTraverse
+    defaultFreezeRef = freezeTraverse
+    defaultCopyRef   = copyTraverse
+
 -- | A handy newtype wrapper that allows you to partially apply 'Ref'.
 -- @'RefFor' m a@ is the same as @'Ref' m a@, but can be partially applied.
 --
@@ -342,8 +354,41 @@ instance X.IsoHKD (RefFor m) a where
     unHKD = RefFor
     toHKD = getRefFor
 
--- | Newtype wrapper that can provide any type with a 'Mutable' instance.
--- Can be useful for avoiding orphan instances.
+-- | Newtype wrapper that can provide any type with a 'Mutable' instance,
+-- giving it a "non-piecewise" instance.  Can be useful for avoiding orphan
+-- instances yet still utilizing auto-deriving features, or for overwriting
+-- the 'Mutable' instance of other instances.
+--
+-- For example, let's say you want to auto-derive an instance for your data
+-- type:
+--
+-- @
+-- data MyType = MT Int Double OtherType
+--   deriving Generic
+-- @
+--
+-- This is possible if all of 'MyType's fields have 'Mutable' instances.
+-- However, let's say @OtherType@ comes from an external library that you
+-- don't have control over, and so you cannot give it a 'Mutable' instance
+-- without incurring an orphan instance.
+--
+-- One solution is to wrap it in 'MutRef':
+--
+-- @
+-- data MyType = MT Int Double ('MutRef' OtherType)
+--   deriving Generic
+-- @
+--
+-- This can then be auto-derived:
+--
+-- @
+-- instance Mutable m MyType where
+--     type Ref m MyType = GRef m MyType
+-- @
+--
+-- It can also be used to /override/ a 'Mutable' instance.  For example,
+-- even if the 'Mutable' instance of @SomeType@ is piecewise-mutable, the
+-- 'Mutable' instance of @'MutRef' SomeType@ will be not be piecewise.
 newtype MutRef a = MutRef { getMutRef :: a }
 
 instance PrimMonad m => Mutable m (MutRef a)
@@ -353,6 +398,40 @@ instance X.IsoHKD MutRef a where
     type HKD MutRef a = a
     unHKD = MutRef
     toHKD = getMutRef
+
+-- | A 'Ref' that works for any instance of 'Traversable'.
+--
+-- Copying and modifying semantics can be a bit funky.
+--
+-- *   If copying a shorter item into a longer item ref, the "leftovers" items
+--     in the longer item are unchanged.
+-- *   If copying a longer item into a shorter item ref, the leftover items
+--     are unchanged.
+--
+-- @
+-- ghci> r <- 'thawTraverse' [1..10]
+-- ghci> 'copyTraverse' r [0,0,0,0]
+-- ghci> 'freezeTraverse' r
+-- [0,0,0,0,5,6,7,8,9,10]
+-- ghci> 'copyTraverse' r [20..50]
+-- ghci> 'freezeTraverse' r
+-- [20,21,22,23,24,25,26,27,28,29]
+-- @
+--
+newtype TraverseRef m f a = TraverseRef { getTraverseRef :: f (Ref m a) }
+
+thawTraverse :: (Traversable f, Mutable m a) => f a -> m (TraverseRef m f a)
+thawTraverse = fmap TraverseRef . traverse thawRef
+
+freezeTraverse :: (Traversable f, Mutable m a) => TraverseRef m f a -> m (f a)
+freezeTraverse = traverse freezeRef . getTraverseRef
+
+copyTraverse :: (Traversable f, Mutable m a) => TraverseRef m f a -> f a -> m ()
+copyTraverse (TraverseRef rs) xs = evalStateT (traverse_ go rs) (toList xs)
+  where
+    go r = do
+      x <- state $ maybe (Nothing, []) (first Just) . uncons
+      lift $ mapM_ (copyRef r) x
 
 -- | Class for automatic generation of 'Ref' for 'Generic' instances.  See
 -- 'GRef' for more information.

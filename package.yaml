@@ -39,6 +39,7 @@ library:
   - primitive
   - profunctors
   - reflection
+  - transformers
   - vector
   - vinyl
 

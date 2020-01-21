@@ -1,4 +1,8 @@
 {-# LANGUAGE BangPatterns          #-}
+{-# LANGUAGE DeriveFoldable        #-}
+{-# LANGUAGE DeriveFunctor         #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE DeriveTraversable     #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
@@ -10,16 +14,23 @@
 {-# OPTIONS_GHC -fno-warn-orphans  #-}
 
 module Data.Mutable.Instances (
-    RecRef(..)
+    ListRefCell(..)
+  , unconsListRef, consListRef
+  , RecRef(..)
   ) where
 
 import           Control.Monad.Primitive
+import           Data.Coerce
 import           Data.Complex
+import           Data.Foldable
+import           Data.Functor
 import           Data.Mutable.Internal
+import           Data.Primitive.MutVar
 import           Data.Ratio
 import           Data.Vinyl                    as V
 import           Data.Vinyl.Functor
 import           Foreign.Storable
+import           GHC.Generics
 import qualified Data.Vector                   as V
 import qualified Data.Vector.Generic           as VG
 import qualified Data.Vector.Mutable           as MV
@@ -39,6 +50,49 @@ instance PrimMonad m => Mutable m Float
 instance PrimMonad m => Mutable m Double
 instance PrimMonad m => Mutable m (Complex a)
 instance PrimMonad m => Mutable m Bool
+
+-- | Single linked list cell
+data ListRefCell m a = MutNil
+                     | MutCons (Ref m a) (Ref m [a])
+
+-- | Uncons mutable linked list into a 'ListRefCell'.
+unconsListRef
+    :: PrimMonad m
+    => Ref m [a]
+    -> m (ListRefCell m a)
+unconsListRef (GRef (M1 (Comp1 x))) = readMutVar x <&> \case
+    L1 _ -> MutNil
+    R1 (M1 (M1 (K1 y) :*: M1 (K1 z))) -> MutCons y z
+
+-- | Cons the contents of a 'ListRefCell' into a mutable linked list.
+consListRef
+    :: PrimMonad m
+    => ListRefCell m a
+    -> m (Ref m [a])
+consListRef lrc = GRef . M1 . Comp1 <$> newMutVar go
+  where
+    go = case lrc of
+      MutNil       -> L1 . M1 $ U1
+      MutCons x xs -> R1 . M1 $ M1 (K1 x) :*: M1 (K1 xs)
+
+-- | Mutable linked list with mutable references in each cell.  See
+-- 'unconsListRef' and 'consListRef' for ways to directly work with this
+-- type as a mutable linked list.
+instance (PrimMonad m, Mutable m a) => Mutable m [a] where
+    type Ref m [a] = GRef m [a]
+
+-- | Similar to 'MutRef', this allows you to overwrite the normal 'Mutable'
+-- instance for a type to utilize its 'Traversable' instance instead of its
+-- normal instance.
+--
+-- For example, the instance of @'Mutable' ('TraverseMut' [] a)@ is
+-- a normal list of mutable references, instead of a full-on mutable linked
+-- list.
+newtype TraverseMut f a = TraverseMut { getTraverseMut :: f a }
+  deriving (Show, Eq, Ord, Generic, Functor, Foldable, Traversable)
+
+instance (Traversable f, Mutable m a) => Mutable m (TraverseMut f a) where
+    type Ref m (TraverseMut f a) = TraverseRef m (TraverseMut f) a
 
 instance Mutable m a => Mutable m (Identity a) where
     type Ref m (Identity a) = RefFor m a

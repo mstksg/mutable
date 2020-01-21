@@ -133,6 +133,13 @@ updatePart' mp = updateRef' . getMutPart mp
 -- | A 'MutPart' for a field in a vinyl 'Data.Vinyl.Rec', automatically
 -- generated as the first field with a matching type.  This is polymorphic
 -- to work over both 'Data.Vinyl.Rec' and 'Data.Vinyl.ARec'.
+--
+-- @
+-- ghci> r <- 'thawRef' $ [1,2,3] 'V.:&' [True, False] :& 'V.RNil'
+-- ghci> modifyPart (mutRec @Bool) r reverse
+-- ghci> freezeRef r
+-- [1,2,3] :& [False, True] :& RNil
+-- @
 mutRec
     :: forall a as f rec m.
      ( Ref m (rec f as) ~ rec (RecRef m f) as

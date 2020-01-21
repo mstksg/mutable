@@ -55,12 +55,13 @@ benchmarks:
     - criterion
     - deepseq
     - directory
-    - vector
     - microlens
     - microlens-th
     - mutable
     - time
     - transformers
+    - vector
+    - vinyl
 
 # executables:
 #   mutable-exe:

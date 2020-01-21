@@ -11,9 +11,12 @@
 {-# LANGUAGE OverloadedLabels              #-}
 {-# LANGUAGE QuantifiedConstraints         #-}
 {-# LANGUAGE RankNTypes                    #-}
+{-# LANGUAGE ScopedTypeVariables           #-}
 {-# LANGUAGE TemplateHaskell               #-}
+{-# LANGUAGE TypeApplications              #-}
 {-# LANGUAGE TypeFamilies                  #-}
 {-# LANGUAGE TypeOperators                 #-}
+{-# OPTIONS_GHC -fno-warn-orphans          #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 
 import           Control.Category          ((.))
@@ -25,17 +28,18 @@ import           Control.Monad.Trans.State
 import           Criterion.Main
 import           Criterion.Types
 import           Data.Foldable
-import           Data.Functor.Compose
 import           Data.Mutable
 import           Data.Time
-import           Data.Vector (Vector)
+import           Data.Vector               (Vector)
+import           Data.Vinyl.Functor
+import           Data.Vinyl.XRec
 import           GHC.Generics
 import           Lens.Micro
 import           Lens.Micro.TH
 import           Prelude hiding            ((.))
 import           System.Directory
 import qualified Data.Vector               as V
-import qualified Data.Vector.Mutable as MV
+import qualified Data.Vector.Mutable       as MV
 
 data V4 a = V4 { _v4X :: !a
                , _v4Y :: !a
@@ -47,25 +51,43 @@ data V4 a = V4 { _v4X :: !a
 instance NFData a => NFData (V4 a)
 instance Mutable m a => Mutable m (V4 a) where
     type Ref m (V4 a) = GRef m (V4 a)
-
-makeLenses 'V4
-
 instance Applicative V4 where
     pure x = V4 x x x x
     V4 a b c d <*> V4 x y z w = V4 (a x) (b y) (c z) (d w)
+makeLenses 'V4
 
 newtype V256 a = V256 { _v256 :: V4 (V4 (V4 (V4 a))) }
   deriving (Show, Generic, Functor, Foldable, Traversable)
   deriving Applicative via (V4 :.: V4 :.: V4 :.: V4)
-
 instance NFData a => NFData (V256 a)
 instance Mutable m a => Mutable m (V256 a) where
     type Ref m (V256 a) = CoerceRef m (V256 a) (V4 (V4 (V4 (V4 a))))
-
 makeLenses 'V256
 
-type ADT = V256 Double
-type Vec = V4 (Vector Double)
+-- HKD variant of V4
+data V4F a f = V4F { _vf4X :: !(f a)
+                   , _vf4Y :: !(f a)
+                   , _vf4Z :: !(f a)
+                   , _vf4W :: !(f a)
+                   }
+  deriving (Show, Generic)
+instance NFData (f a) => NFData (V4F a f)
+instance Mutable m a => Mutable m (V4F a Identity) where
+    type Ref m (V4F a Identity) = V4F a (RefFor m)
+
+-- HKD variant of V256
+newtype V256F a = V256F { _v256F :: V4F (V4F (V4F (V4F a Identity) Identity) Identity) Identity }
+  deriving (Show, Generic)
+instance NFData a => NFData (Identity a)
+instance NFData a => NFData (V256F a)
+instance Mutable m a => Mutable m (V256F a) where
+    type Ref m (V256F a) = CoerceRef m (V256F a) (V4F (V4F (V4F (V4F a Identity) Identity) Identity) Identity)
+
+
+type ADT  = V256 Double
+type ADTF = V256F Double
+type Vec  = V4  (Vector Double)
+type VecF = V4F (Vector Double) Identity
 
 pureLoop :: (a -> a) -> Int -> a -> a
 pureLoop f n = go 0
@@ -103,17 +125,34 @@ mutLoop f n x0 = runST $ do
 modifyPartMut :: Int -> ADT -> ADT
 modifyPartMut = mutLoop $ \r -> modifyPart' modPart r (+1)
 
+modifyPartMutHKD :: Int -> ADTF -> ADTF
+modifyPartMutHKD = mutLoop $ \r -> modifyPart' modPartHKD r (+1)
+
 modifyWholeMut :: Int -> ADT -> ADT
 modifyWholeMut = mutLoop          $ \r ->
                    withAllRefV256 r $ \s ->
                      modifyRef s (+ 1)
 
+modifyWholeMutHKD :: Int -> ADTF -> ADTF
+modifyWholeMutHKD = mutLoop          $ \r ->
+                      withAllRefV256HKD r $ \s ->
+                        modifyRef s (+ 1)
+
 modifyPartMutV :: Int -> Vec -> Vec
 modifyPartMutV = mutLoop $ \r -> withMutPart (fieldMut #_v4X) r $ \mv ->
                     (MV.write mv 0 $!) . (+ 1) =<< MV.read mv 0
 
+modifyPartMutVHKD :: Int -> VecF -> VecF
+modifyPartMutVHKD = mutLoop $ \r -> withMutPart (_vf4X vfParts) r $ \mv ->
+                       (MV.write mv 0 $!) . (+ 1) =<< MV.read mv 0
+
 modifyWholeMutV :: Int -> Vec -> Vec
 modifyWholeMutV = mutLoop $ \r -> withAllRefV4 r $ \mv -> do
+    forM_ [0 .. MV.length mv - 1] $ \i ->
+      (MV.write mv i $!) . (+ 1) =<< MV.read mv i
+
+modifyWholeMutVHKD :: Int -> VecF -> VecF
+modifyWholeMutVHKD = mutLoop $ \r -> withAllRefV4HKD r $ \mv -> do
     forM_ [0 .. MV.length mv - 1] $ \i ->
       (MV.write mv i $!) . (+ 1) =<< MV.read mv i
 
@@ -128,22 +167,26 @@ main = do
           } [
         bgroup "adt-256" [
           bgroup "part-50M"
-            [ bench "pure"    $ nf (modifyPartPure 50_000_000) bigADT
-            , bench "mutable" $ nf (modifyPartMut  50_000_000) bigADT
+            [ bench "pure"        $ nf (modifyPartPure   50_000_000) bigADT
+            , bench "mutable"     $ nf (modifyPartMut    50_000_000) bigADT
+            , bench "mutable-hkd" $ nf (modifyPartMutHKD 50_000_000) bigADTF
             ]
         , bgroup "whole-20K"
-            [ bench "pure"    $ nf (modifyWholePure 20_000) bigADT
-            , bench "mutable" $ nf (modifyWholeMut  20_000) bigADT
+            [ bench "pure"        $ nf (modifyWholePure   20_000) bigADT
+            , bench "mutable"     $ nf (modifyWholeMut    20_000) bigADT
+            , bench "mutable-hkd" $ nf (modifyWholeMutHKD 20_000) bigADTF
             ]
         ]
       , bgroup "vector-2M" [
           bgroup "part-100"
-            [ bench "pure"    $ nf (modifyPartPureV 100) bigVec
-            , bench "mutable" $ nf (modifyPartMutV  100) bigVec
+            [ bench "pure"        $ nf (modifyPartPureV   100) bigVec
+            , bench "mutable"     $ nf (modifyPartMutV    100) bigVec
+            , bench "mutable-hkd" $ nf (modifyPartMutVHKD 100) bigVecF
             ]
         , bgroup "whole-3"
-            [ bench "pure"    $ nf (modifyWholePureV 3) bigVec
-            , bench "mutable" $ nf (modifyWholeMutV  3) bigVec
+            [ bench "pure"        $ nf (modifyWholePureV   3) bigVec
+            , bench "mutable"     $ nf (modifyWholeMutV    3) bigVec
+            , bench "mutable-hkd" $ nf (modifyWholeMutVHKD 3) bigVecF
             ]
         ]
 
@@ -151,11 +194,26 @@ main = do
   where
     bigADT :: ADT
     !bigADT = populate $ pure ()
+    bigADTF :: ADTF
+    !bigADTF = toADTF bigADT
     bigVec :: Vec
     !bigVec = getCompose . populate . Compose $ pure (V.replicate 500_000 ())
+    bigVecF :: VecF
+    !bigVecF = toVF bigVec
 
 
 
+toADTF :: ADT -> ADTF
+toADTF = V256F
+       . toVF . fmap (toVF . fmap (toVF . fmap toVF))
+       . _v256
+
+toVF :: V4 a -> V4F a Identity
+toVF (V4 a b c d) = V4F (Identity a) (Identity b) (Identity c) (Identity d)
+
+
+vfParts :: forall m a. Mutable m a => V4F a (MutPart m (V4F a Identity))
+vfParts = hkdMutParts @(V4F a)
 
 modPart :: Mutable m a => MutPart m (V256 a) a
 modPart = fieldMut #_v4X
@@ -164,6 +222,15 @@ modPart = fieldMut #_v4X
         . fieldMut #_v4X
         . coerceRef
 
+modPartHKD :: forall m a. Mutable m a => MutPart m (V256F a) a
+modPartHKD = _vf4X vfParts
+           . _vf4X vfParts
+           . _vf4X vfParts
+           . _vf4X vfParts
+           . coerceRef
+
+
+
 withAllRefV4 :: Mutable m a => Ref m (V4 a) -> (Ref m a -> m ()) -> m ()
 withAllRefV4 r f = do
     withMutPart (fieldMut #_v4X) r f
@@ -171,12 +238,28 @@ withAllRefV4 r f = do
     withMutPart (fieldMut #_v4Z) r f
     withMutPart (fieldMut #_v4W) r f
 
+withAllRefV4HKD :: forall m a. Mutable m a => V4F a (RefFor m) -> (Ref m a -> m ()) -> m ()
+withAllRefV4HKD r f = do
+    withMutPart (_vf4X vfParts) r f
+    withMutPart (_vf4Y vfParts) r f
+    withMutPart (_vf4Z vfParts) r f
+    withMutPart (_vf4W vfParts) r f
+
 withAllRefV256 :: Mutable m a => Ref m (V256 a) -> (Ref m a -> m ()) -> m ()
 withAllRefV256 r f = flip runContT pure $ do
     s   <- ContT . withAllRefV4
        =<< ContT . withAllRefV4
        =<< ContT . withAllRefV4
        =<< ContT . withAllRefV4
+       =<< ContT (withMutPart coerceRef r)
+    lift $ f s
+
+withAllRefV256HKD :: Mutable m a => Ref m (V256F a) -> (Ref m a -> m ()) -> m ()
+withAllRefV256HKD r f = flip runContT pure $ do
+    s   <- ContT . withAllRefV4HKD
+       =<< ContT . withAllRefV4HKD
+       =<< ContT . withAllRefV4HKD
+       =<< ContT . withAllRefV4HKD
        =<< ContT (withMutPart coerceRef r)
     lift $ f s
 

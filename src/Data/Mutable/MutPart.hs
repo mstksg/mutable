@@ -27,15 +27,19 @@
 -- values.
 module Data.Mutable.MutPart (
     MutPart(..)
+  , withMutPart
   , freezePart, copyPart
   , modifyPart, modifyPart'
   , updatePart, updatePart'
+  , compMP
+  , idMP
   -- * Built-in 'MutPart'
   , mutFst, mutSnd
   , FieldMut, fieldMut, Label(..)
   , PosMut, posMut
   , hkdMutParts, HKDMutParts
   , mutRec
+  , coerceRef
   ) where
 
 import           Data.Coerce
@@ -47,6 +51,7 @@ import           Data.Vinyl.Functor
 import           Data.Vinyl.Lens
 import           GHC.Generics
 import           GHC.TypeLits
+import qualified Control.Category as C
 import qualified Data.GenericLens.Internal              as GL
 import qualified Data.Generics.Internal.Profunctor.Lens as GLP
 import qualified Data.Generics.Product.Fields           as GL
@@ -93,6 +98,17 @@ import qualified Data.Vinyl.XRec                        as X
 -- a product type --- see 'hkdMutParts' for more information.
 newtype MutPart m s a = MutPart { getMutPart :: Ref m s -> Ref m a }
 
+infixr 9 `compMP`
+compMP :: MutPart m a b -> MutPart m b c -> MutPart m a c
+compMP (MutPart f) (MutPart g) = MutPart (g . f)
+
+idMP :: MutPart m a a
+idMP = MutPart id
+
+instance C.Category (MutPart m) where
+    id = idMP
+    (.) = flip compMP
+
 instance X.IsoHKD (MutPart m s) a
 
 -- | 'MutPart' into the first field of a tuple reference.
@@ -102,6 +118,12 @@ mutFst = MutPart fst
 -- | 'MutPart' into the second field of a tuple reference.
 mutSnd :: MutPart m (a, b) b
 mutSnd = MutPart snd
+
+-- | Using a 'MutPart', perform a function on a @'Ref' m s@ as if you had
+-- a @'Ref' m a@.
+withMutPart :: MutPart m s a -> Ref m s -> (Ref m a -> m b) -> m b
+withMutPart mp x f = f (getMutPart mp x)
+{-# INLINE withMutPart #-}
 
 -- | With a 'MutPart', read out a specific part of a 'Ref'.
 freezePart :: Mutable m a => MutPart m s a -> Ref m s -> m a
@@ -149,6 +171,10 @@ mutRec
      )
     => MutPart m (rec f as) (f a)
 mutRec = MutPart $ getRecRef . rget @a @as @(RecRef m f) @rec
+
+-- | A 'MutPart' to get into a 'CoerceRef'.
+coerceRef :: (Ref m s ~ CoerceRef m s a) => MutPart m s a
+coerceRef = MutPart coerce
 
 -- | Typeclass used to implement 'hkdMutParts'.  See documentation of
 -- 'hkdMutParts' for more information.
@@ -333,3 +359,4 @@ type family TraverseProd (c :: G -> G -> G) (a :: (G, Nat)) (r :: G) :: (G, Nat)
 
 type family Fst (p :: (a, b)) :: a where
   Fst '(a, b) = a
+

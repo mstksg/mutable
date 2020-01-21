@@ -27,6 +27,7 @@ module Data.Mutable (
   , thawHKD, freezeHKD, copyHKD
   -- * Parts
   , MutPart(..)
+  , withMutPart
   , freezePart, copyPart
   , modifyPart, modifyPart'
   , updatePart, updatePart'
@@ -35,6 +36,7 @@ module Data.Mutable (
   , fieldMut, Label(..)
   , posMut
   , hkdMutParts
+  , coerceRef
   , mutRec
   -- ** Re-exports
   , PrimMonad, PrimState

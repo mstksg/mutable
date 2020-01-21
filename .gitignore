@@ -1,4 +1,5 @@
 .stack-work/
 mutable.cabal
+bench-results
 *.dump-hi
 *~

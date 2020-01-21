@@ -32,7 +32,6 @@ import           Data.Mutable
 import           Data.Time
 import           Data.Vector               (Vector)
 import           Data.Vinyl.Functor
-import           Data.Vinyl.XRec
 import           GHC.Generics
 import           Lens.Micro
 import           Lens.Micro.TH
@@ -168,28 +167,35 @@ main = do
         bgroup "adt-256" [
           bgroup "part-50M"
             [ bench "pure"        $ nf (modifyPartPure   50_000_000) bigADT
-            , bench "mutable"     $ nf (modifyPartMut    50_000_000) bigADT
-            , bench "mutable-hkd" $ nf (modifyPartMutHKD 50_000_000) bigADTF
+            , bgroup "mutable" [
+                  bench "field" $ nf (modifyPartMut    50_000_000) bigADT
+                , bench "hkd"   $ nf (modifyPartMutHKD 50_000_000) bigADTF
+                ]
             ]
         , bgroup "whole-20K"
             [ bench "pure"        $ nf (modifyWholePure   20_000) bigADT
-            , bench "mutable"     $ nf (modifyWholeMut    20_000) bigADT
-            , bench "mutable-hkd" $ nf (modifyWholeMutHKD 20_000) bigADTF
+            , bgroup "mutable" [
+                  bench "field" $ nf (modifyWholeMut    20_000) bigADT
+                , bench "hkd"   $ nf (modifyWholeMutHKD 20_000) bigADTF
+                ]
             ]
         ]
       , bgroup "vector-2M" [
           bgroup "part-100"
             [ bench "pure"        $ nf (modifyPartPureV   100) bigVec
-            , bench "mutable"     $ nf (modifyPartMutV    100) bigVec
-            , bench "mutable-hkd" $ nf (modifyPartMutVHKD 100) bigVecF
+            , bgroup "mutable" [
+                  bench "field" $ nf (modifyPartMutV    100) bigVec
+                , bench "hkd"   $ nf (modifyPartMutVHKD 100) bigVecF
+                ]
             ]
         , bgroup "whole-3"
             [ bench "pure"        $ nf (modifyWholePureV   3) bigVec
-            , bench "mutable"     $ nf (modifyWholeMutV    3) bigVec
-            , bench "mutable-hkd" $ nf (modifyWholeMutVHKD 3) bigVecF
+            , bgroup "mutable" [
+                  bench "mutable"     $ nf (modifyWholeMutV    3) bigVec
+                , bench "mutable-hkd" $ nf (modifyWholeMutVHKD 3) bigVecF
+                ]
             ]
         ]
-
       ]
   where
     bigADT :: ADT
@@ -210,7 +216,6 @@ toADTF = V256F
 
 toVF :: V4 a -> V4F a Identity
 toVF (V4 a b c d) = V4F (Identity a) (Identity b) (Identity c) (Identity d)
-
 
 vfParts :: forall m a. Mutable m a => V4F a (MutPart m (V4F a Identity))
 vfParts = hkdMutParts @(V4F a)

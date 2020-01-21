@@ -10,6 +10,259 @@
 @version 0.1.0.0
 
 
+-- | Provides <a>Ref</a> instances for various data types.
+module Data.Mutable.Instances
+
+-- | Single linked list cell
+data ListRefCell m a
+MutNil :: ListRefCell m a
+MutCons :: Ref m a -> Ref m [a] -> ListRefCell m a
+
+-- | Uncons mutable linked list into a <a>ListRefCell</a>.
+unconsListRef :: PrimMonad m => Ref m [a] -> m (ListRefCell m a)
+
+-- | Cons the contents of a <a>ListRefCell</a> into a mutable linked list.
+consListRef :: PrimMonad m => ListRefCell m a -> m (Ref m [a])
+
+-- | <a>Ref</a> for components in a vinyl <a>Rec</a>.
+newtype RecRef m f a
+RecRef :: Ref m (f a) -> RecRef m f a
+[getRecRef] :: RecRef m f a -> Ref m (f a)
+
+-- | Automatically generate a piecewise mutable reference for any
+--   <a>Generic</a> instance.
+--   
+--   <pre>
+--   -- | any <a>Generic</a> instance
+--   data Foo = Foo { fInt :: Int, fDouble :: Double }
+--     deriving (Generic, Show)
+--   
+--   instance Mutable m Foo where
+--       type Ref m Foo = <a>GRef</a> m Foo
+--   </pre>
+--   
+--   <pre>
+--   ghci&gt; r &lt;- <a>thawRef</a> (Foo 3 4.5)
+--   ghci&gt; <a>freezeRef</a> r
+--   Foo 3 4.5
+--   ghci&gt; <a>freezePart</a> (<a>fieldMut</a> #fInt) r
+--   3
+--   ghci&gt; <a>copyPart</a> (fieldMut #fDouble) 1.23
+--   ghci&gt; freezeRef r
+--   Foo 3 1.23
+--   </pre>
+--   
+--   Note that this is basically just a bunch of tupled refs for a product
+--   type. For a sum type (with multiple constructors), an extra layer of
+--   indirection is added to account for the dynamically changable shape.
+--   
+--   See <a>fieldMut</a>/<a>posMut</a> for ways to inspect and mutate the
+--   internals of this type (as demonstrated above).
+newtype GRef m a
+GRef :: GRef_ m (Rep a) () -> GRef m a
+[unGRef] :: GRef m a -> GRef_ m (Rep a) ()
+
+-- | Default <a>thawRef</a> for <a>GRef</a>.
+--   
+--   You likely won't ever use this directly, since it is automatically
+--   provided if you have a <a>Mutable</a> instance with <a>GRef</a> as the
+--   <a>Ref</a>. However, it can be useful if you are using a
+--   <tt><a>GRef</a> m a</tt> just as a normal data type, independent of
+--   the <a>Ref</a> class. See documentation for <a>GRef</a> for more
+--   information.
+gThawRef :: (Generic a, GMutable m (Rep a)) => a -> m (GRef m a)
+
+-- | Default <a>freezeRef</a> for <a>GRef</a>.
+--   
+--   You likely won't ever use this directly, since it is automatically
+--   provided if you have a <a>Mutable</a> instance with <a>GRef</a> as the
+--   <a>Ref</a>. However, it can be useful if you are using a
+--   <tt><a>GRef</a> m a</tt> just as a normal data type, independent of
+--   the <a>Ref</a> class. See documentation for <a>GRef</a> for more
+--   information.
+gFreezeRef :: (Generic a, GMutable m (Rep a)) => GRef m a -> m a
+
+-- | Default <a>copyRef</a> for <a>GRef</a>.
+--   
+--   You likely won't ever use this directly, since it is automatically
+--   provided if you have a <a>Mutable</a> instance with <a>GRef</a> as the
+--   <a>Ref</a>. However, it can be useful if you are using a
+--   <tt><a>GRef</a> m a</tt> just as a normal data type, independent of
+--   the <a>Ref</a> class. See documentation for <a>GRef</a> for more
+--   information.
+gCopyRef :: (Generic a, GMutable m (Rep a)) => GRef m a -> a -> m ()
+
+-- | Class for automatic generation of <a>Ref</a> for <a>Generic</a>
+--   instances. See <a>GRef</a> for more information.
+class Monad m => GMutable m f where {
+    type family GRef_ m f = (u :: k -> Type) | u -> f;
+}
+
+-- | Default <a>copyRef</a> for the higher-kinded data pattern, a la
+--   <a>https://reasonablypolymorphic.com/blog/higher-kinded-data/</a>.
+--   
+--   You likely won't ever use this directly, since it is automatically
+--   provided if you have a <a>Mutable</a> instance with <tt>z
+--   (<a>RefFor</a> m)</tt> as the <a>Ref</a>. However, it can be useful if
+--   you are using a <tt>z (<a>RefFor</a> m)</tt> just as a normal data
+--   type, independent of the <a>Ref</a> class. See documentation for
+--   <a>Mutable</a> for more information.
+thawHKD :: forall z m. (Generic (z Identity), Generic (z (RefFor m)), GMutable m (Rep (z Identity)), GRef_ m (Rep (z Identity)) ~ Rep (z (RefFor m))) => z Identity -> m (z (RefFor m))
+
+-- | Default <a>freezeRef</a> for the higher-kinded data pattern, a la
+--   <a>https://reasonablypolymorphic.com/blog/higher-kinded-data/</a>.
+--   
+--   You likely won't ever use this directly, since it is automatically
+--   provided if you have a <a>Mutable</a> instance with <tt>z
+--   (<a>RefFor</a> m)</tt> as the <a>Ref</a>. However, it can be useful if
+--   you are using a <tt>z (<a>RefFor</a> m)</tt> just as a normal data
+--   type, independent of the <a>Ref</a> class. See documentation for
+--   <a>Mutable</a> for more information.
+freezeHKD :: forall z m. (Generic (z Identity), Generic (z (RefFor m)), GMutable m (Rep (z Identity)), GRef_ m (Rep (z Identity)) ~ Rep (z (RefFor m))) => z (RefFor m) -> m (z Identity)
+
+-- | Default <a>copyRef</a> for the higher-kinded data pattern, a la
+--   <a>https://reasonablypolymorphic.com/blog/higher-kinded-data/</a>.
+--   
+--   You likely won't ever use this directly, since it is automatically
+--   provided if you have a <a>Mutable</a> instance with <tt>z
+--   (<a>RefFor</a> m)</tt> as the <a>Ref</a>. However, it can be useful if
+--   you are using a <tt>z (<a>RefFor</a> m)</tt> just as a normal data
+--   type, independent of the <a>Ref</a> class. See documentation for
+--   <a>Mutable</a> for more information.
+copyHKD :: forall z m. (Generic (z Identity), Generic (z (RefFor m)), GMutable m (Rep (z Identity)), GRef_ m (Rep (z Identity)) ~ Rep (z (RefFor m))) => z (RefFor m) -> z Identity -> m ()
+
+-- | A <a>Ref</a> that works by using the <a>Mutable</a> instance of an
+--   equivalent type. This is useful for newtype wrappers, so you can use
+--   the underlying data type's <a>Mutable</a> instance.
+--   
+--   <pre>
+--   newtype MyVec = MyVec (<a>Vector</a> Double)
+--   
+--   instance <a>Mutable</a> m MyVec where
+--       type <a>Ref</a> m MyVec = <a>CoerceRef</a> m s (<a>Vector</a> Double)
+--   </pre>
+--   
+--   The <tt>Ref m MyVec</tt> uses the a <tt><a>MVector</a> Double</tt>
+--   under the hood.
+--   
+--   It's essentially a special case of <a>GRef</a> for newtypes.
+newtype CoerceRef m s a
+CoerceRef :: Ref m a -> CoerceRef m s a
+[getCoerceRef] :: CoerceRef m s a -> Ref m a
+thawCoerce :: (Coercible s a, Mutable m a) => s -> m (CoerceRef m s a)
+freezeCoerce :: (Coercible s a, Mutable m a) => CoerceRef m s a -> m s
+copyCoerce :: (Coercible s a, Mutable m a) => CoerceRef m s a -> s -> m ()
+
+-- | A <a>Ref</a> that works for any instance of <a>Traversable</a>.
+--   
+--   Copying and modifying semantics can be a bit funky.
+--   
+--   <ul>
+--   <li>If copying a shorter item into a longer item ref, the "leftovers"
+--   items in the longer item are unchanged.</li>
+--   <li>If copying a longer item into a shorter item ref, the leftover
+--   items are unchanged.</li>
+--   </ul>
+--   
+--   <pre>
+--   ghci&gt; r &lt;- <a>thawTraverse</a> [1..10]
+--   ghci&gt; <a>copyTraverse</a> r [0,0,0,0]
+--   ghci&gt; <a>freezeTraverse</a> r
+--   [0,0,0,0,5,6,7,8,9,10]
+--   ghci&gt; <a>copyTraverse</a> r [20..50]
+--   ghci&gt; <a>freezeTraverse</a> r
+--   [20,21,22,23,24,25,26,27,28,29]
+--   </pre>
+newtype TraverseRef m f a
+TraverseRef :: f (Ref m a) -> TraverseRef m f a
+[getTraverseRef] :: TraverseRef m f a -> f (Ref m a)
+thawTraverse :: (Traversable f, Mutable m a) => f a -> m (TraverseRef m f a)
+freezeTraverse :: (Traversable f, Mutable m a) => TraverseRef m f a -> m (f a)
+copyTraverse :: (Traversable f, Mutable m a) => TraverseRef m f a -> f a -> m ()
+
+-- | A <a>Ref</a> for instances of <a>GMutable</a>, which are the
+--   <a>GHC.Generics</a> combinators.
+newtype GMutableRef m f a
+GMutableRef :: GRef_ m f a -> GMutableRef m f a
+[getGMutableRef] :: GMutableRef m f a -> GRef_ m f a
+thawGMutableRef :: GMutable m f => f a -> m (GMutableRef m f a)
+freezeGMutableRef :: GMutable m f => GMutableRef m f a -> m (f a)
+copyGMutableRef :: GMutable m f => GMutableRef m f a -> f a -> m ()
+instance Data.Traversable.Traversable f => Data.Traversable.Traversable (Data.Mutable.Instances.TraverseMut f)
+instance Data.Foldable.Foldable f => Data.Foldable.Foldable (Data.Mutable.Instances.TraverseMut f)
+instance GHC.Base.Functor f => GHC.Base.Functor (Data.Mutable.Instances.TraverseMut f)
+instance forall k (f :: k -> *) (a :: k). GHC.Generics.Generic (Data.Mutable.Instances.TraverseMut f a)
+instance forall k (f :: k -> *) (a :: k). GHC.Classes.Ord (f a) => GHC.Classes.Ord (Data.Mutable.Instances.TraverseMut f a)
+instance forall k (f :: k -> *) (a :: k). GHC.Classes.Eq (f a) => GHC.Classes.Eq (Data.Mutable.Instances.TraverseMut f a)
+instance forall k (f :: k -> *) (a :: k). GHC.Show.Show (f a) => GHC.Show.Show (Data.Mutable.Instances.TraverseMut f a)
+instance forall u (m :: * -> *) (f :: u -> *). GHC.Base.Monad m => Data.Mutable.Internal.Mutable m (Data.Vinyl.Core.Rec f '[])
+instance forall a1 (m :: * -> *) (f :: a1 -> *) (a2 :: a1) (as :: [a1]). (GHC.Base.Monad m, Data.Mutable.Internal.Mutable m (f a2), Data.Mutable.Internal.Mutable m (Data.Vinyl.Core.Rec f as), Data.Mutable.Internal.Ref m (Data.Vinyl.Core.Rec f as) GHC.Types.~ Data.Vinyl.Core.Rec (Data.Mutable.Instances.RecRef m f) as) => Data.Mutable.Internal.Mutable m (Data.Vinyl.Core.Rec f (a2 : as))
+instance forall k (m :: * -> *) (as :: [k]) (f :: k -> *). (GHC.Base.Monad m, Data.Vinyl.Core.RecApplicative as, Data.Vinyl.TypeLevel.NatToInt (Data.Vinyl.TypeLevel.RLength as), Data.Vinyl.Core.RPureConstrained (Data.Vinyl.ARec.IndexableField as) as, Data.Mutable.Internal.Mutable m (Data.Vinyl.Core.Rec f as), Data.Mutable.Internal.Ref m (Data.Vinyl.Core.Rec f as) GHC.Types.~ Data.Vinyl.Core.Rec (Data.Mutable.Instances.RecRef m f) as) => Data.Mutable.Internal.Mutable m (Data.Vinyl.ARec.ARec f as)
+instance (Data.Traversable.Traversable f, Data.Mutable.Internal.Mutable m a) => Data.Mutable.Internal.Mutable m (Data.Mutable.Instances.TraverseMut f a)
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m GHC.Types.Int
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m GHC.Integer.Type.Integer
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m GHC.Natural.Natural
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m (GHC.Real.Ratio a)
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m GHC.Types.Float
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m GHC.Types.Double
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m (Data.Complex.Complex a)
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m GHC.Types.Bool
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m GHC.Types.Char
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m GHC.Types.Word
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m GHC.Word.Word8
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m GHC.Word.Word16
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m GHC.Word.Word64
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CChar
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CSChar
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CUChar
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CShort
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CUShort
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CInt
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CUInt
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CLong
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CULong
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CPtrdiff
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CSize
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CWchar
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CSigAtomic
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CLLong
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CULLong
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CBool
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CIntPtr
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CUIntPtr
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CIntMax
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CUIntMax
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CClock
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CTime
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CUSeconds
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CSUSeconds
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CFloat
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m Foreign.C.Types.CDouble
+instance Data.Mutable.Internal.Mutable m a => Data.Mutable.Internal.Mutable m (Data.Functor.Identity.Identity a)
+instance forall k (m :: * -> *) a (b :: k). Data.Mutable.Internal.Mutable m a => Data.Mutable.Internal.Mutable m (Data.Functor.Const.Const a b)
+instance forall k (m :: * -> *) a (b :: k). Data.Mutable.Internal.Mutable m a => Data.Mutable.Internal.Mutable m (Data.Vinyl.Functor.Const a b)
+instance Data.Mutable.Internal.Mutable m a => Data.Mutable.Internal.Mutable m (Data.Semigroup.Internal.Product a)
+instance Data.Mutable.Internal.Mutable m a => Data.Mutable.Internal.Mutable m (Data.Semigroup.Internal.Sum a)
+instance Data.Mutable.Internal.Mutable m a => Data.Mutable.Internal.Mutable m (Data.Ord.Down a)
+instance Data.Mutable.Internal.Mutable m a => Data.Mutable.Internal.Mutable m (Data.Semigroup.Internal.Dual a)
+instance (Data.Mutable.Internal.Mutable m a, Control.Monad.Primitive.PrimMonad m) => Data.Mutable.Internal.Mutable m (GHC.Maybe.Maybe a)
+instance (Data.Mutable.Internal.Mutable m a, Data.Mutable.Internal.Mutable m b, Control.Monad.Primitive.PrimMonad m) => Data.Mutable.Internal.Mutable m (Data.Either.Either a b)
+instance forall k (m :: * -> *) (f :: k -> *) (a :: k) (g :: k -> *). (Data.Mutable.Internal.Mutable m (f a), Data.Mutable.Internal.Mutable m (g a)) => Data.Mutable.Internal.Mutable m (Data.Functor.Product.Product f g a)
+instance forall k (m :: * -> *) (f :: k -> *) (a :: k) (g :: k -> *). (Data.Mutable.Internal.Mutable m (f a), Data.Mutable.Internal.Mutable m (g a), Control.Monad.Primitive.PrimMonad m) => Data.Mutable.Internal.Mutable m (Data.Functor.Sum.Sum f g a)
+instance forall k k1 (m :: * -> *) (f :: k -> *) (g :: k1 -> k) (a :: k1). Data.Mutable.Internal.Mutable m (f (g a)) => Data.Mutable.Internal.Mutable m (Data.Functor.Compose.Compose f g a)
+instance (Control.Monad.Primitive.PrimMonad m, Data.Mutable.Internal.Mutable m a) => Data.Mutable.Internal.Mutable m [a]
+instance Data.Mutable.Internal.Mutable m a => Data.Mutable.Internal.Mutable m (Data.Vinyl.Functor.Identity a)
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m (Data.Vector.Vector a)
+instance (Control.Monad.Primitive.PrimMonad m, Foreign.Storable.Storable a) => Data.Mutable.Internal.Mutable m (Data.Vector.Storable.Vector a)
+instance (Control.Monad.Primitive.PrimMonad m, Data.Vector.Unboxed.Base.Unbox a) => Data.Mutable.Internal.Mutable m (Data.Vector.Unboxed.Base.Vector a)
+instance (Control.Monad.Primitive.PrimMonad m, Data.Primitive.Types.Prim a) => Data.Mutable.Internal.Mutable m (Data.Vector.Primitive.Vector a)
+instance GHC.Base.Monad m => Data.Mutable.Internal.Mutable m Data.Void.Void
+instance GHC.Base.Monad m => Data.Mutable.Internal.Mutable m ()
+instance (GHC.Base.Monad m, Data.Mutable.Internal.Mutable m a, Data.Mutable.Internal.Mutable m b) => Data.Mutable.Internal.Mutable m (a, b)
+instance (GHC.Base.Monad m, Data.Mutable.Internal.Mutable m a, Data.Mutable.Internal.Mutable m b, Data.Mutable.Internal.Mutable m c) => Data.Mutable.Internal.Mutable m (a, b, c)
+instance (GHC.Base.Monad m, Data.Mutable.Internal.Mutable m a, Data.Mutable.Internal.Mutable m b, Data.Mutable.Internal.Mutable m c, Data.Mutable.Internal.Mutable m d) => Data.Mutable.Internal.Mutable m (a, b, c, d)
+
+
 -- | Provides the <a>Mutable</a> typeclass and various helpers. See
 --   <a>Mutable</a> for the main "entrypoint".
 module Data.Mutable.Class
@@ -413,113 +666,6 @@ class DefaultMutable m a r
 defaultThawRef :: DefaultMutable m a r => a -> m r
 defaultFreezeRef :: DefaultMutable m a r => r -> m a
 defaultCopyRef :: DefaultMutable m a r => r -> a -> m ()
-
--- | Automatically generate a piecewise mutable reference for any
---   <a>Generic</a> instance.
---   
---   <pre>
---   -- | any <a>Generic</a> instance
---   data Foo = Foo { fInt :: Int, fDouble :: Double }
---     deriving (Generic, Show)
---   
---   instance Mutable m Foo where
---       type Ref m Foo = <a>GRef</a> m Foo
---   </pre>
---   
---   <pre>
---   ghci&gt; r &lt;- <a>thawRef</a> (Foo 3 4.5)
---   ghci&gt; <a>freezeRef</a> r
---   Foo 3 4.5
---   ghci&gt; <a>freezePart</a> (<a>fieldMut</a> #fInt) r
---   3
---   ghci&gt; <a>copyPart</a> (fieldMut #fDouble) 1.23
---   ghci&gt; freezeRef r
---   Foo 3 1.23
---   </pre>
---   
---   Note that this is basically just a bunch of tupled refs for a product
---   type. For a sum type (with multiple constructors), an extra layer of
---   indirection is added to account for the dynamically changable shape.
---   
---   See <a>fieldMut</a>/<a>posMut</a> for ways to inspect and mutate the
---   internals of this type (as demonstrated above).
-newtype GRef m a
-GRef :: GRef_ m (Rep a) () -> GRef m a
-[unGRef] :: GRef m a -> GRef_ m (Rep a) ()
-
--- | Default <a>thawRef</a> for <a>GRef</a>.
---   
---   You likely won't ever use this directly, since it is automatically
---   provided if you have a <a>Mutable</a> instance with <a>GRef</a> as the
---   <a>Ref</a>. However, it can be useful if you are using a
---   <tt><a>GRef</a> m a</tt> just as a normal data type, independent of
---   the <a>Ref</a> class. See documentation for <a>GRef</a> for more
---   information.
-gThawRef :: (Generic a, GMutable m (Rep a)) => a -> m (GRef m a)
-
--- | Default <a>freezeRef</a> for <a>GRef</a>.
---   
---   You likely won't ever use this directly, since it is automatically
---   provided if you have a <a>Mutable</a> instance with <a>GRef</a> as the
---   <a>Ref</a>. However, it can be useful if you are using a
---   <tt><a>GRef</a> m a</tt> just as a normal data type, independent of
---   the <a>Ref</a> class. See documentation for <a>GRef</a> for more
---   information.
-gFreezeRef :: (Generic a, GMutable m (Rep a)) => GRef m a -> m a
-
--- | Default <a>copyRef</a> for <a>GRef</a>.
---   
---   You likely won't ever use this directly, since it is automatically
---   provided if you have a <a>Mutable</a> instance with <a>GRef</a> as the
---   <a>Ref</a>. However, it can be useful if you are using a
---   <tt><a>GRef</a> m a</tt> just as a normal data type, independent of
---   the <a>Ref</a> class. See documentation for <a>GRef</a> for more
---   information.
-gCopyRef :: (Generic a, GMutable m (Rep a)) => GRef m a -> a -> m ()
-
--- | Class for automatic generation of <a>Ref</a> for <a>Generic</a>
---   instances. See <a>GRef</a> for more information.
-class Monad m => GMutable m f where {
-    type family GRef_ m f = (u :: Type -> Type) | u -> f;
-}
-
--- | Default <a>copyRef</a> for the higher-kinded data pattern, a la
---   <a>https://reasonablypolymorphic.com/blog/higher-kinded-data/</a>.
---   
---   You likely won't ever use this directly, since it is automatically
---   provided if you have a <a>Mutable</a> instance with <tt>z
---   (<a>RefFor</a> m)</tt> as the <a>Ref</a>. However, it can be useful if
---   you are using a <tt>z (<a>RefFor</a> m)</tt> just as a normal data
---   type, independent of the <a>Ref</a> class. See documentation for
---   <a>Mutable</a> for more information.
-thawHKD :: forall z m. (Generic (z Identity), Generic (z (RefFor m)), GMutable m (Rep (z Identity)), GRef_ m (Rep (z Identity)) ~ Rep (z (RefFor m))) => z Identity -> m (z (RefFor m))
-
--- | Default <a>freezeRef</a> for the higher-kinded data pattern, a la
---   <a>https://reasonablypolymorphic.com/blog/higher-kinded-data/</a>.
---   
---   You likely won't ever use this directly, since it is automatically
---   provided if you have a <a>Mutable</a> instance with <tt>z
---   (<a>RefFor</a> m)</tt> as the <a>Ref</a>. However, it can be useful if
---   you are using a <tt>z (<a>RefFor</a> m)</tt> just as a normal data
---   type, independent of the <a>Ref</a> class. See documentation for
---   <a>Mutable</a> for more information.
-freezeHKD :: forall z m. (Generic (z Identity), Generic (z (RefFor m)), GMutable m (Rep (z Identity)), GRef_ m (Rep (z Identity)) ~ Rep (z (RefFor m))) => z (RefFor m) -> m (z Identity)
-
--- | Default <a>copyRef</a> for the higher-kinded data pattern, a la
---   <a>https://reasonablypolymorphic.com/blog/higher-kinded-data/</a>.
---   
---   You likely won't ever use this directly, since it is automatically
---   provided if you have a <a>Mutable</a> instance with <tt>z
---   (<a>RefFor</a> m)</tt> as the <a>Ref</a>. However, it can be useful if
---   you are using a <tt>z (<a>RefFor</a> m)</tt> just as a normal data
---   type, independent of the <a>Ref</a> class. See documentation for
---   <a>Mutable</a> for more information.
-copyHKD :: forall z m. (Generic (z Identity), Generic (z (RefFor m)), GMutable m (Rep (z Identity)), GRef_ m (Rep (z Identity)) ~ Rep (z (RefFor m))) => z (RefFor m) -> z Identity -> m ()
-
--- | <a>Ref</a> for components in a vinyl <a>Rec</a>.
-newtype RecRef m f a
-RecRef :: Ref m (f a) -> RecRef m f a
-[getRecRef] :: RecRef m f a -> Ref m (f a)
 
 -- | If you can provice a natural transformation from <tt>m</tt> to
 --   <tt>n</tt>, you should be able to use a value as if it had
@@ -1173,10 +1319,48 @@ data GRef m a
 --   with a primitive state token.
 data MutVar s a
 
--- | <a>Ref</a> for components in a vinyl <a>Rec</a>.
-newtype RecRef m f a
-RecRef :: Ref m (f a) -> RecRef m f a
-[getRecRef] :: RecRef m f a -> Ref m (f a)
+-- | A <a>Ref</a> that works by using the <a>Mutable</a> instance of an
+--   equivalent type. This is useful for newtype wrappers, so you can use
+--   the underlying data type's <a>Mutable</a> instance.
+--   
+--   <pre>
+--   newtype MyVec = MyVec (<a>Vector</a> Double)
+--   
+--   instance <a>Mutable</a> m MyVec where
+--       type <a>Ref</a> m MyVec = <a>CoerceRef</a> m s (<a>Vector</a> Double)
+--   </pre>
+--   
+--   The <tt>Ref m MyVec</tt> uses the a <tt><a>MVector</a> Double</tt>
+--   under the hood.
+--   
+--   It's essentially a special case of <a>GRef</a> for newtypes.
+data CoerceRef m s a
+
+-- | A <a>Ref</a> that works for any instance of <a>Traversable</a>.
+--   
+--   Copying and modifying semantics can be a bit funky.
+--   
+--   <ul>
+--   <li>If copying a shorter item into a longer item ref, the "leftovers"
+--   items in the longer item are unchanged.</li>
+--   <li>If copying a longer item into a shorter item ref, the leftover
+--   items are unchanged.</li>
+--   </ul>
+--   
+--   <pre>
+--   ghci&gt; r &lt;- <a>thawTraverse</a> [1..10]
+--   ghci&gt; <a>copyTraverse</a> r [0,0,0,0]
+--   ghci&gt; <a>freezeTraverse</a> r
+--   [0,0,0,0,5,6,7,8,9,10]
+--   ghci&gt; <a>copyTraverse</a> r [20..50]
+--   ghci&gt; <a>freezeTraverse</a> r
+--   [20,21,22,23,24,25,26,27,28,29]
+--   </pre>
+data TraverseRef m f a
+
+-- | A <a>Ref</a> for instances of <a>GMutable</a>, which are the
+--   <a>GHC.Generics</a> combinators.
+data GMutableRef m f a
 
 -- | Default <a>copyRef</a> for the higher-kinded data pattern, a la
 --   <a>https://reasonablypolymorphic.com/blog/higher-kinded-data/</a>.

@@ -809,6 +809,10 @@ newtype MutPart m s a
 MutPart :: (Ref m s -> Ref m a) -> MutPart m s a
 [getMutPart] :: MutPart m s a -> Ref m s -> Ref m a
 
+-- | Using a <a>MutPart</a>, perform a function on a <tt><a>Ref</a> m
+--   s</tt> as if you had a <tt><a>Ref</a> m a</tt>.
+withMutPart :: MutPart m s a -> Ref m s -> (Ref m a -> m b) -> m b
+
 -- | With a <a>MutPart</a>, read out a specific part of a <a>Ref</a>.
 freezePart :: Mutable m a => MutPart m s a -> Ref m s -> m a
 
@@ -830,6 +834,9 @@ updatePart :: Mutable m a => MutPart m s a -> Ref m s -> (a -> (a, b)) -> m b
 -- | <a>updatePart</a>, but forces the result before storing it back in the
 --   reference.
 updatePart' :: Mutable m a => MutPart m s a -> Ref m s -> (a -> (a, b)) -> m b
+compMP :: MutPart m a b -> MutPart m b c -> MutPart m a c
+infixr 9 `compMP`
+idMP :: MutPart m a a
 
 -- | <a>MutPart</a> into the first field of a tuple reference.
 mutFst :: MutPart m (a, b) a
@@ -957,6 +964,9 @@ class (Mutable m (z Identity), Ref m (z Identity) ~ z (RefFor m)) => HKDMutParts
 --   [1,2,3] :&amp; [False, True] :&amp; RNil
 --   </pre>
 mutRec :: forall a as f rec m. (Ref m (rec f as) ~ rec (RecRef m f) as, RecElem rec a a as as (RIndex a as), RecElemFCtx rec (RecRef m f)) => MutPart m (rec f as) (f a)
+
+-- | A <a>MutPart</a> to get into a <a>CoerceRef</a>.
+coerceRef :: Ref m s ~ CoerceRef m s a => MutPart m s a
 instance (Data.Mutable.Internal.Mutable m s, Data.Mutable.Internal.Mutable m a, Data.Mutable.Internal.Ref m s GHC.Types.~ Data.Mutable.Internal.GRef m s, gref GHC.Types.~ Data.Mutable.MutPart.Fst (Data.Mutable.MutPart.Traverse (Data.Mutable.Internal.GRef_ m (Data.Generics.Product.Internal.Positions.CRep s)) 1), GHC.Types.Coercible (Data.Mutable.Internal.GRef_ m (GHC.Generics.Rep s) ()) (gref ()), Data.Generics.Product.Internal.GLens.GLens' (Data.Mutable.MutPart.HasTotalPositionPSym i) gref (Data.Mutable.Internal.Ref m a), Data.Generics.Product.Positions.HasPosition' i s a) => Data.Mutable.MutPart.PosMut i m s a
 instance (Data.Mutable.Internal.Mutable m s, Data.Mutable.Internal.Mutable m a, Data.Mutable.Internal.Ref m s GHC.Types.~ Data.Mutable.Internal.GRef m s, Data.Generics.Product.Internal.GLens.GLens' (Data.Mutable.MutPart.HasTotalFieldPSym fld) (Data.Mutable.Internal.GRef_ m (GHC.Generics.Rep s)) (Data.Mutable.Internal.Ref m a), Data.Generics.Product.Fields.HasField' fld s a) => Data.Mutable.MutPart.FieldMut fld m s a
 instance (Data.Mutable.Internal.Mutable m (z Data.Vinyl.Functor.Identity), Data.Mutable.Internal.Ref m (z Data.Vinyl.Functor.Identity) GHC.Types.~ z (Data.Mutable.Internal.RefFor m)) => Data.Mutable.MutPart.HKDMutParts m z (GHC.Generics.K1 i (Data.Mutable.Internal.RefFor m c)) (GHC.Generics.K1 i (Data.Mutable.MutPart.MutPart m (z Data.Vinyl.Functor.Identity) c))
@@ -965,6 +975,7 @@ instance (Data.Mutable.Internal.Mutable m (z Data.Vinyl.Functor.Identity), Data.
 instance forall k (m :: * -> *) (z :: (* -> *) -> *) (i :: k -> *) (o :: k -> *) a (b :: GHC.Generics.Meta). Data.Mutable.MutPart.HKDMutParts m z i o => Data.Mutable.MutPart.HKDMutParts m z (GHC.Generics.M1 a b i) (GHC.Generics.M1 a b o)
 instance forall k (m :: * -> *) (z :: (* -> *) -> *) (i :: k -> *) (o :: k -> *) (i' :: k -> *) (o' :: k -> *). (Data.Mutable.MutPart.HKDMutParts m z i o, Data.Mutable.MutPart.HKDMutParts m z i' o') => Data.Mutable.MutPart.HKDMutParts m z (i GHC.Generics.:*: i') (o GHC.Generics.:*: o')
 instance forall k (m :: * -> *) (z :: (* -> *) -> *) (i :: k -> *) (i' :: k -> *) (o :: k -> *). (Data.Mutable.Internal.Mutable m (z Data.Vinyl.Functor.Identity), Data.Mutable.Internal.Ref m (z Data.Vinyl.Functor.Identity) GHC.Types.~ z (Data.Mutable.Internal.RefFor m), (TypeError ...)) => Data.Mutable.MutPart.HKDMutParts m z (i GHC.Generics.:+: i') o
+instance Control.Category.Category (Data.Mutable.MutPart.MutPart m)
 instance Data.Vinyl.XRec.IsoHKD (Data.Mutable.MutPart.MutPart m s) a
 
 
@@ -1523,6 +1534,10 @@ newtype MutPart m s a
 MutPart :: (Ref m s -> Ref m a) -> MutPart m s a
 [getMutPart] :: MutPart m s a -> Ref m s -> Ref m a
 
+-- | Using a <a>MutPart</a>, perform a function on a <tt><a>Ref</a> m
+--   s</tt> as if you had a <tt><a>Ref</a> m a</tt>.
+withMutPart :: MutPart m s a -> Ref m s -> (Ref m a -> m b) -> m b
+
 -- | With a <a>MutPart</a>, read out a specific part of a <a>Ref</a>.
 freezePart :: Mutable m a => MutPart m s a -> Ref m s -> m a
 
@@ -1645,6 +1660,9 @@ posMut :: PosMut i m s a => MutPart m s a
 --   MT 3 12.3
 --   </pre>
 hkdMutParts :: forall z m. (Generic (z (RefFor m)), Generic (z (MutPart m (z Identity))), HKDMutParts m z (Rep (z (RefFor m))) (Rep (z (MutPart m (z Identity))))) => z (MutPart m (z Identity))
+
+-- | A <a>MutPart</a> to get into a <a>CoerceRef</a>.
+coerceRef :: Ref m s ~ CoerceRef m s a => MutPart m s a
 
 -- | A <a>MutPart</a> for a field in a vinyl <a>Rec</a>, automatically
 --   generated as the first field with a matching type. This is polymorphic

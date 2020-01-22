@@ -78,6 +78,11 @@ instance PrimMonad m => Mutable m TwoVec where
     type Ref m TwoVec = GRef m TwoVec
 ```
 
+This gives us `thawRef :: TwoVec -> m (GRef m TwoVec)`, where `GRef m TwoVec`
+is a mutable version of `TwoVec`, like how `MVector s Double` is a mutable
+version of `Vector Double`.  It stores each field `tv1` and `tv2` as a seaprate
+`MVector` in memory that can be modified independently.
+
 Now we can write:
 
 ```haskell

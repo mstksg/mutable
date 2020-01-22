@@ -43,10 +43,10 @@ library:
   other-modules:
   - Data.Mutable.Internal
   dependencies:
+  - array
   - constraints
   - generic-lens
   - primitive
-  - profunctors
   - reflection
   - transformers
   - vector

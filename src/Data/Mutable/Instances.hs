@@ -50,7 +50,12 @@ import           Data.Functor.Product
 import           Data.Functor.Sum
 import           Data.Mutable.Internal
 import           Data.Ord
+import           Data.Primitive.Array
+import           Data.Primitive.ByteArray
 import           Data.Primitive.MutVar
+import           Data.Primitive.PrimArray
+import           Data.Primitive.SmallArray
+import           Data.Primitive.Types
 import           Data.Ratio
 import           Data.Vinyl                    as V
 import           Data.Void
@@ -210,11 +215,59 @@ instance (PrimMonad m, VU.Unbox a) => Mutable m (VU.Vector a) where
     copyRef   = VG.copy
 
 -- | Mutable reference is 'MVP.MVector'.
-instance (PrimMonad m, MVP.Prim a) => Mutable m (VP.Vector a) where
+instance (PrimMonad m, Prim a) => Mutable m (VP.Vector a) where
     type Ref m (VP.Vector a) = MVP.MVector (PrimState m) a
     thawRef   = VG.thaw
     freezeRef = VG.freeze
     copyRef   = VG.copy
+
+instance PrimMonad m => Mutable m (Array a) where
+    type Ref m (Array a) = MutableArray (PrimState m) a
+
+    thawRef xs = thawArray xs 0 (sizeofArray xs)
+    freezeRef rs = freezeArray rs 0 (sizeofMutableArray rs)
+    copyRef rs xs = copyArray rs 0 xs 0 l
+      where
+        l = sizeofArray xs `min` sizeofMutableArray rs
+
+instance PrimMonad m => Mutable m (SmallArray a) where
+    type Ref m (SmallArray a) = SmallMutableArray (PrimState m) a
+
+    thawRef xs = thawSmallArray xs 0 (sizeofSmallArray xs)
+    freezeRef rs = freezeSmallArray rs 0 (sizeofSmallMutableArray rs)
+    copyRef rs xs = copySmallArray rs 0 xs 0 l
+      where
+        l = sizeofSmallArray xs `min` sizeofSmallMutableArray rs
+
+instance PrimMonad m => Mutable m ByteArray where
+    type Ref m ByteArray = MutableByteArray (PrimState m)
+
+    thawRef xs = do
+        rs <- newByteArray (sizeofByteArray xs)
+        copyByteArray rs 0 xs 0 (sizeofByteArray xs)
+        pure rs
+    freezeRef rs = do
+        xs <- newByteArray (sizeofMutableByteArray rs)
+        copyMutableByteArray xs 0 rs 0 (sizeofMutableByteArray rs)
+        unsafeFreezeByteArray xs
+    copyRef rs xs = copyByteArray rs 0 xs 0 l
+      where
+        l = sizeofByteArray xs `min` sizeofMutableByteArray rs
+
+instance (PrimMonad m, Prim a) => Mutable m (PrimArray a) where
+    type Ref m (PrimArray a) = MutablePrimArray (PrimState m) a
+
+    thawRef xs = do
+        rs <- newPrimArray (sizeofPrimArray xs)
+        copyPrimArray rs 0 xs 0 (sizeofPrimArray xs)
+        pure rs
+    freezeRef rs = do
+        xs <- newPrimArray (sizeofMutablePrimArray rs)
+        copyMutablePrimArray xs 0 rs 0 (sizeofMutablePrimArray rs)
+        unsafeFreezePrimArray xs
+    copyRef rs xs = copyPrimArray rs 0 xs 0 l
+      where
+        l = sizeofPrimArray xs `min` sizeofMutablePrimArray rs
 
 instance Monad m => Mutable m Void where
     type Ref m Void = Void

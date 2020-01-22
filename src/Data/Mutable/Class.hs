@@ -36,8 +36,8 @@ module Data.Mutable.Class (
   , DefaultMutable(..)
   -- * Providing and overwriting instances
   , VarMut(..)
-  , TraverseMut(..)
   , CoerceMut(..)
+  , TraverseMut(..)
   , Immutable(..)
   -- * Changing underlying monad
   , reMutable, reMutableConstraint
@@ -50,6 +50,7 @@ import           Data.Constraint.Unsafe
 import           Data.Kind
 import           Data.Mutable.Instances  ()
 import           Data.Mutable.Internal
+import           Data.Primitive.MutVar
 import           Data.Proxy
 import           Data.Reflection
 import           GHC.Generics
@@ -129,9 +130,11 @@ instance X.IsoHKD VarMut a where
     unHKD = VarMut
     toHKD = getVarMut
 
-instance PrimMonad m => Mutable m (VarMut a)
+instance PrimMonad m => Mutable m (VarMut a) where
+    type Ref m (VarMut a) = MutVar (PrimState m) (VarMut a)
 
--- | Similar to 'MutRef', this allows you to overwrite the normal 'Mutable'
+
+-- | Similar to 'VarMut', this allows you to overwrite the normal 'Mutable'
 -- instance for a type to utilize its 'Traversable' instance instead of its
 -- normal instance.  It's also useful to provide an instance for an
 -- externally defined type without incurring orphan instances.
@@ -151,7 +154,7 @@ instance X.IsoHKD (TraverseMut f) a where
 instance (Traversable f, Mutable m a) => Mutable m (TraverseMut f a) where
     type Ref m (TraverseMut f a) = TraverseRef m (TraverseMut f) a
 
--- | Similar to 'MutRef', this allows you to overwrite the normal 'Mutable'
+-- | Similar to 'VarMut', this allows you to overwrite the normal 'Mutable'
 -- instance of a type to utilize a coercible type's 'Mutable' instance
 -- instead of its normal instance.  It's also useful to provide an instance for
 -- an externally defined type without incurring orphan instances.
@@ -184,7 +187,7 @@ instance X.IsoHKD (CoerceMut s) a where
 instance (Mutable m a, Coercible s a) => Mutable m (CoerceMut s a) where
     type Ref m (CoerceMut s a) = CoerceRef m (CoerceMut s a) a
 
--- | Similar to 'MutRef', this allows you to overwrite the normal 'Mutable'
+-- | Similar to 'VarMut', this allows you to overwrite the normal 'Mutable'
 -- instance of a type to make it /immutable/.
 --
 -- For example, let's say you have a type, with the automatically derived

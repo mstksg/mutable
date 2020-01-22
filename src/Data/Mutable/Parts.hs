@@ -25,7 +25,7 @@
 --
 -- Tools for working with individual components of piecewise-mutable
 -- values.
-module Data.Mutable.MutPart (
+module Data.Mutable.Parts (
     MutPart(..)
   , withMutPart
   , freezePart, copyPart
@@ -35,8 +35,8 @@ module Data.Mutable.MutPart (
   , idMP
   -- * Built-in 'MutPart'
   , mutFst, mutSnd
-  , FieldMut, fieldMut, withField, Label(..)
-  , PosMut, posMut, withPos
+  , FieldMut, fieldMut, withField, mutField, Label(..)
+  , PosMut, posMut, withPos, mutPos
   , hkdMutParts, HKDMutParts
   , mutRec
   , coerceRef, withCoerceRef
@@ -62,7 +62,8 @@ import qualified Data.Vinyl.XRec                        as X
 
 -- | A @'MutPart' m s a@ is a way to "zoom into" an @a@, as a part of
 -- a mutable reference on @s@.  This allows you to only modify a single
--- @a@ part of the @s@, without touching the rest.
+-- @a@ part of the @s@, without touching the rest.  It's spiritually
+-- similar to a @Lens' s a@.
 --
 -- An example that is commonly found in the ecosystem is something like
 -- (flipped) @write :: Int -> 'Data.Vector.MVector' s a -> a -> m ()@ from
@@ -128,7 +129,11 @@ mutSnd = MutPart snd
 
 -- | Using a 'MutPart', perform a function on a @'Ref' m s@ as if you had
 -- a @'Ref' m a@.
-withMutPart :: MutPart m s a -> Ref m s -> (Ref m a -> m b) -> m b
+withMutPart
+    :: MutPart m s a        -- ^ How to zoom into an @a@ from an @s@
+    -> Ref m s              -- ^ The larger reference of @s@
+    -> (Ref m a -> m b)     -- ^ What do do with the smaller sub-reference of @a@
+    -> m b
 withMutPart mp x f = f (getMutPart mp x)
 {-# INLINE withMutPart #-}
 
@@ -297,7 +302,9 @@ class (Mutable m s, Mutable m a) => FieldMut (fld :: Symbol) m s a | fld s -> a 
     -- a type whose mutable reference is 'GRef'.  Note that because all of
     -- the lookups are done at compile-time, 'fieldMut' and 'posMut' have
     -- more or less identical performance characteristics.
-    fieldMut :: Label fld -> MutPart m s a
+    fieldMut
+        :: Label fld        -- ^ field label (usually given using OverloadedLabels, @#blah)
+        -> MutPart m s a
 
 instance
       ( Mutable m s
@@ -316,11 +323,20 @@ type instance GL.Eval (HasTotalFieldPSym sym) tt = GL.HasTotalFieldP sym tt
 -- a 'fieldMut' and directly use it.
 withField
     :: FieldMut fld m s a
-    => Label fld
-    -> Ref m s
-    -> (Ref m a -> m b)
+    => Label fld            -- ^ field label (usually given using OverloadedLabels, @#blah)
+    -> Ref m s              -- ^ Larger record reference
+    -> (Ref m a -> m b)     -- ^ What to do with the mutable field
     -> m b
 withField l = withMutPart (fieldMut l)
+
+-- | A helpful wrapper around @'getMutPart' ('fieldMut' #blah)@.  Directly
+-- use a 'fieldMut' to access a mutable field.
+mutField
+    :: forall fld m s a. FieldMut fld m s a
+    => Label fld            -- ^ field label (usually given using OverloadedLabels, @#blah)
+    -> Ref m s              -- ^ Larger record reference
+    -> Ref m a              -- ^ Internal mutable field
+mutField = getMutPart . fieldMut @_ @m
 
 -- | Create a 'MutPart' for a position in a sum type.  Should work for any
 -- type with one constructor whose mutable reference is 'GRef'.  See
@@ -369,14 +385,22 @@ instance
 data HasTotalPositionPSym :: Nat -> GL.TyFun (Type -> Type) (Maybe Type)
 type instance GL.Eval (HasTotalPositionPSym t) tt = GL.HasTotalPositionP t tt
 
--- | A helpful wrapper over @'withMutPart' ('posMot' \@n)@.  Create
+-- | A helpful wrapper over @'withMutPart' ('posMut' \@n)@.  Create
 -- a 'posMut' and directly use it.
 withPos
     :: forall i m s a b. PosMut i m s a
-    => Ref m s
-    -> (Ref m a -> m b)
+    => Ref m s              -- ^ Larger record reference
+    -> (Ref m a -> m b)     -- ^ What to do with the mutable field
     -> m b
 withPos = withMutPart (posMut @i)
+
+-- | A helpful wrapper around @'getMutPart' ('posMut' \@n)@.  Directly
+-- use a 'posMut' to access a mutable field.
+mutPos
+    :: forall i m s a. PosMut i m s a
+    => Ref m s              -- ^ Larger record reference
+    -> Ref m a              -- ^ Internal mutable field
+mutPos = getMutPart (posMut @i @m)
 
 
 -- stuff from generic-lens that wasn't exported

@@ -195,7 +195,7 @@ instance PrimMonad m => Mutable m VecD where
     type Ref m VecD = CoerceRef m VecD (V.Vector Double)
 ```
 
-This will appropriately have `VecD` be using 
+This will appropriately have `VecD` be using `MVector` as its mutable version.
 
 To get an instance for a newtype `X` wrapping underlying type `Y` using the
 `Mutable` instance for `Y`, use `CoerceRef m X Y`.
@@ -238,6 +238,10 @@ getTraverseRef
 
 so you can directly access the parts by just accessing your `Traversable`
 instance normally --- no need for any fancy `MutPart` shenanigans.
+
+Note that this still technically works for a non-fixed-length `Traversable`
+instance (like lists and vectors), but `copy` semantics can get a bit wonky.
+See the documentation for more details.
 
 Higher-Kinded Data
 ------------------

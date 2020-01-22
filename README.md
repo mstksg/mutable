@@ -167,7 +167,8 @@ We can see four conclusions:
 4.  For a small ADT with huge vectors, updating the entire value (so, the
     entire vectors and entire ADT) is actually faster with *mutable* as well.
 
-Interestingly, the "update entire ADT" case (which should be the worst-case
-for *mutable* and the best-case for pure values) actually becomes faster with
-*mutable* when you get to the region of *many* values... somewhere between 256
-and 2 million, apparently.
+Interestingly, the "update entire structure" case (which should be the
+worst-case for *mutable* and the best-case for pure values) actually becomes
+faster with *mutable* when you get to the region of *many* values... somewhere
+between 256 and 2 million, apparently.  However, this may just be from the
+efficiency of modifying vectors sequentially.

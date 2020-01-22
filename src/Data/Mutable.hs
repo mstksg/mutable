@@ -35,8 +35,8 @@ module Data.Mutable (
   , updatePart, updatePart'
   -- ** Built-in 'MutPart'
   , mutFst, mutSnd
-  , fieldMut, withField, Label(..)
-  , posMut, withPos
+  , fieldMut, withField, mutField, Label(..)
+  , posMut, withPos, mutPos
   , coerceRef, withCoerceRef
   , hkdMutParts
   , mutRec
@@ -47,6 +47,6 @@ module Data.Mutable (
 import           Control.Monad.Primitive
 import           Data.Mutable.Class
 import           Data.Mutable.Instances
-import           Data.Mutable.MutPart
+import           Data.Mutable.Parts
 import           Data.Primitive.MutVar
 

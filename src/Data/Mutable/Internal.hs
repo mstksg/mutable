@@ -8,8 +8,10 @@
 {-# LANGUAGE LambdaCase             #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE NoStarIsType           #-}
+{-# LANGUAGE QuantifiedConstraints  #-}
 {-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE StandaloneDeriving     #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE TypeInType             #-}
 {-# LANGUAGE TypeOperators          #-}
@@ -141,7 +143,7 @@ import qualified Data.Vinyl.XRec           as X
 -- and then later 'freezeRef' the whole thing, the resulting frozen value
 -- will incorporate all of the changes to the individual fields.
 --
--- In addition, there are two more "automatically derived" instances you
+-- In addition, there are a few more "automatically derived" instances you
 -- can get by picking 'Ref':
 --
 -- @
@@ -158,8 +160,12 @@ import qualified Data.Vinyl.XRec           as X
 --
 -- type Ref m (MyContainer a) = TraverseRef m MyContainer a
 -- @
+--
+-- See <https://mutable.jle.im/02-mutable-and-ref.html> for more
+-- information on this typeclass and how to define instances
+-- automatically.
 class Monad m => Mutable m a where
-    -- | Links the type @a@ to the type of its canonical mutable version.
+    -- | Links the type @a@ to the type of its canonical "mutable version".
     --
     -- For example, for 'V.Vector', the mutable version is 'MV.MVector', so
     -- we have
@@ -209,10 +215,6 @@ class Monad m => Mutable m a where
     -- -- Works for all 'Generic' instances, preserves piecewise mutation
     -- -- for products
     -- type Ref m a = 'GRef' m a
-    --
-    -- -- Works for "higher-kinded" data types, a la
-    -- -- <https://reasonablypolymorphic.com/blog/higher-kinded-data/>
-    -- type Ref m (z 'Identity') = z ('RefFor' m)
     -- @
     --
     -- If you just set up a blank instance, the implementations of
@@ -235,14 +237,11 @@ class Monad m => Mutable m a where
     --
     -- instance Mutable m Foo where
     --     type Ref m Foo = 'GRef' m Foo
-    --
-    -- -- HKD pattern types
-    -- data Bar f = Bar { bInt :: f Int, bDouble :: f Double }
-    --   deriving Generic
-    --
-    -- instance Mutable (Bar Identity) where
-    --     type Ref (Bar Identity) = Bar ('RefFor' m)
     -- @
+    --
+    -- See <https://mutable.jle.im/02-mutable-and-ref.html> for more
+    -- information on this type family and how to define instances
+    -- automatically.
     type Ref m a = (v :: Type) | v -> a
     type Ref m a = MutVar (PrimState m) a
 
@@ -413,6 +412,9 @@ instance GMutable m f => DefaultMutable m (f a) (GMutableRef m f a) where
 -- a @'Ref' m a@.
 newtype RefFor m a = RefFor { getRefFor :: Ref m a }
 
+deriving instance Eq (Ref m a) => Eq (RefFor m a)
+deriving instance Ord (Ref m a) => Ord (RefFor m a)
+
 -- | Use a @'RefFor' m a@ as if it were a @'Ref' m a@.
 instance X.IsoHKD (RefFor m) a where
     type HKD (RefFor m) a = Ref m a
@@ -502,6 +504,9 @@ copyTraverse (TraverseRef rs) xs = evalStateT (traverse_ go rs) (toList xs)
 -- It's essentially a special case of 'GRef' for newtypes.
 newtype CoerceRef m s a = CoerceRef { getCoerceRef :: Ref m a }
 
+deriving instance Eq (Ref m a) => Eq (CoerceRef m s a)
+deriving instance Ord (Ref m a) => Ord (CoerceRef m s a)
+
 -- | Use a @'CoerceRef' m s a@ as if it were a @'Ref' m a@
 instance X.IsoHKD (CoerceRef m s) a where
     type HKD (CoerceRef m s) a = Ref m a
@@ -586,6 +591,7 @@ copyImmutable _ _ = pure ()
 
 -- | Class for automatic generation of 'Ref' for 'Generic' instances.  See
 -- 'GRef' for more information.
+-- class (Monad m, forall a. Eq (GRef_ m f a)) => GMutable m f where
 class Monad m => GMutable m f where
     type GRef_ m f = (u :: k -> Type) | u -> f
 
@@ -649,6 +655,9 @@ instance (GMutable m f, GMutable m g, PrimMonad m) => GMutable m (f :+: g) where
 -- combinators.
 newtype GMutableRef m f a = GMutableRef { getGMutableRef :: GRef_ m f a }
 
+deriving instance Eq (GRef_ m f a) => Eq (GMutableRef m f a)
+deriving instance Ord (GRef_ m f a) => Ord (GMutableRef m f a)
+
 -- | Default 'thawRef' for 'GMutableRef'.
 --
 -- You likely won't ever use this directly, since it is automatically
@@ -688,7 +697,7 @@ instance Monad m => Mutable m (U1 a) where
 instance Monad m => Mutable m (V1 a) where
     type Ref m (V1 a) = GMutableRef m V1 a
 
-instance (GMutable m f, GMutable m g) => Mutable m ((f :*: g) a) where
+instance (GMutable m f, GMutable m g, Eq (GRef_ m f a), Eq (GRef_ m g a)) => Mutable m ((f :*: g) a) where
     type Ref m ((f :*: g) a) = GMutableRef m (f :*: g) a
 
 instance (GMutable m f, GMutable m g, PrimMonad m) => Mutable m ((f :+: g) a) where
@@ -731,6 +740,9 @@ instance (GMutable m f, GMutable m g, PrimMonad m) => Mutable m ((f :+: g) a) wh
 -- on, if you are familiar with "GHC.Generics".  However, ideally, you
 -- would never need to do this.
 newtype GRef m a = GRef { unGRef :: GRef_ m (Rep a) () }
+
+deriving instance Eq (GRef_ m (Rep a) ()) => Eq (GRef m a)
+deriving instance Ord (GRef_ m (Rep a) ()) => Ord (GRef m a)
 
 -- | Default 'thawRef' for 'GRef'.
 --

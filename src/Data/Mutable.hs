@@ -10,6 +10,8 @@
 --
 -- Main entrypoint of the package.  Abstract over different types for
 -- piecewise-mutable references of values.
+--
+-- See <https://mutable.jle.im/> for a comprehensive introduction.
 module Data.Mutable (
     Mutable(..)
   , modifyRef, modifyRef'

@@ -94,3 +94,10 @@ like artificial neural networks.  In the end, you're able to have an Artificial
 Neural Network (which can have huuuuge vectors) and being able to do piecewise
 updates on them (automatically) without having to copy over the entire network
 every training step.
+
+Check out **[the getting started page](/01-getting-started.html)**, or the **[Haddock
+Documentation][docs]** to jump right in!
+
+[docs]: https://hackage.haskell.org/package/mutable
+
+[![mutable on Hackage](https://img.shields.io/hackage/v/mutable.svg?maxAge=86400)](https://hackage.haskell.org/package/mutable)

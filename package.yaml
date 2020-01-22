@@ -1,10 +1,10 @@
 name:                mutable
 version:             0.1.0.0
-github:              "mstksg/mutable"
+github:              mstksg/mutable
 license:             BSD3
-author:              "Justin Le"
-maintainer:          "justin@jle.im"
-copyright:           "(c) Justin Le 2019"
+author:              Justin Le
+maintainer:          justin@jle.im
+copyright:           (c) Justin Le 2019
 
 extra-source-files:
 - README.md
@@ -19,7 +19,7 @@ category:            Data
 # common to point users to the README.md file.
 description: |
     Associate and generate "piecewise-mutable" versions for your composite data
-    types.  Think of it like a "generalized @MVector@ for all ADTs".
+    types.  Think of it like a "generalized MVector for all ADTs".
 
     Useful for a situation where you have a record with many fields (or many nested
     records) that you want to use for efficient mutable in-place algorithms.  This
@@ -27,7 +27,8 @@ description: |
     one field), and also efficient entire-datatype copies/updates, as well, in many
     cases.
 
-    See README.md and documentation for "Data.Mutable" for more information.
+    See <https://mutable.jle.im> for official introduction and documentation,
+    or jump right in by importing "Data.Mutable".
 
 ghc-options:
 - -Wall

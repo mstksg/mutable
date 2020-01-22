@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeInType            #-}
 {-# LANGUAGE TypeOperators         #-}
@@ -301,6 +302,9 @@ instance (Monad m, Mutable m a, Mutable m b, Mutable m c, Mutable m d) => Mutabl
 
 -- | 'Ref' for components in a vinyl 'Rec'.
 newtype RecRef m f a = RecRef { getRecRef :: Ref m (f a) }
+
+deriving instance Eq (Ref m (f a)) => Eq (RecRef m f a)
+deriving instance Ord (Ref m (f a)) => Ord (RecRef m f a)
 
 instance Monad m => Mutable m (Rec f '[]) where
     type Ref m (Rec f '[]) = Rec (RecRef m f) '[]

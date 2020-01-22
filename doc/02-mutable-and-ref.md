@@ -39,7 +39,7 @@ updated/mutated in the `m` Monad.
 The (injective) type family `Ref` associates every type `a` with its "mutable
 version".
 
-For example, for *[Vector][]*, their "mutable version" is an *[MVector][]*:
+For example, for *[Vector][]*, the "mutable version" is an *[MVector][]*:
 
 [Vector]: https://hackage.haskell.org/package/vector/docs/Data-Vector.html
 [MVector]: https://hackage.haskell.org/package/vector/docs/Data-Vector-Mutable.html

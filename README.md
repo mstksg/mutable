@@ -1,5 +1,14 @@
-mutable
-=======
+[mutable][docs]
+===============
+
+[![mutable on Hackage](https://img.shields.io/hackage/v/mutable.svg?maxAge=86400)](https://hackage.haskell.org/package/mutable)
+[![Build Status](https://travis-ci.org/mstksg/mutable.svg?branch=master)](https://travis-ci.org/mstksg/mutable)
+
+[**Documentation and Walkthrough**][docs]
+
+[docs]: https://backprop.jle.im
+
+Automatic *heterogeneous* back-propagation.
 
 Associate and generate "piecewise-mutable" versions for your composite data
 types.  Think of it like a "generalized `MVector` for all ADTs".

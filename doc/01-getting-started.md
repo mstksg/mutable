@@ -118,3 +118,8 @@ freezePart (posMut @1)
     :: Ref m MyPart
     -> m Int
 ```
+
+[Read on](/02-mutable-and-ref.html) for more information on how the library
+works, or jump right into the library with [Haddock Documentation][docs]**!
+
+[docs]: https://hackage.haskell.org/package/mutable

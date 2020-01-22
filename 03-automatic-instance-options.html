@@ -1,0 +1,652 @@
+<!DOCTYPE HTML><html><head><title>mutable - Automatic Instance Options</title><meta charset="utf-8"><meta content="summary" name="twitter:card"><meta content="https://s3-eu-west-1.amazonaws.com/worldwideapps/assets/tintin-bronze.png" name="twitter:site"><meta content="mutable - Automatic Instance Options" name="twitter:title"><meta content="Automatic piecewise-mutable references for your types" name="twitter:description"><meta content="Justin Le" name="twitter:creator"><meta content="https://s3-eu-west-1.amazonaws.com/worldwideapps/assets/tintin-bronze.png" name="twitter:image"><meta itemprop="og:type" content="website"><meta itemprop="og:site_name" content="theam"><meta itemprop="og:title" content="mutable - Automatic Instance Options"><meta itemprop="og:url" content="mstksg/mutable"><meta itemprop="og:image" content="https://s3-eu-west-1.amazonaws.com/worldwideapps/assets/tintin-bronze.png"><meta itemprop="og:description" content="Automatic piecewise-mutable references for your types"><link href="https://fonts.googleapis.com/css?family=IBM+Plex+Sans|Montserrat:500" rel="stylesheet"><link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/tomorrow-night.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.5.2/animate.min.css" rel="stylesheet"><link href="https://s3-eu-west-1.amazonaws.com/worldwideapps/assets/favicon-bronze.ico" rel="shortcut icon"><link href="https://cdn.jsdelivr.net/npm/katex@0.10.0-alpha/dist/katex.min.css" rel="stylesheet"><style>
+html
+{
+  height     : 100%;
+  min-height : 100%;
+}
+
+body
+{
+  height      : 100%;
+  min-height  : 100%;
+  font-family : "IBM+Plex+Sans", sans-serif;
+  font-size   : 1em;
+  overflow-x  : hidden;
+}
+
+body a
+{
+  color : rgba(115,114,86,77.0);
+}
+
+body a:hover
+{
+  color : rgba(148,146,110,26.0);
+}
+
+h1
+{
+  font-family : "Montserrat", sans-serif;
+  font-weight : 500;
+  font-size   : 1em;
+}
+
+h2
+{
+  font-family : "Montserrat", sans-serif;
+  font-weight : 500;
+  font-size   : 2.44099em;
+}
+
+h3
+{
+  font-family : "Montserrat", sans-serif;
+  font-weight : 500;
+  font-size   : 5.95848em;
+}
+
+h1
+{
+  font-size : 2.44099em;
+}
+
+h2
+{
+  font-size : 1.953em;
+}
+
+h3
+{
+  font-size : 1.56299em;
+}
+
+blockquote
+{
+  border-left  : solid 4px #dddddd;
+  padding-left : 1rem;
+  color        : #777777;
+}
+
+.next-prev
+{
+  margin-top    : 5%;
+  margin-bottom : 5%;
+}
+
+#header-container
+{
+  margin-top    : 5rem;
+  margin-bottom : 5rem;
+  text-align    : center;
+}
+
+#header-container img
+{
+  max-height : 7rem;
+}
+
+.cover-heading
+{
+  font-size     : 800%;
+  margin-bottom : 1.56299rem;
+}
+
+.cover-container
+{
+  background-color : #a4a27a;
+}
+
+.watermark
+{
+  position    : absolute;
+  top         : 0px;
+  left        : 0px;
+  max-height  : 1.25039rem;
+  margin-top  : 1.25039rem;
+  margin-left : 1.25039rem;
+}
+
+.cover-heading-subtitle
+{
+  margin-top : 3rem;
+  font-size  : 1.953rem;
+  color      : #212529;
+}
+
+.vertical-auto
+{
+  margin-top    : auto;
+  margin-bottom : auto;
+}
+
+.content
+{
+  margin-top    : 5%;
+  margin-bottom : 5%;
+}
+
+#wrapper
+{
+  padding-left       : 0px;
+  -webkit-transition : all 0.5s ease 0.0s;
+  -moz-transition    : all 0.5s ease 0.0s;
+  -ms-transition     : all 0.5s ease 0.0s;
+  -o-transition      : all 0.5s ease 0.0s;
+  transition         : all 0.5s ease 0.0s;
+}
+
+#wrapper.toggled
+{
+  padding-left : 250px;
+}
+
+#wrapper.toggled #sidebar-wrapper
+{
+  width : 250px;
+}
+
+#page-content-wrapper#wrapper.toggled
+{
+  position     : absolute;
+  margin-right : -250px;
+}
+
+#page-content-wrapper
+{
+  width      : 100%;
+  position   : absolute;
+  margin-top : 3rem;
+  padding    : 15px 15px 15px 15px;
+}
+
+#page-content-wrapper img
+{
+  max-width : 100%;
+}
+
+#sidebar-wrapper
+{
+  z-index            : 1000;
+  position           : fixed;
+  left               : 250px;
+  width              : 0px;
+  margin-left        : -250px;
+  overflow-y         : hidden;
+  overflow-x         : hidden;
+  -webkit-transition : all 0.5s ease 0.0s;
+  -moz-transition    : all 0.5s ease 0.0s;
+  -ms-transition     : all 0.5s ease 0.0s;
+  -o-transition      : all 0.5s ease 0.0s;
+  transition         : all 0.5s ease 0.0s;
+}
+
+.sidebar-nav
+{
+  position        : absolute;
+  top             : 0px;
+  width           : 250px;
+  margin          : 0px 0px 0px 0px;
+  padding         : 0px 0px 0px 0px;
+  list-style-type : none;
+}
+
+.sidebar-nav li
+{
+  text-indent : 20px;
+  line-height : 40px;
+}
+
+.sidebar-nav li a
+{
+  display         : block;
+  text-decoration : none;
+  font-weight     : bold;
+  color           : rgba(66,65,49,153.0);
+}
+
+.sidebar-nav li a:hover
+{
+  text-decoration : none;
+  color           : rgba(50,49,37,178.0);
+}
+
+.sidebar-nav li .tintin-fg-active
+{
+  color : #ffffff;
+}
+
+#menu-toggle
+{
+  position : absolute;
+}
+
+#menu-toggle img
+{
+  position : absolute;
+  left     : 0px;
+}
+
+#menu-toggle .rotateIn
+{
+  z-index : 999;
+}
+
+.tintin-doc-topbar
+{
+  height : 3rem;
+}
+
+.tintin-doc-topbar a
+{
+  margin-left : 1rem;
+  margin-top  : 0rem;
+  width       : 1.5rem;
+}
+
+.filter-gray
+{
+  position     : relative;
+  bottom       : 3px;
+  margin-left  : 0.25rem;
+  margin-right : 1rem;
+  height       : 1rem;
+}
+
+.footer-theam
+{
+  position    : relative;
+  bottom      : 1px;
+  margin-left : -0.25rem;
+  height      : 1.75rem;
+}
+
+.tintin-doc-footer
+{
+  bottom : 0px;
+  height : -15rem;
+  width  : 100%;
+  color  : rgba(0,0,0,0.3);
+}
+
+.main-container
+{
+  min-height : 100%;
+  position   : relative;
+}
+
+#content
+{
+  min-height : 95%;
+}
+
+.sidebar-nav > .sidebar-brand
+{
+  height         : 3rem;
+  font-size      : 2rem;
+  font-family    : "Montserrat", sans-serif;
+  font-weight    : 500;
+  padding-top    : 2.5rem;
+  padding-bottom : 2.5rem;
+  margin-bottom  : 1.5rem;
+}
+
+.sidebar-nav > .sidebar-brand img
+{
+  height : 1.5rem;
+}
+
+.tintin-navbar
+{
+  font-weight      : bold;
+  background-color : rgba(132,130,98,51.0);
+}
+
+.tintin-navbar .left-part
+{
+  padding-left : 0px !important;
+}
+
+.tintin-navbar ul
+{
+  margin-top      : 1rem;
+  list-style-type : none;
+}
+
+.tintin-navbar ul li
+{
+  margin-right : 1rem;
+  display      : inline;
+}
+
+.tintin-navbar ul li a
+{
+  color : rgba(66,65,49,153.0);
+}
+
+.tintin-navbar ul li a:hover
+{
+  text-decoration : none;
+  color           : rgba(50,49,37,178.0);
+}
+
+
+.tintin-navbar .tintin-navbar-active a
+{
+  color : #212529;
+}
+
+.tintin-navbar .tintin-navbar-active a:hover
+{
+  text-decoration : none;
+  color           : rgba(77,80,83,51.0);
+}
+
+.tintin-bg-70
+{
+  background-color : rgba(132,130,98,51.0);
+}
+
+.tintin-bg-bronze
+{
+  background-color : #a4a27a;
+}
+
+.tintin-fg-bronze
+{
+  color : #a4a27a;
+}
+
+.tintin-fg-active
+{
+  color : #ffffff;
+}
+
+.tintin-fg-disabled
+{
+  color : #000000;
+}
+
+footer
+{
+  position         : relative;
+  bottom           : 0px;
+  left             : 0px;
+  width            : 100%;
+  padding-top      : 30px;
+  padding-bottom   : 30px;
+  color            : #212529;
+  background-color : rgba(132,130,98,51.0);
+  text-align       : center;
+}
+
+footer a
+{
+  color : rgba(66,65,49,153.0);
+}
+
+footer a:hover
+{
+  text-decoration : none;
+  color           : rgba(50,49,37,178.0);
+}
+
+footer .author
+{
+  margin-top : 1.19999em;
+  font-size  : 1.19999em;
+}
+
+footer .site-generated-message
+{
+  font-size     : 0.8em;
+  margin-top    : 3em;
+  margin-bottom : 3em;
+}
+
+.container
+{
+  max-width : 50rem;
+}
+
+@media screen and (min-width: 768px)
+{
+
+#wrapper
+{
+  padding-left : 0px;
+}
+
+#wrapper .toggled
+{
+  padding-left : 250px;
+}
+
+#wrapper .toggled #sidebar-wrapper
+{
+  width : 250px;
+}
+
+#wrapper .toggled #page-content-wrapper
+{
+  position     : relative;
+  margin-right : 0px;
+}
+
+#sidebar-wrapper
+{
+  width : 0px;
+}
+
+#page-content-wrapper
+{
+  padding  : 20px 20px 20px 20px;
+  position : relative;
+}
+
+}
+
+/* Generated with Clay, http://fvisser.nl/clay */</style></head><body class="h-100 tintin-fg-black tintin-bg-white"><div id="main-container" class="h-100"><section id="content"><div id="wrapper" class="toggled"><div id="sidebar-wrapper" class="h-100 tintin-bg-bronze"><div class="h-100 tintin-bg-70"><p></p></div><ul class="sidebar-nav"><li class="sidebar-brand d-flex tintin-bg-bronze"><a href="index.html" class="align-self-center tintin-fg-white">mutable</a></li><li><a href="01-getting-started.html" class="tintin-fg-disabled">Getting Started</a></li><li><a href="02-mutable-and-ref.html" class="tintin-fg-disabled">Mutable and Ref</a></li><li><a href="03-automatic-instance-options.html" class="tintin-fg-active">Automatic Instance Options</a></li><li><a href="04-instance-wrappers.html" class="tintin-fg-disabled">Instance Wrappers</a></li><li><a href="05-mutable-parts.html" class="tintin-fg-disabled">Mutable Parts</a></li><li><a href="06-benchmarks.html" class="tintin-fg-disabled">Benchmarks</a></li><li><a href="07-resources.html" class="tintin-fg-disabled">Resources</a></li></ul></div><nav class="navbar navbar-expand-lg tintin-doc-topbar tintin-fg-white"><a href="#menu-toggle" id="menu-toggle" class><img src="https://s3-eu-west-1.amazonaws.com/worldwideapps/assets/menu.png" class="img-fluid animated rotateOut"><img src="https://s3-eu-west-1.amazonaws.com/worldwideapps/assets/close.png" class="img-fluid animated rotateIn"></a></nav><div id="page-content-wrapper"><div class="container"><div class="col"><div class="animated fadeIn"><h1>Automatic Instance Options</h1>
+<p>As previously seen, any type with a <code>Generic</code> instance can be given an instance
+automatically. However, this might not always be the behavior you want for
+your values. This library offers a few alternative automatic behaviors for
+what you want your mutable value to be like. Of course, you can always just
+define all your semantics and data types by hand (like what was done in
+<code>MyTypeRef</code> in the previous section).</p>
+<p>Picking an automatic derived behavior is as easy as specifying what the <code>Ref</code>
+instance is:</p>
+<pre class="haskell"><code>instance Mutable m MyType where
+    type Ref m MyType = ....
+</code></pre>
+<p>If you set the <code>Ref</code> to a known &quot;auto-derivable&quot; type, then the library will
+automatically infer what you want. Here are the options.</p>
+<h2>Whole-wise Mutation</h2>
+<p>You don&#39;t want any piecewise mutation. Treat your object as an inseparable
+block, and any mutations are done over the entire data type.</p>
+<p>This is the <em>default</em> behavior --- it is mostly useful for &quot;primitive&quot;,
+non-composite data types like <code>Int</code>:</p>
+<pre class="haskell"><code>data WholeType = WT { wtInt :: Int, wtDouble :: Double }
+
+instance PrimMonad m =&gt; Mutable m WholeType
+</code></pre>
+<p>If you just leave the instance blank, this will be the automatic default
+behavior. You can also be explicit:</p>
+<pre class="haskell"><code>instance PrimMonad m =&gt; Mutable m WholeType where
+    type Ref m WholeType = MutVar (PrimState m) WholeType
+</code></pre>
+<p>and that would do the same thing.</p>
+<h2>Generic Instance</h2>
+<p>This is the main thing the library is useful for. Get an automatic
+&quot;piecewise-mutable&quot; form of any ADT with a <code>Generic</code> instance.</p>
+<p>Dispatch this behavior by using <code>GRef m X</code> as your type&#39;s <code>Ref</code>:</p>
+<pre class="haskell"><code>data MyType = MT
+    { mtInt    :: Int
+    , mtDouble :: Double
+    , mtVec    :: V.Vector Double
+    }
+  deriving Generic
+
+instance PrimMonad m =&gt; Mutable m MyType where
+    type Ref m MyType = GRef m MyType
+</code></pre>
+<p>The data type <code>GRef m MyType</code> is essentially equivalent to the same type as
+<code>MyType</code> with all the fields replaced with their mutable versions. That is,
+<code>GRef m MyType</code> is equivalent to <code>MyTypeRef</code>, if we wanted to define it
+manually:</p>
+<pre class="haskell"><code>data MyTypeRef s = MTR
+    { mtrInt    :: MutVar s Int
+    , mtrDouble :: MutVar s Double
+    , mtrVec    :: MV.MVector s Double
+    }
+
+instance PrimMonad m =&gt; Mutable m MyType where
+    type Ref m MyType = MyTypeRef (PrimState m)
+
+    thawRef (MT x y z) = MTR &lt;$&gt; newMutVar x
+                             &lt;*&gt; newMutVar y
+                             &lt;*&gt; V.thaw   z
+
+    freezeRef (MTR x y z) = MT &lt;$&gt; readMutVar x
+                               &lt;*&gt; readMutVar y
+                               &lt;*&gt; V.freeze   z
+
+    copyRef (MTR a b c) (MT x y z) = do
+        writeMutVar a x
+        writeMutVar b y
+        V.copy c z
+</code></pre>
+<p>The above snippet is the equivalent code to what is generated in the simple
+line</p>
+<pre class="haskell"><code>instance PrimMonad m =&gt; Mutable m MyType where
+    type Ref m MyType = GRef m MyType
+</code></pre>
+<p>The semantics for mutability is that a record type essentially becomes a record
+of mutable values, which can all be updated independently.</p>
+<h3>Updating each part independently</h3>
+<p>For <code>GRef</code>, you can update each part independently by using features from
+<code>FieldMut</code> and <code>PosMut</code>. See <a href="/01-getting-started.html">Getting Started</a> for a
+summary on how to use these.</p>
+<h3>Sum Types</h3>
+<p>While slightly less useful, <code>GRef</code> also works for sum types, as well. For sum
+types, an extra layer of indirection is added: at the top level is a <code>MutVar</code>
+containing a reference to the contents of a constructor. For example:</p>
+<pre class="haskell"><code>data IntOrBool = IBInt  Int
+               | IBBool Bool
+</code></pre>
+<p>If you had</p>
+<pre class="haskell"><code>instance PrimMonad m =&gt; Mutable m IntOrBool where
+    type Ref m IntOrBool = GRef m IntOrBool
+</code></pre>
+<p>this is essentially equivalent to:</p>
+<pre class="haskell"><code>newtype IntOrBoolRef s = IBR
+    { getIBR :: MutVar s (Either (MutVar s Int) (MutVar s Bool))
+    }
+
+instance PrimMonad m =&gt; Mutable m IntOrBool where
+    type Ref m IntOrBool = IntOrBoolRef (PrimState m)
+
+    thawRef (IBInt  i) = fmap IBR . newMutVar . Left  =&lt;&lt; newMutVar i
+    thawRef (IBBool b) = fmap IBR . newMutVar . Right =&lt;&lt; newMutVar b
+
+    freezeRef (IBR r) = readMutVar r &gt;&gt;= \case
+        Left  i -&gt; IBInt  &lt;$&gt; readMutVar i
+        Right b -&gt; IBBool &lt;$&gt; readMutVar b
+
+    copyRef (IBR r) x = do
+        z &lt;- readMutVar r
+        case (z, x) of
+          (Left  i, IBInt  j) -&gt; writeMutVar i j
+          (Right b, IBBool c) -&gt; writeMutVar b c
+          (_      , IBInt  j) -&gt; writeMutVar r . Left  =&lt;&lt; newMutVar j
+          (_      , IBBool c) -&gt; writeMutVar r . Right =&lt;&lt; newMutVar c
+</code></pre>
+<h2>Newtyped Instances</h2>
+<p>If you have a newtype, you can give it a <code>Mutable</code> instance based on the
+underlying type by using <code>CoerceRef</code></p>
+<pre class="haskell"><code>newtype VecD = VecD (V.Vector Double)
+
+instance PrimMonad m =&gt; Mutable m VecD where
+    type Ref m VecD = CoerceRef m VecD (V.Vector Double)
+</code></pre>
+<p>This will appropriately have <code>VecD</code> be using <code>MVector</code> as its mutable version.</p>
+<p>To get an instance for a newtype <code>X</code> wrapping underlying type <code>Y</code> using the
+<code>Mutable</code> instance for <code>Y</code>, use <code>CoerceRef m X Y</code>.</p>
+<p>You can access the underlying <code>Ref</code> using <code>coerceRef</code> or <code>withCoerceRef</code>:</p>
+<pre class="haskell"><code>withCoerceRef
+    :: Ref m VecD
+    -&gt; (MV.Vector s Double -&gt; m r)
+    -&gt; m r
+
+freezePart coerceRef
+    :: Ref m VecD
+    -&gt; m (V.Vector Double)
+</code></pre>
+<h2>Traversable Instances</h2>
+<p>Any &quot;fixed-length&quot; <code>Traversable</code> instance can be used as a mutable reference by
+just swapping out all its leaves for <code>Ref</code>. You can use <code>TraverseRef</code>:</p>
+<pre class="haskell"><code>data V4 a = V4 a a a a
+  deriving (Functor, Foldable, Traversable)
+
+instance Mutable m a =&gt; Mutable m (V4 a) where
+    type Ref m (V4 a) = TraverseRef m V4 a
+</code></pre>
+<p>Basically, this just uses <code>V4 (Ref m a)</code> as your mutable reference:</p>
+<pre class="haskell"><code>getTraverseRef
+    :: Ref m (V4 a)
+    -&gt; V4 (Ref m a)
+</code></pre>
+<p>so you can directly access the parts by just accessing your <code>Traversable</code>
+instance normally --- no need for any fancy <code>MutPart</code> shenanigans.</p>
+<p>Note that this still technically works for a non-fixed-length <code>Traversable</code>
+instance (like lists and vectors), but <code>copy</code> semantics can get a bit wonky.
+See the documentation for more details.</p>
+<h2>Higher-Kinded Data</h2>
+<p>Sandy Maguire&#39;s <a href="https://reasonablypolymorphic.com/blog/higher-kinded-data/">Higher-Kinded Data</a> pattern is seriously one of my
+favorite things ever in Haskell, and it works nicely with <code>Mutable</code> as well.</p>
+<pre class="haskell"><code>data MyTypeF f = MTF
+    { mtfInt    :: HKD f Int
+    , mtfDouble :: HKD f Double
+    , mtfVec    :: HKD f (V.Vector Double)
+    }
+  deriving Generic
+
+type MyType&#39; = MyTypeF Identity
+
+instance PrimMonad m =&gt; Mutable m MyType&#39; where
+    type Ref m MyType&#39; = MyTypeF (RefFor m)
+</code></pre>
+<p>In this style, <code>MyType&#39;</code> behaves exactly like <code>MyType</code> from above:</p>
+<pre class="haskell"><code>MTF 3 4.5 (V.fromList [1..100])
+    :: MyType&#39;
+</code></pre>
+<p>But now, <code>MyTypeF (RefFor m)</code> literally has mutable references as its fields.
+You can pattern match to get <code>rI :: MutVar s Int</code>, <code>rD :: MutVar s Double</code>, and
+<code>rV :: MVector s Double</code></p>
+<pre class="haskell"><code>MTF rI rD rV :: MyTypeF (RefFor m)
+</code></pre>
+<p>and the accessors work as well:</p>
+<pre class="haskell"><code>mtfVec
+    :: (s ~ PrimState m)
+    -&gt; MyTypeF (RefFor m)
+    -&gt; MVector s Double
+</code></pre>
+<p>You can use it like:</p>
+<pre class="haskell"><code>doStuff :: MyType&#39; -&gt; MyType&#39;
+doStuff x = runST $ do
+    r@(MTF rI rD rV) &lt;- thawRef x
+
+    replicateM_ 1000 $ do
+
+        -- rI is just the &#39;Int&#39; ref
+        modifyMutVar rI (+ 1)
+
+        -- rV is the &#39;MVector&#39;
+        MV.modify rV (+1) 0
+
+    freezeRef r
+</code></pre>
+<pre class="haskell"><code>doStuff $ MTF 0 19.3 (V.fromList [1..12]) => 
+MTF {mtfInt = 1000, mtfDouble = 19.3, mtfVec = [1001.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0]}
+</code></pre>
+<p>This makes it all really syntactically easy to access the internal parts
+directly as <code>Ref</code>s.</p>
+</div></div></div></div></div></section><div class="tintin-doc-footer clear-fix"><div class="row next-prev"><div class="col-md-4 offset-md-4"><a href="02-mutable-and-ref.html">&lt; Previous: Mutable and Ref</a></div><div class="col-md-4 ml-auto"><a href="04-instance-wrappers.html">Next: Instance Wrappers &gt;</a></div></div><footer><div class="container"><div class="row"><div class="col"><p class="author">Developed by <span>Justin Le</span></p><p class="site-generated-message">Site generated with <a href="https://theam.github.io/tintin" class="tintin-logo"><img src="https://s3-eu-west-1.amazonaws.com/worldwideapps/assets/logo.svg" class="filter-gray"></a><span>&mdash; &copy; 2019 </span><a href="https://www.theagilemonkeys.com">The Agile Monkeys</a></p></div></div></div></footer></div></div><script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script><script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/haskell.min.js"></script><script src="https://cdn.rawgit.com/icons8/bower-webicon/v0.10.7/jquery-webicon.min.js"></script><script>hljs.initHighlightingOnLoad()</script><script>$(function () {$("#menu-toggle").click(function(e) {e.preventDefault();$("#wrapper").toggleClass("toggled");$("#menu-toggle img").toggleClass("rotateIn rotateOut");})});</script><script src="https://cdn.jsdelivr.net/npm/katex@0.10.0-alpha/dist/katex.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.9.0/contrib/auto-render.min.js"></script><script>renderMathInElement(document.body);</script></body></html>

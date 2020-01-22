@@ -1,6 +1,509 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>mutable-0.1.0.0: Automatic piecewise-mutable references for your types</title><link href="linuwial.css" rel="stylesheet" type="text/css" title="Linuwial" /><link rel="stylesheet" type="text/css" href="quick-jump.css" /><link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=PT+Sans:400,400i,700" /><script src="haddock-bundle.min.js" async="async" type="text/javascript"></script><script type="text/x-mathjax-config">MathJax.Hub.Config({ tex2jax: { processClass: "mathjax", ignoreClass: ".*" } });</script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script></head><body><div id="package-header"><span class="caption">mutable-0.1.0.0: Automatic piecewise-mutable references for your types</span><ul class="links" id="page-menu"><li><a href="index.html">Contents</a></li><li><a href="doc-index.html">Index</a></li></ul></div><div id="content"><div id="description"><h1>mutable-0.1.0.0: Automatic piecewise-mutable references for your types</h1><div class="doc"><p>Associate and generate &quot;piecewise-mutable&quot; versions for your composite data
-types.  Think of it like a &quot;generalized <code>MVector</code> for all ADTs&quot;.</p><p>Useful for a situation where you have a record with many fields (or many nested
-records) that you want to use for efficient mutable in-place algorithms.  This
-library lets you do efficient &quot;piecewise&quot; mutations (operations that only edit
-one field), and also efficient entire-datatype copies/updates, as well, in many
-cases.</p><p>See README.md and documentation for <a href="Data-Mutable.html">Data.Mutable</a> for more information.</p></div></div><div id="module-list"><p class="caption">Signatures</p></div><div id="module-list"><p class="caption">Modules</p><ul><li><span class="module details-toggle-control details-toggle" data-details-id="n.1">Data</span><details id="n.1" open="open"><summary class="hide-when-js-enabled">Submodules</summary><ul><li><span class="module"><span class="details-toggle-control details-toggle" data-details-id="n.1.1">&nbsp;</span><a href="Data-Mutable.html">Data.Mutable</a></span><details id="n.1.1" open="open"><summary class="hide-when-js-enabled">Submodules</summary><ul><li><span class="module"><span class="noexpander">&nbsp;</span><a href="Data-Mutable-Class.html">Data.Mutable.Class</a></span></li><li><span class="module"><span class="noexpander">&nbsp;</span><a href="Data-Mutable-Instances.html">Data.Mutable.Instances</a></span></li><li><span class="module"><span class="noexpander">&nbsp;</span><a href="Data-Mutable-Parts.html">Data.Mutable.Parts</a></span></li></ul></details></li></ul></details></li></ul></div></div><div id="footer"><p>Produced by <a href="http://www.haskell.org/haddock/">Haddock</a> version 2.23.0</p></div></body></html>
+<!DOCTYPE HTML><html><head><title>mutable - Home</title><meta charset="utf-8"><meta content="summary" name="twitter:card"><meta content="https://s3-eu-west-1.amazonaws.com/worldwideapps/assets/tintin-bronze.png" name="twitter:site"><meta content="mutable - Home" name="twitter:title"><meta content="Automatic piecewise-mutable references for your types" name="twitter:description"><meta content="Justin Le" name="twitter:creator"><meta content="https://s3-eu-west-1.amazonaws.com/worldwideapps/assets/tintin-bronze.png" name="twitter:image"><meta itemprop="og:type" content="website"><meta itemprop="og:site_name" content="theam"><meta itemprop="og:title" content="mutable - Home"><meta itemprop="og:url" content="mstksg/mutable"><meta itemprop="og:image" content="https://s3-eu-west-1.amazonaws.com/worldwideapps/assets/tintin-bronze.png"><meta itemprop="og:description" content="Automatic piecewise-mutable references for your types"><link href="https://fonts.googleapis.com/css?family=IBM+Plex+Sans|Montserrat:500" rel="stylesheet"><link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/tomorrow-night.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.5.2/animate.min.css" rel="stylesheet"><link href="https://s3-eu-west-1.amazonaws.com/worldwideapps/assets/favicon-bronze.ico" rel="shortcut icon"><link href="https://cdn.jsdelivr.net/npm/katex@0.10.0-alpha/dist/katex.min.css" rel="stylesheet"><style>
+html
+{
+  height     : 100%;
+  min-height : 100%;
+}
+
+body
+{
+  height      : 100%;
+  min-height  : 100%;
+  font-family : "IBM+Plex+Sans", sans-serif;
+  font-size   : 1em;
+  overflow-x  : hidden;
+}
+
+body a
+{
+  color : rgba(115,114,86,77.0);
+}
+
+body a:hover
+{
+  color : rgba(148,146,110,26.0);
+}
+
+h1
+{
+  font-family : "Montserrat", sans-serif;
+  font-weight : 500;
+  font-size   : 1em;
+}
+
+h2
+{
+  font-family : "Montserrat", sans-serif;
+  font-weight : 500;
+  font-size   : 2.44099em;
+}
+
+h3
+{
+  font-family : "Montserrat", sans-serif;
+  font-weight : 500;
+  font-size   : 5.95848em;
+}
+
+h1
+{
+  font-size : 2.44099em;
+}
+
+h2
+{
+  font-size : 1.953em;
+}
+
+h3
+{
+  font-size : 1.56299em;
+}
+
+blockquote
+{
+  border-left  : solid 4px #dddddd;
+  padding-left : 1rem;
+  color        : #777777;
+}
+
+.next-prev
+{
+  margin-top    : 5%;
+  margin-bottom : 5%;
+}
+
+#header-container
+{
+  margin-top    : 5rem;
+  margin-bottom : 5rem;
+  text-align    : center;
+}
+
+#header-container img
+{
+  max-height : 7rem;
+}
+
+.cover-heading
+{
+  font-size     : 800%;
+  margin-bottom : 1.56299rem;
+}
+
+.cover-container
+{
+  background-color : #a4a27a;
+}
+
+.watermark
+{
+  position    : absolute;
+  top         : 0px;
+  left        : 0px;
+  max-height  : 1.25039rem;
+  margin-top  : 1.25039rem;
+  margin-left : 1.25039rem;
+}
+
+.cover-heading-subtitle
+{
+  margin-top : 3rem;
+  font-size  : 1.953rem;
+  color      : #212529;
+}
+
+.vertical-auto
+{
+  margin-top    : auto;
+  margin-bottom : auto;
+}
+
+.content
+{
+  margin-top    : 5%;
+  margin-bottom : 5%;
+}
+
+#wrapper
+{
+  padding-left       : 0px;
+  -webkit-transition : all 0.5s ease 0.0s;
+  -moz-transition    : all 0.5s ease 0.0s;
+  -ms-transition     : all 0.5s ease 0.0s;
+  -o-transition      : all 0.5s ease 0.0s;
+  transition         : all 0.5s ease 0.0s;
+}
+
+#wrapper.toggled
+{
+  padding-left : 250px;
+}
+
+#wrapper.toggled #sidebar-wrapper
+{
+  width : 250px;
+}
+
+#page-content-wrapper#wrapper.toggled
+{
+  position     : absolute;
+  margin-right : -250px;
+}
+
+#page-content-wrapper
+{
+  width      : 100%;
+  position   : absolute;
+  margin-top : 3rem;
+  padding    : 15px 15px 15px 15px;
+}
+
+#page-content-wrapper img
+{
+  max-width : 100%;
+}
+
+#sidebar-wrapper
+{
+  z-index            : 1000;
+  position           : fixed;
+  left               : 250px;
+  width              : 0px;
+  margin-left        : -250px;
+  overflow-y         : hidden;
+  overflow-x         : hidden;
+  -webkit-transition : all 0.5s ease 0.0s;
+  -moz-transition    : all 0.5s ease 0.0s;
+  -ms-transition     : all 0.5s ease 0.0s;
+  -o-transition      : all 0.5s ease 0.0s;
+  transition         : all 0.5s ease 0.0s;
+}
+
+.sidebar-nav
+{
+  position        : absolute;
+  top             : 0px;
+  width           : 250px;
+  margin          : 0px 0px 0px 0px;
+  padding         : 0px 0px 0px 0px;
+  list-style-type : none;
+}
+
+.sidebar-nav li
+{
+  text-indent : 20px;
+  line-height : 40px;
+}
+
+.sidebar-nav li a
+{
+  display         : block;
+  text-decoration : none;
+  font-weight     : bold;
+  color           : rgba(66,65,49,153.0);
+}
+
+.sidebar-nav li a:hover
+{
+  text-decoration : none;
+  color           : rgba(50,49,37,178.0);
+}
+
+.sidebar-nav li .tintin-fg-active
+{
+  color : #ffffff;
+}
+
+#menu-toggle
+{
+  position : absolute;
+}
+
+#menu-toggle img
+{
+  position : absolute;
+  left     : 0px;
+}
+
+#menu-toggle .rotateIn
+{
+  z-index : 999;
+}
+
+.tintin-doc-topbar
+{
+  height : 3rem;
+}
+
+.tintin-doc-topbar a
+{
+  margin-left : 1rem;
+  margin-top  : 0rem;
+  width       : 1.5rem;
+}
+
+.filter-gray
+{
+  position     : relative;
+  bottom       : 3px;
+  margin-left  : 0.25rem;
+  margin-right : 1rem;
+  height       : 1rem;
+}
+
+.footer-theam
+{
+  position    : relative;
+  bottom      : 1px;
+  margin-left : -0.25rem;
+  height      : 1.75rem;
+}
+
+.tintin-doc-footer
+{
+  bottom : 0px;
+  height : -15rem;
+  width  : 100%;
+  color  : rgba(0,0,0,0.3);
+}
+
+.main-container
+{
+  min-height : 100%;
+  position   : relative;
+}
+
+#content
+{
+  min-height : 95%;
+}
+
+.sidebar-nav > .sidebar-brand
+{
+  height         : 3rem;
+  font-size      : 2rem;
+  font-family    : "Montserrat", sans-serif;
+  font-weight    : 500;
+  padding-top    : 2.5rem;
+  padding-bottom : 2.5rem;
+  margin-bottom  : 1.5rem;
+}
+
+.sidebar-nav > .sidebar-brand img
+{
+  height : 1.5rem;
+}
+
+.tintin-navbar
+{
+  font-weight      : bold;
+  background-color : rgba(132,130,98,51.0);
+}
+
+.tintin-navbar .left-part
+{
+  padding-left : 0px !important;
+}
+
+.tintin-navbar ul
+{
+  margin-top      : 1rem;
+  list-style-type : none;
+}
+
+.tintin-navbar ul li
+{
+  margin-right : 1rem;
+  display      : inline;
+}
+
+.tintin-navbar ul li a
+{
+  color : rgba(66,65,49,153.0);
+}
+
+.tintin-navbar ul li a:hover
+{
+  text-decoration : none;
+  color           : rgba(50,49,37,178.0);
+}
+
+
+.tintin-navbar .tintin-navbar-active a
+{
+  color : #212529;
+}
+
+.tintin-navbar .tintin-navbar-active a:hover
+{
+  text-decoration : none;
+  color           : rgba(77,80,83,51.0);
+}
+
+.tintin-bg-70
+{
+  background-color : rgba(132,130,98,51.0);
+}
+
+.tintin-bg-bronze
+{
+  background-color : #a4a27a;
+}
+
+.tintin-fg-bronze
+{
+  color : #a4a27a;
+}
+
+.tintin-fg-active
+{
+  color : #ffffff;
+}
+
+.tintin-fg-disabled
+{
+  color : #000000;
+}
+
+footer
+{
+  position         : relative;
+  bottom           : 0px;
+  left             : 0px;
+  width            : 100%;
+  padding-top      : 30px;
+  padding-bottom   : 30px;
+  color            : #212529;
+  background-color : rgba(132,130,98,51.0);
+  text-align       : center;
+}
+
+footer a
+{
+  color : rgba(66,65,49,153.0);
+}
+
+footer a:hover
+{
+  text-decoration : none;
+  color           : rgba(50,49,37,178.0);
+}
+
+footer .author
+{
+  margin-top : 1.19999em;
+  font-size  : 1.19999em;
+}
+
+footer .site-generated-message
+{
+  font-size     : 0.8em;
+  margin-top    : 3em;
+  margin-bottom : 3em;
+}
+
+.container
+{
+  max-width : 50rem;
+}
+
+@media screen and (min-width: 768px)
+{
+
+#wrapper
+{
+  padding-left : 0px;
+}
+
+#wrapper .toggled
+{
+  padding-left : 250px;
+}
+
+#wrapper .toggled #sidebar-wrapper
+{
+  width : 250px;
+}
+
+#wrapper .toggled #page-content-wrapper
+{
+  position     : relative;
+  margin-right : 0px;
+}
+
+#sidebar-wrapper
+{
+  width : 0px;
+}
+
+#page-content-wrapper
+{
+  padding  : 20px 20px 20px 20px;
+  position : relative;
+}
+
+}
+
+/* Generated with Clay, http://fvisser.nl/clay */</style></head><body class="tintin-fg-black tintin-bg-white"><div class="tintin-navigation tintin-bg-bronze"><div class="cover-container d-flex p-3 mx-auto flex-column tintin-fg-white"><main role="main" class="masthead mb-auto"><div class="container"><div class="row align-items-center"><div id="header-container" class="col"><h1 class="cover-heading">mutable</h1><p class="cover-heading-subtitle">Automatic piecewise-mutable references for your types</p></div></div></div></main></div><nav style="width: 100%;" class="tintin-navbar"><div class="container d-flex align-items-center"><div class="mr-auto"><ul class="left-part"><li class="tintin-navbar-active"><a href="index.html" class>Home</a></li><li class><a href="01-getting-started.html" class>Docs</a></li></ul></div><div class><ul class><li class><a href="https://github.com/mstksg/mutable" class>View on GitHub</a></li></ul></div></div></nav></div><section id="content" class="animated fadeIn"><div class="container"><div class="content"><div><h1>Mutability can be Awesome</h1>
+<p><a href="https://hackage.haskell.org/package/mutable"><img src="https://img.shields.io/hackage/v/mutable.svg?maxAge=86400" alt="mutable on Hackage" /></a>
+<a href="https://travis-ci.org/mstksg/backprop"><img src="https://travis-ci.org/mstksg/backprop.svg?branch=master" alt="Build Status" /></a></p>
+<p>Making piecewise updates on your giant composite data types (like artificial
+neural networks or game states in your game loop) got you down? Tired of
+requiring a full deep copy every time you make a small change, and want to be
+able to build mutable versions of your types automatically in composable ways?</p>
+<p>Take back the power of <strong>mutable objects</strong> with all the <strong>safety</strong> and explicit
+state of Haskell. Associate and generate &quot;piecewise-mutable&quot; versions for your
+composite data types in a composable and automatic way. Think of it like a
+&quot;generalized <code>MVector</code> for all ADTs&quot;.</p>
+<pre class="haskell"><code>data MyType = MT
+    { mtInt    :: Int
+    , mtDouble :: Double
+    , mtVec    :: V.Vector Double
+    }
+  deriving (Show, Generic)
+
+instance PrimMonad m =&gt; Mutable m MyType where
+    type Ref m MyType = GRef m MyType
+</code></pre>
+<p>The type <code>Ref m MyType</code> is now a &quot;mutable <code>MyType</code>&quot;, just like how <code>MVector s
+a</code> is a &quot;mutable <code>Vector a</code>&quot;. You have:</p>
+<pre class="haskell"><code>thawRef   :: MyType -&gt; m (Ref m MyType)
+freezeRef :: Ref m MyType -&gt; m MyType
+</code></pre>
+<p>You can use <code>thawRef</code> to allocate a mutable <code>MyType</code> that essentially consists
+of a mutable <code>Int</code>, a mutable <code>Double</code>, and a mutable <code>Vector</code> (an <code>MVector</code>)
+all tupled together. You can edit these pieces in isolation, and then
+<code>freezeRef</code> it all back together:</p>
+<pre class="haskell"><code>doStuff :: MyType -&gt; MyType
+doStuff x = runST $ do
+    r &lt;- thawRef x
+
+    replicateM_ 1000 $ do
+
+        -- modify the Int in `mtInt`
+        modifyPart (fieldMut #mtInt) r (+ 1)
+
+        -- the `mtVec` field is now an MVector
+        withField #mtVec r $ \v -&gt;
+          MV.modify v (+1) 0
+
+    freezeRef r
+</code></pre>
+<pre class="haskell"><code>doStuff $ MT 0 19.3 (V.fromList [1..12]) => 
+MT {mtInt = 1000, mtDouble = 19.3, mtVec = [1001.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0]}
+</code></pre>
+<p>If you were to do this normally with pure values, this would be extremely
+expensive, especially if <code>mtVec</code> is a huge vector --- it would require copying
+every item in the entire vector every step, being <em>O(n * l)</em> , with <em>n</em> number
+of repetitions and <em>l</em> length of vector and number of fields. With mutable
+vectors and mutable cells, this now becomes <em>O(n + l)</em>.</p>
+<p>The main motivation for this library is to implement <em>automatically derivable</em>
+piecewise-mutable references for the purposes of mutation-heavy algorithms,
+like artificial neural networks. In the end, you&#39;re able to have an Artificial
+Neural Network (which can have huuuuge vectors) and being able to do piecewise
+updates on them (automatically) without having to copy over the entire network
+every training step.</p>
+<p>Check out <strong><a href="/01-getting-started.html">the getting started page</a></strong>, or the <strong><a href="https://hackage.haskell.org/package/mutable">Haddock
+Documentation</a></strong> to jump right in!</p>
+</div></div></div></section><div class="row next-prev"><div class="col-md-4 ml-auto"><a href="01-getting-started.html">Next: Getting Started &gt;</a></div></div><footer><div class="container"><div class="row"><div class="col"><p class="author">Developed by <span>Justin Le</span></p><p class="site-generated-message">Site generated with <a href="https://theam.github.io/tintin" class="tintin-logo"><img src="https://s3-eu-west-1.amazonaws.com/worldwideapps/assets/logo.svg" class="filter-gray"></a><span>&mdash; &copy; 2019 </span><a href="https://www.theagilemonkeys.com">The Agile Monkeys</a></p></div></div></div></footer><script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script><script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/haskell.min.js"></script><script src="https://cdn.rawgit.com/icons8/bower-webicon/v0.10.7/jquery-webicon.min.js"></script><script>hljs.initHighlightingOnLoad()</script><script>$(function () {$("#menu-toggle").click(function(e) {e.preventDefault();$("#wrapper").toggleClass("toggled");$("#menu-toggle img").toggleClass("rotateIn rotateOut");})});</script><script src="https://cdn.jsdelivr.net/npm/katex@0.10.0-alpha/dist/katex.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.9.0/contrib/auto-render.min.js"></script><script>renderMathInElement(document.body);</script></body></html>

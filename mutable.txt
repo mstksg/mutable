@@ -4,8 +4,18 @@
 
 -- | Piecewise-mutable references for product types
 --   
---   Please see the README on GitHub at
---   <a>https://github.com/mstksg/mutable#readme</a>
+--   Associate and generate "piecewise-mutable" versions for your composite
+--   data types. Think of it like a "generalized <tt>MVector</tt> for all
+--   ADTs".
+--   
+--   Useful for a situation where you have a record with many fields (or
+--   many nested records) that you want to use for efficient mutable
+--   in-place algorithms. This library lets you do efficient "piecewise"
+--   mutations (operations that only edit one field), and also efficient
+--   entire-datatype copies/updates, as well, in many cases.
+--   
+--   See README.md and documentation for <a>Data.Mutable</a> for more
+--   information.
 @package mutable
 @version 0.1.0.0
 
@@ -445,6 +455,24 @@ module Data.Mutable.Class
 --   fields, and then later <a>freezeRef</a> the whole thing, the resulting
 --   frozen value will incorporate all of the changes to the individual
 --   fields.
+--   
+--   In addition, there are two more "automatically derived" instances you
+--   can get by picking <a>Ref</a>:
+--   
+--   <pre>
+--   -- Make a mutable version for any newtype wrapper, using the <a>Mutable</a>
+--   -- of the underlying type
+--   newtype MyType = MT (Vector Double)
+--   
+--   type Ref m MyType = CoerceRef m MyType (Vector Double)
+--    
+--   -- Make a mutable version of any container, where the items are all
+--   -- mutable references.
+--   data MyContainer a = MC a a a a
+--     deriving (Functor, Foldable, Traversable)
+--   
+--   type Ref m (MyContainer a) = TraverseRef m MyContainer a
+--   </pre>
 class Monad m => Mutable m a where {
     
     -- | Links the type <tt>a</tt> to the type of its canonical mutable
@@ -730,6 +758,8 @@ RefFor :: Ref m a -> RefFor m a
 --   Basically, by specifying <a>Ref</a>, you get the rest of the instance
 --   for free.
 --   
+--   We have the default case:
+--   
 --   <pre>
 --   -- default, if you don't specify <a>Ref</a>
 --   instance Mutable m MyType
@@ -737,15 +767,41 @@ RefFor :: Ref m a -> RefFor m a
 --   -- the above is the same as:
 --   instance Mutable m MyType
 --       type Ref m MyType = MutVar (PrimState m) MyType
+--   </pre>
 --   
---   -- or if we have an instance of <a>Generic</a>:
+--   The case for any instance of <a>Generic</a>:
+--   
+--   <pre>
 --   instance Mutable m MyType
 --       type Ref m MyType = GRef m MyType
+--   </pre>
 --   
---   -- or, using the higher-kinded data pattern, like
---   -- <a>https://reasonablypolymorphic.com/blog/higher-kinded-data/</a>
+--   The case for the "higher-kinded data" pattern a la
+--   <a>https://reasonablypolymorphic.com/blog/higher-kinded-data/</a>:
+--   
+--   <pre>
 --   instance Mutable m (MyTypeF Identity)
 --       type Ref m (MyTypeF Identity) = MyTypeF (RefFor m)
+--   </pre>
+--   
+--   The case for any newtype wrapper:
+--   
+--   <pre>
+--   newtype MyType = MT (Vector Double)
+--   
+--   instance Mutable m MyType where
+--       type Ref m MyType = CoerceRef m MyType (Vector Double)
+--   </pre>
+--   
+--   And the case for any 'Traversable instance, where the items will all
+--   be mutable references:
+--   
+--   <pre>
+--   data MyContainer a = MC a a a a
+--     deriving (Functor, Foldable, Traversable)
+--   
+--   instance Mutable m a =&gt; Mutable m (MyContainer a) where
+--       type Ref m (MyContainer a) = TraverseRef m MyContainer a
 --   </pre>
 class DefaultMutable m a r
 defaultThawRef :: DefaultMutable m a r => a -> m r
@@ -894,6 +950,10 @@ class (Mutable m s, Mutable m a) => FieldMut (fld :: Symbol) m s a | fld s -> a
 --   <a>posMut</a> have more or less identical performance characteristics.
 fieldMut :: FieldMut fld m s a => Label fld -> MutPart m s a
 
+-- | A helpful wrapper over <tt><a>withMutPart</a> (<a>fieldMut</a>
+--   #blah)</tt>. Create a <a>fieldMut</a> and directly use it.
+withField :: FieldMut fld m s a => Label fld -> Ref m s -> (Ref m a -> m b) -> m b
+
 -- | Proxy for label type
 data Label (a :: Symbol)
 Label :: Label (a :: Symbol)
@@ -918,9 +978,9 @@ class (Mutable m s, Mutable m a) => PosMut (i :: Nat) m s a | i s -> a
 --   
 --   <pre>
 --   ghci&gt; r &lt;- <a>thawRef</a> (Foo 3 4.5)
---   ghci&gt; <a>freezePart</a> (<a>posMut</a> <tt>1) r
+--   ghci&gt; <a>freezePart</a> (<a>posMut</a> @1) r
 --   3
---   ghci&gt; <a>copyPart</a> (posMut </tt>2) 1.23
+--   ghci&gt; <a>copyPart</a> (posMut @2) 1.23
 --   ghci&gt; <a>freezeRef</a> r
 --   Foo 3 1.23
 --   </pre>
@@ -931,6 +991,10 @@ class (Mutable m s, Mutable m a) => PosMut (i :: Nat) m s a | i s -> a
 --   <a>posMut</a> and <a>fieldMut</a> have more or less identical
 --   performance characteristics.
 posMut :: PosMut i m s a => MutPart m s a
+
+-- | A helpful wrapper over <tt><a>withMutPart</a> (<tt>posMot</tt>
+--   @n)</tt>. Create a <a>posMut</a> and directly use it.
+withPos :: forall i m s a b. PosMut i m s a => Ref m s -> (Ref m a -> m b) -> m b
 
 -- | If you are using the "higher-kinded data" pattern, a la
 --   <a>https://reasonablypolymorphic.com/blog/higher-kinded-data/</a>, and
@@ -948,8 +1012,8 @@ posMut :: PosMut i m s a => MutPart m s a
 --   instance Mutable (MyTypeF <a>Identity</a>) where
 --       type Ref (MyTypeF <a>Identity</a>) = MyTypeF (<a>RefFor</a> m)
 --   
---   mx :: MutPart (MyTypeF Identity) (<a>Vector</a> Int)
---   my :: MutPart (MyTypeF Identity) (V.Vector Double)
+--   mx :: MutPart m (MyTypeF Identity) (<a>Vector</a> Int)
+--   my :: MutPart m (MyTypeF Identity) (Vector Double)
 --   MT mx my = hkdMutParts @MyTypeF
 --   </pre>
 --   
@@ -961,6 +1025,15 @@ posMut :: PosMut i m s a => MutPart m s a
 --   ghci&gt; <a>freezeRef</a> r
 --   MT 3 12.3
 --   </pre>
+--   
+--   Performance-wise, this is about equivalent to <a>fieldMut</a> and
+--   <a>posMut</a> for the most part, so the main advantage would be purely
+--   syntactical. If performance is an issue, you should benchmark all the
+--   different ways just to be sure. As a general rule, it seems like deep
+--   nested accesses are faster with composition of <a>fieldMut</a> and
+--   <a>posMut</a>, but immediate shallow access is often faster with
+--   <a>hkdMutParts</a>...but this probably does vary on a case-by-case
+--   basis.
 hkdMutParts :: forall z m. (Generic (z (RefFor m)), Generic (z (MutPart m (z Identity))), HKDMutParts m z (Rep (z (RefFor m))) (Rep (z (MutPart m (z Identity))))) => z (MutPart m (z Identity))
 
 -- | Typeclass used to implement <a>hkdMutParts</a>. See documentation of
@@ -1090,6 +1163,24 @@ module Data.Mutable
 --   fields, and then later <a>freezeRef</a> the whole thing, the resulting
 --   frozen value will incorporate all of the changes to the individual
 --   fields.
+--   
+--   In addition, there are two more "automatically derived" instances you
+--   can get by picking <a>Ref</a>:
+--   
+--   <pre>
+--   -- Make a mutable version for any newtype wrapper, using the <a>Mutable</a>
+--   -- of the underlying type
+--   newtype MyType = MT (Vector Double)
+--   
+--   type Ref m MyType = CoerceRef m MyType (Vector Double)
+--    
+--   -- Make a mutable version of any container, where the items are all
+--   -- mutable references.
+--   data MyContainer a = MC a a a a
+--     deriving (Functor, Foldable, Traversable)
+--   
+--   type Ref m (MyContainer a) = TraverseRef m MyContainer a
+--   </pre>
 class Monad m => Mutable m a where {
     
     -- | Links the type <tt>a</tt> to the type of its canonical mutable
@@ -1375,6 +1466,8 @@ RefFor :: Ref m a -> RefFor m a
 --   Basically, by specifying <a>Ref</a>, you get the rest of the instance
 --   for free.
 --   
+--   We have the default case:
+--   
 --   <pre>
 --   -- default, if you don't specify <a>Ref</a>
 --   instance Mutable m MyType
@@ -1382,15 +1475,41 @@ RefFor :: Ref m a -> RefFor m a
 --   -- the above is the same as:
 --   instance Mutable m MyType
 --       type Ref m MyType = MutVar (PrimState m) MyType
+--   </pre>
 --   
---   -- or if we have an instance of <a>Generic</a>:
+--   The case for any instance of <a>Generic</a>:
+--   
+--   <pre>
 --   instance Mutable m MyType
 --       type Ref m MyType = GRef m MyType
+--   </pre>
 --   
---   -- or, using the higher-kinded data pattern, like
---   -- <a>https://reasonablypolymorphic.com/blog/higher-kinded-data/</a>
+--   The case for the "higher-kinded data" pattern a la
+--   <a>https://reasonablypolymorphic.com/blog/higher-kinded-data/</a>:
+--   
+--   <pre>
 --   instance Mutable m (MyTypeF Identity)
 --       type Ref m (MyTypeF Identity) = MyTypeF (RefFor m)
+--   </pre>
+--   
+--   The case for any newtype wrapper:
+--   
+--   <pre>
+--   newtype MyType = MT (Vector Double)
+--   
+--   instance Mutable m MyType where
+--       type Ref m MyType = CoerceRef m MyType (Vector Double)
+--   </pre>
+--   
+--   And the case for any 'Traversable instance, where the items will all
+--   be mutable references:
+--   
+--   <pre>
+--   data MyContainer a = MC a a a a
+--     deriving (Functor, Foldable, Traversable)
+--   
+--   instance Mutable m a =&gt; Mutable m (MyContainer a) where
+--       type Ref m (MyContainer a) = TraverseRef m MyContainer a
 --   </pre>
 class DefaultMutable m a r
 
@@ -1473,39 +1592,6 @@ data TraverseRef m f a
 -- | A <a>Ref</a> for instances of <a>GMutable</a>, which are the
 --   <a>GHC.Generics</a> combinators.
 data GMutableRef m f a
-
--- | Default <a>copyRef</a> for the higher-kinded data pattern, a la
---   <a>https://reasonablypolymorphic.com/blog/higher-kinded-data/</a>.
---   
---   You likely won't ever use this directly, since it is automatically
---   provided if you have a <a>Mutable</a> instance with <tt>z
---   (<a>RefFor</a> m)</tt> as the <a>Ref</a>. However, it can be useful if
---   you are using a <tt>z (<a>RefFor</a> m)</tt> just as a normal data
---   type, independent of the <a>Ref</a> class. See documentation for
---   <a>Mutable</a> for more information.
-thawHKD :: forall z m. (Generic (z Identity), Generic (z (RefFor m)), GMutable m (Rep (z Identity)), GRef_ m (Rep (z Identity)) ~ Rep (z (RefFor m))) => z Identity -> m (z (RefFor m))
-
--- | Default <a>freezeRef</a> for the higher-kinded data pattern, a la
---   <a>https://reasonablypolymorphic.com/blog/higher-kinded-data/</a>.
---   
---   You likely won't ever use this directly, since it is automatically
---   provided if you have a <a>Mutable</a> instance with <tt>z
---   (<a>RefFor</a> m)</tt> as the <a>Ref</a>. However, it can be useful if
---   you are using a <tt>z (<a>RefFor</a> m)</tt> just as a normal data
---   type, independent of the <a>Ref</a> class. See documentation for
---   <a>Mutable</a> for more information.
-freezeHKD :: forall z m. (Generic (z Identity), Generic (z (RefFor m)), GMutable m (Rep (z Identity)), GRef_ m (Rep (z Identity)) ~ Rep (z (RefFor m))) => z (RefFor m) -> m (z Identity)
-
--- | Default <a>copyRef</a> for the higher-kinded data pattern, a la
---   <a>https://reasonablypolymorphic.com/blog/higher-kinded-data/</a>.
---   
---   You likely won't ever use this directly, since it is automatically
---   provided if you have a <a>Mutable</a> instance with <tt>z
---   (<a>RefFor</a> m)</tt> as the <a>Ref</a>. However, it can be useful if
---   you are using a <tt>z (<a>RefFor</a> m)</tt> just as a normal data
---   type, independent of the <a>Ref</a> class. See documentation for
---   <a>Mutable</a> for more information.
-copyHKD :: forall z m. (Generic (z Identity), Generic (z (RefFor m)), GMutable m (Rep (z Identity)), GRef_ m (Rep (z Identity)) ~ Rep (z (RefFor m))) => z (RefFor m) -> z Identity -> m ()
 
 -- | A <tt><a>MutPart</a> m s a</tt> is a way to "zoom into" an <tt>a</tt>,
 --   as a part of a mutable reference on <tt>s</tt>. This allows you to
@@ -1616,6 +1702,10 @@ mutSnd :: MutPart m (a, b) b
 --   <a>posMut</a> have more or less identical performance characteristics.
 fieldMut :: FieldMut fld m s a => Label fld -> MutPart m s a
 
+-- | A helpful wrapper over <tt><a>withMutPart</a> (<a>fieldMut</a>
+--   #blah)</tt>. Create a <a>fieldMut</a> and directly use it.
+withField :: FieldMut fld m s a => Label fld -> Ref m s -> (Ref m a -> m b) -> m b
+
 -- | Proxy for label type
 data Label (a :: Symbol)
 Label :: Label (a :: Symbol)
@@ -1635,9 +1725,9 @@ Label :: Label (a :: Symbol)
 --   
 --   <pre>
 --   ghci&gt; r &lt;- <a>thawRef</a> (Foo 3 4.5)
---   ghci&gt; <a>freezePart</a> (<a>posMut</a> <tt>1) r
+--   ghci&gt; <a>freezePart</a> (<a>posMut</a> @1) r
 --   3
---   ghci&gt; <a>copyPart</a> (posMut </tt>2) 1.23
+--   ghci&gt; <a>copyPart</a> (posMut @2) 1.23
 --   ghci&gt; <a>freezeRef</a> r
 --   Foo 3 1.23
 --   </pre>
@@ -1648,6 +1738,10 @@ Label :: Label (a :: Symbol)
 --   <a>posMut</a> and <a>fieldMut</a> have more or less identical
 --   performance characteristics.
 posMut :: PosMut i m s a => MutPart m s a
+
+-- | A helpful wrapper over <tt><a>withMutPart</a> (<tt>posMot</tt>
+--   @n)</tt>. Create a <a>posMut</a> and directly use it.
+withPos :: forall i m s a b. PosMut i m s a => Ref m s -> (Ref m a -> m b) -> m b
 
 -- | If you are using the "higher-kinded data" pattern, a la
 --   <a>https://reasonablypolymorphic.com/blog/higher-kinded-data/</a>, and
@@ -1665,8 +1759,8 @@ posMut :: PosMut i m s a => MutPart m s a
 --   instance Mutable (MyTypeF <a>Identity</a>) where
 --       type Ref (MyTypeF <a>Identity</a>) = MyTypeF (<a>RefFor</a> m)
 --   
---   mx :: MutPart (MyTypeF Identity) (<a>Vector</a> Int)
---   my :: MutPart (MyTypeF Identity) (V.Vector Double)
+--   mx :: MutPart m (MyTypeF Identity) (<a>Vector</a> Int)
+--   my :: MutPart m (MyTypeF Identity) (Vector Double)
 --   MT mx my = hkdMutParts @MyTypeF
 --   </pre>
 --   
@@ -1678,6 +1772,15 @@ posMut :: PosMut i m s a => MutPart m s a
 --   ghci&gt; <a>freezeRef</a> r
 --   MT 3 12.3
 --   </pre>
+--   
+--   Performance-wise, this is about equivalent to <a>fieldMut</a> and
+--   <a>posMut</a> for the most part, so the main advantage would be purely
+--   syntactical. If performance is an issue, you should benchmark all the
+--   different ways just to be sure. As a general rule, it seems like deep
+--   nested accesses are faster with composition of <a>fieldMut</a> and
+--   <a>posMut</a>, but immediate shallow access is often faster with
+--   <a>hkdMutParts</a>...but this probably does vary on a case-by-case
+--   basis.
 hkdMutParts :: forall z m. (Generic (z (RefFor m)), Generic (z (MutPart m (z Identity))), HKDMutParts m z (Rep (z (RefFor m))) (Rep (z (MutPart m (z Identity))))) => z (MutPart m (z Identity))
 
 -- | A <a>MutPart</a> to get into a <a>CoerceRef</a>.

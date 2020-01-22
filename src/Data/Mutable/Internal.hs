@@ -551,12 +551,35 @@ instance X.IsoHKD ImmutableRef a where
     unHKD = ImmutableRef
     toHKD = getImmutableRef
 
+-- | Default 'thawRef' for 'ImmutableRef'.
+--
+-- You likely won't ever use this directly, since it is automatically
+-- provided if you have a 'Mutable' instance with 'ImmutableRef' as the 'Ref'.
+-- However, it can be useful if you are using a @'ImmutableRef' m s a@ just as
+-- a normal data type, independent of the 'Ref' class.  See documentation
+-- for 'ImmutableRef' for more information.
 thawImmutable :: Applicative m => a -> m (ImmutableRef a)
 thawImmutable = pure . ImmutableRef
 
+-- | Default 'freezeRef' for 'ImmutableRef'.  This will always return the
+-- originally thawed value, ignoring all copies and writes.
+--
+-- You likely won't ever use this directly, since it is automatically
+-- provided if you have a 'Mutable' instance with 'ImmutableRef' as the 'Ref'.
+-- However, it can be useful if you are using a @'ImmutableRef' m s a@ just as
+-- a normal data type, independent of the 'Ref' class.  See documentation
+-- for 'ImmutableRef' for more information.
 freezeImmutable :: Applicative m => ImmutableRef a -> m a
 freezeImmutable = pure . getImmutableRef
 
+-- | Default 'copyRef' for 'ImmutableRef'.  This is a no-op and does
+-- nothing, since freezing will always return the originally thawed value.
+--
+-- You likely won't ever use this directly, since it is automatically
+-- provided if you have a 'Mutable' instance with 'ImmutableRef' as the 'Ref'.
+-- However, it can be useful if you are using a @'ImmutableRef' m s a@ just as
+-- a normal data type, independent of the 'Ref' class.  See documentation
+-- for 'ImmutableRef' for more information.
 copyImmutable :: Applicative m => ImmutableRef a -> a -> m ()
 copyImmutable _ _ = pure ()
 

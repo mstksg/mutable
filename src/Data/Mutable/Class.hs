@@ -205,9 +205,9 @@ instance (Mutable m a, Coercible s a) => Mutable m (CoerceMut s a) where
 --     type Ref m MyType = GRef m MyType
 -- @
 --
--- This basically uses three mutable references: the 'Int', the @'Vector'
+-- This basically uses three mutable references: the 'Int', the @'V.Vector'
 -- Double@, and the 'String'.  However, you might want the 'Mutable'
--- instance of 'MyType' to be /immutable/ 'String' field, and so it cannot
+-- instance of @MyType@ to be /immutable/ 'String' field, and so it cannot
 -- be updated at all even when thawed.  To do that, you can instead have:
 --
 -- @
@@ -222,8 +222,8 @@ instance (Mutable m a, Coercible s a) => Mutable m (CoerceMut s a) where
 --     type Ref m MyType = GRef m MyType
 -- @
 --
--- which has that behavior.  The 'Int' and the 'Vector' will be mutable
--- within @'Ref' m 'MyType'@, but not the 'String'.
+-- which has that behavior.  The 'Int' and the 'V.Vector' will be mutable
+-- within @'Ref' m MyType@, but not the 'String'.
 newtype Immutable a = Immutable { getImmutable :: a }
 
 -- | Use an @'Immutable' a@ as if it were an @a@

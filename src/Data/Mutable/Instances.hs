@@ -1,8 +1,4 @@
 {-# LANGUAGE BangPatterns          #-}
-{-# LANGUAGE DeriveFoldable        #-}
-{-# LANGUAGE DeriveFunctor         #-}
-{-# LANGUAGE DeriveGeneric         #-}
-{-# LANGUAGE DeriveTraversable     #-}
 {-# LANGUAGE EmptyCase             #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
@@ -38,6 +34,8 @@ module Data.Mutable.Instances (
   , CoerceRef(..), thawCoerce, freezeCoerce, copyCoerce
   -- ** Traversable
   , TraverseRef(..), thawTraverse, freezeTraverse, copyTraverse
+  -- ** Immutable
+  , ImmutableRef(..), thawImmutable, freezeImmutable, copyImmutable
   -- ** Instances for Generics combinators themselves
   , GMutableRef(..), thawGMutableRef, freezeGMutableRef, copyGMutableRef
   ) where
@@ -182,19 +180,6 @@ consListRef lrc = GRef . M1 . Comp1 <$> newMutVar go
 -- type as a mutable linked list.
 instance (PrimMonad m, Mutable m a) => Mutable m [a] where
     type Ref m [a] = GRef m [a]
-
--- | Similar to 'MutRef', this allows you to overwrite the normal 'Mutable'
--- instance for a type to utilize its 'Traversable' instance instead of its
--- normal instance.
---
--- For example, the instance of @'Mutable' ('TraverseMut' [] a)@ is
--- a normal list of mutable references, instead of a full-on mutable linked
--- list.
-newtype TraverseMut f a = TraverseMut { getTraverseMut :: f a }
-  deriving (Show, Eq, Ord, Generic, Functor, Foldable, Traversable)
-
-instance (Traversable f, Mutable m a) => Mutable m (TraverseMut f a) where
-    type Ref m (TraverseMut f a) = TraverseRef m (TraverseMut f) a
 
 -- | Meant for usage with higher-kinded data pattern (See 'X.HKD')
 instance Mutable m a => Mutable m (V.Identity a) where

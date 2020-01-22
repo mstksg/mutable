@@ -11,6 +11,41 @@ packages:
       sha256: aeb9e0e1a3bbe2b1f048a096430d240964a31c6936a1da89f4b32e931eba9d69
   original:
     hackage: vinyl-0.12.0
+- completed:
+    hackage: inliterate-0.1.0@sha256:61b17ab3cef803512c264e27e463390b47af59d7d2b3a2a89bea2eac0cf84266,1853
+    pantry-tree:
+      size: 618
+      sha256: 2cea999a63449b913f6186c3b8b276050e7a1a7195f5e94ac94fa4007da36558
+  original:
+    hackage: inliterate-0.1.0
+- completed:
+    hackage: tintin-1.10.0@sha256:4ed09092d0218825c064384f992d8b83b59ebd26fea42aecbcc369b5b6ed38c5,3087
+    pantry-tree:
+      size: 1552
+      sha256: b3810078d22856eb1764f37ffe42cef4a76e648b9a26c04a337173d40a0cce37
+  original:
+    hackage: tintin-1.10.0
+- completed:
+    hackage: require-0.4.3@sha256:73d04a6b9c01fac37b1e26b4eb22900e0a0e2f5181ea62ba7b63e7e3d0a2f1ed,3624
+    pantry-tree:
+      size: 718
+      sha256: 7ad8126f0e3189490a46f7a713f51d0fa46c4aabc03cc584b139749ac7e8f185
+  original:
+    hackage: require-0.4.3
+- completed:
+    size: 60639
+    url: https://github.com/jgm/cheapskate/archive/74c308a9f145c00c7d0f41dcf90aac56d8614c65.tar.gz
+    cabal-file:
+      size: 3020
+      sha256: 9ce4daf47a3f9083c02d4b5bb7182511c1389d767804437f79a44266ef60e255
+    name: cheapskate
+    version: 0.1.1.1
+    sha256: 14e53fed14ec842727781ab3fad0716146901789639826f8de14ac1a1e64b241
+    pantry-tree:
+      size: 12002
+      sha256: cd3ccdd0d2eb914ed32b7fbf15c6b4b7c19382452dd3a2367e4a0bcac5d98341
+  original:
+    url: https://github.com/jgm/cheapskate/archive/74c308a9f145c00c7d0f41dcf90aac56d8614c65.tar.gz
 snapshots:
 - completed:
     size: 457392

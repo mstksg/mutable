@@ -14,7 +14,6 @@ module Data.Mutable (
     Mutable(..)
   , modifyRef, modifyRef'
   , updateRef, updateRef'
-  , MutRef(..)
   , RefFor(..)
   -- * Instances
   , DefaultMutable
@@ -23,6 +22,11 @@ module Data.Mutable (
   , CoerceRef
   , TraverseRef
   , GMutableRef
+  -- * Providing/overriding instances
+  , VarMut(..)
+  , CoerceMut(..)
+  , TraverseMut(..)
+  , Immutable(..)
   -- * Parts
   , MutPart(..)
   , withMutPart

@@ -17,7 +17,6 @@
 
 module Data.Mutable.Internal (
     Mutable(..)
-  , MutRef(..)
   , RefFor(..)
   , DefaultMutable(..)
   -- * Instances
@@ -29,6 +28,8 @@ module Data.Mutable.Internal (
   , CoerceRef(..), thawCoerce, freezeCoerce, copyCoerce
   -- ** Traversable
   , TraverseRef(..), thawTraverse, freezeTraverse, copyTraverse
+  -- ** Immutable
+  , ImmutableRef(..), thawImmutable, freezeImmutable, copyImmutable
   -- ** Instances for Generics combinators themselves
   , GMutableRef(..), thawGMutableRef, freezeGMutableRef, copyGMutableRef
   ) where
@@ -395,6 +396,11 @@ instance (Coercible s a, Mutable m a) => DefaultMutable m s (CoerceRef m s a) wh
     defaultFreezeRef = freezeCoerce
     defaultCopyRef   = copyCoerce
 
+instance Applicative m => DefaultMutable m a (ImmutableRef a) where
+    defaultThawRef   = thawImmutable
+    defaultFreezeRef = freezeImmutable
+    defaultCopyRef   = copyImmutable
+
 instance GMutable m f => DefaultMutable m (f a) (GMutableRef m f a) where
     defaultThawRef   = thawGMutableRef
     defaultFreezeRef = freezeGMutableRef
@@ -412,51 +418,6 @@ instance X.IsoHKD (RefFor m) a where
     type HKD (RefFor m) a = Ref m a
     unHKD = RefFor
     toHKD = getRefFor
-
--- | Newtype wrapper that can provide any type with a 'Mutable' instance,
--- giving it a "non-piecewise" instance.  Can be useful for avoiding orphan
--- instances yet still utilizing auto-deriving features, or for overwriting
--- the 'Mutable' instance of other instances.
---
--- For example, let's say you want to auto-derive an instance for your data
--- type:
---
--- @
--- data MyType = MT Int Double OtherType
---   deriving Generic
--- @
---
--- This is possible if all of @MyType@s fields have 'Mutable' instances.
--- However, let's say @OtherType@ comes from an external library that you
--- don't have control over, and so you cannot give it a 'Mutable' instance
--- without incurring an orphan instance.
---
--- One solution is to wrap it in 'MutRef':
---
--- @
--- data MyType = MT Int Double ('MutRef' OtherType)
---   deriving Generic
--- @
---
--- This can then be auto-derived:
---
--- @
--- instance Mutable m MyType where
---     type Ref m MyType = GRef m MyType
--- @
---
--- It can also be used to /override/ a 'Mutable' instance.  For example,
--- even if the 'Mutable' instance of @SomeType@ is piecewise-mutable, the
--- 'Mutable' instance of @'MutRef' SomeType@ will be not be piecewise.
-newtype MutRef a = MutRef { getMutRef :: a }
-
-instance PrimMonad m => Mutable m (MutRef a)
-
--- | Use a @'MutRef' a@ as if it were an @a@.
-instance X.IsoHKD MutRef a where
-    type HKD MutRef a = a
-    unHKD = MutRef
-    toHKD = getMutRef
 
 -- | A 'Ref' that works for any instance of 'Traversable', by using the
 -- fields of the 'Traversable' instance to /purely/ store mutable references.
@@ -559,6 +520,20 @@ freezeCoerce = fmap coerce . freezeRef . getCoerceRef
 -- for 'CoerceRef' for more information.
 copyCoerce :: (Coercible s a, Mutable m a) => CoerceRef m s a -> s -> m ()
 copyCoerce (CoerceRef r) = copyRef r . coerce
+
+-- | A "'Ref'" that can be used to give a default 'Mutable' instance that
+-- is immutable.  Nothing is allocated ever, all attempts to modify it will
+-- be ignored, and 'freezeRef' will just get the original thawed value.
+newtype ImmutableRef a = Immutable { getImmutableRef :: a }
+
+thawImmutable :: Applicative m => a -> m (ImmutableRef a)
+thawImmutable = pure . Immutable
+
+freezeImmutable :: Applicative m => ImmutableRef a -> m a
+freezeImmutable = pure . getImmutableRef
+
+copyImmutable :: Applicative m => ImmutableRef a -> a -> m ()
+copyImmutable _ _ = pure ()
 
 
 -- | Class for automatic generation of 'Ref' for 'Generic' instances.  See

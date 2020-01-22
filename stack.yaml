@@ -41,6 +41,13 @@ packages:
 #
 extra-deps:
 - vinyl-0.12.0
+- inliterate-0.1.0
+- tintin-1.10.0
+- require-0.4.3
+# - github: theam/tintin
+#   commit: 655f5a84448b001f78d833f159ac786b6c50a3cb
+- github: jgm/cheapskate
+  commit: 74c308a9f145c00c7d0f41dcf90aac56d8614c65
 
 ghc-options:
   "$locals": -ddump-to-file -ddump-hi

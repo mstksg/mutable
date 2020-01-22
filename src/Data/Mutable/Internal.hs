@@ -139,6 +139,24 @@ import qualified Data.Vinyl.XRec           as X
 -- the mutable versions of each field.  If you modify the mutable fields,
 -- and then later 'freezeRef' the whole thing, the resulting frozen value
 -- will incorporate all of the changes to the individual fields.
+--
+-- In addition, there are two more "automatically derived" instances you
+-- can get by picking 'Ref':
+--
+-- @
+-- -- Make a mutable version for any newtype wrapper, using the 'Mutable'
+-- -- of the underlying type
+-- newtype MyType = MT (Vector Double)
+--
+-- type Ref m MyType = CoerceRef m MyType (Vector Double)
+--  
+-- -- Make a mutable version of any container, where the items are all
+-- -- mutable references.
+-- data MyContainer a = MC a a a a
+--   deriving (Functor, Foldable, Traversable)
+--
+-- type Ref m (MyContainer a) = TraverseRef m MyContainer a
+-- @
 class Monad m => Mutable m a where
     -- | Links the type @a@ to the type of its canonical mutable version.
     --
@@ -301,6 +319,8 @@ class Monad m => Mutable m a where
 -- Basically, by specifying 'Ref', you get the rest of the instance for
 -- free.
 --
+-- We have the default case:
+--
 -- @
 -- -- default, if you don't specify 'Ref'
 -- instance Mutable m MyType
@@ -308,15 +328,41 @@ class Monad m => Mutable m a where
 -- -- the above is the same as:
 -- instance Mutable m MyType
 --     type Ref m MyType = MutVar (PrimState m) MyType
+-- @
 --
--- -- or if we have an instance of 'Generic':
+-- The case for any instance of 'Generic':
+--
+-- @
 -- instance Mutable m MyType
 --     type Ref m MyType = GRef m MyType
+-- @
 --
--- -- or, using the higher-kinded data pattern, like
--- -- <https://reasonablypolymorphic.com/blog/higher-kinded-data/>
+-- The case for the "higher-kinded data" pattern a la
+-- <https://reasonablypolymorphic.com/blog/higher-kinded-data/>:
+--
+-- @
 -- instance Mutable m (MyTypeF Identity)
 --     type Ref m (MyTypeF Identity) = MyTypeF (RefFor m)
+-- @
+--
+-- The case for any newtype wrapper:
+--
+-- @
+-- newtype MyType = MT (Vector Double)
+--
+-- instance Mutable m MyType where
+--     type Ref m MyType = CoerceRef m MyType (Vector Double)
+-- @
+--
+-- And the case for any 'Traversable instance, where the items will all be
+-- mutable references:
+--
+-- @
+-- data MyContainer a = MC a a a a
+--   deriving (Functor, Foldable, Traversable)
+--
+-- instance Mutable m a => Mutable m (MyContainer a) where
+--     type Ref m (MyContainer a) = TraverseRef m MyContainer a
 -- @
 --
 class DefaultMutable m a r where

@@ -23,8 +23,6 @@ module Data.Mutable (
   , CoerceRef
   , TraverseRef
   , GMutableRef
-  -- ** Higher-Kinded Data Pattern
-  , thawHKD, freezeHKD, copyHKD
   -- * Parts
   , MutPart(..)
   , withMutPart
@@ -33,8 +31,8 @@ module Data.Mutable (
   , updatePart, updatePart'
   -- ** Built-in 'MutPart'
   , mutFst, mutSnd
-  , fieldMut, Label(..)
-  , posMut
+  , fieldMut, withField, Label(..)
+  , posMut, withPos
   , hkdMutParts
   , coerceRef
   , mutRec

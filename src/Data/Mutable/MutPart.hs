@@ -35,8 +35,8 @@ module Data.Mutable.MutPart (
   , idMP
   -- * Built-in 'MutPart'
   , mutFst, mutSnd
-  , FieldMut, fieldMut, Label(..)
-  , PosMut, posMut
+  , FieldMut, fieldMut, withField, Label(..)
+  , PosMut, posMut, withPos
   , hkdMutParts, HKDMutParts
   , mutRec
   , coerceRef
@@ -222,8 +222,8 @@ instance (Mutable m (z Identity), Ref m (z Identity) ~ z (RefFor m), TypeError (
 -- instance Mutable (MyTypeF 'Identity') where
 --     type Ref (MyTypeF 'Identity') = MyTypeF ('RefFor' m)
 --
--- mx :: MutPart (MyTypeF Identity) ('V.Vector' Int)
--- my :: MutPart (MyTypeF Identity) (V.Vector Double)
+-- mx :: MutPart m (MyTypeF Identity) ('V.Vector' Int)
+-- my :: MutPart m (MyTypeF Identity) (Vector Double)
 -- MT mx my = hkdMutParts @MyTypeF
 -- @
 --
@@ -235,6 +235,14 @@ instance (Mutable m (z Identity), Ref m (z Identity) ~ z (RefFor m), TypeError (
 -- ghci> 'freezeRef' r
 -- MT 3 12.3
 -- @
+--
+-- Performance-wise, this is about equivalent to 'fieldMut' and 'posMut'
+-- for the most part, so the main advantage would be purely syntactical. If
+-- performance is an issue, you should benchmark all the different ways
+-- just to be sure. As a general rule, it seems like deep nested accesses
+-- are faster with composition of 'fieldMut' and 'posMut', but immediate
+-- shallow access is often faster with 'hkdMutParts'...but this probably
+-- does vary on a case-by-case basis.
 hkdMutParts
     :: forall z m.
      ( Generic (z (RefFor m))
@@ -297,6 +305,16 @@ instance
 data HasTotalFieldPSym :: Symbol -> GL.TyFun (Type -> Type) (Maybe Type)
 type instance GL.Eval (HasTotalFieldPSym sym) tt = GL.HasTotalFieldP sym tt
 
+-- | A helpful wrapper over @'withMutPart' ('fieldMut' #blah)@.  Create
+-- a 'fieldMut' and directly use it.
+withField
+    :: FieldMut fld m s a
+    => Label fld
+    -> Ref m s
+    -> (Ref m a -> m b)
+    -> m b
+withField l = withMutPart (fieldMut l)
+
 -- | Create a 'MutPart' for a position in a sum type.  Should work for any
 -- type with one constructor whose mutable reference is 'GRef'.  See
 -- 'posMut' for usage directions.
@@ -316,9 +334,9 @@ class (Mutable m s, Mutable m a) => PosMut (i :: Nat) m s a | i s -> a where
     --
     -- @
     -- ghci> r <- 'thawRef' (Foo 3 4.5)
-    -- ghci> 'freezePart' ('posMut' @1) r
+    -- ghci> 'freezePart' ('posMut' \@1) r
     -- 3
-    -- ghci> 'copyPart' (posMut @2) 1.23
+    -- ghci> 'copyPart' (posMut \@2) 1.23
     -- ghci> 'freezeRef' r
     -- Foo 3 1.23
     -- @
@@ -343,6 +361,16 @@ instance
 
 data HasTotalPositionPSym :: Nat -> GL.TyFun (Type -> Type) (Maybe Type)
 type instance GL.Eval (HasTotalPositionPSym t) tt = GL.HasTotalPositionP t tt
+
+-- | A helpful wrapper over @'withMutPart' ('posMot' \@n)@.  Create
+-- a 'posMut' and directly use it.
+withPos
+    :: forall i m s a b. PosMut i m s a
+    => Ref m s
+    -> (Ref m a -> m b)
+    -> m b
+withPos = withMutPart (posMut @i)
+
 
 -- stuff from generic-lens that wasn't exported
 

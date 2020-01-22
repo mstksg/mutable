@@ -17,7 +17,17 @@ category:            Data
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/mstksg/mutable#readme>
+description: |
+    Associate and generate "piecewise-mutable" versions for your composite data
+    types.  Think of it like a "generalized @MVector@ for all ADTs".
+
+    Useful for a situation where you have a record with many fields (or many nested
+    records) that you want to use for efficient mutable in-place algorithms.  This
+    library lets you do efficient "piecewise" mutations (operations that only edit
+    one field), and also efficient entire-datatype copies/updates, as well, in many
+    cases.
+
+    See README.md and documentation for "Data.Mutable" for more information.
 
 ghc-options:
 - -Wall

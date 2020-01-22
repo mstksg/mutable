@@ -5,6 +5,9 @@ title: Home
 Mutability can be Awesome
 =========================
 
+[![mutable on Hackage](https://img.shields.io/hackage/v/mutable.svg?maxAge=86400)](https://hackage.haskell.org/package/mutable)
+[![Build Status](https://travis-ci.org/mstksg/backprop.svg?branch=master)](https://travis-ci.org/mstksg/backprop)
+
 ```haskell top hide
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE FlexibleInstances     #-}
@@ -99,5 +102,3 @@ Check out **[the getting started page](/01-getting-started.html)**, or the **[Ha
 Documentation][docs]** to jump right in!
 
 [docs]: https://hackage.haskell.org/package/mutable
-
-[![mutable on Hackage](https://img.shields.io/hackage/v/mutable.svg?maxAge=86400)](https://hackage.haskell.org/package/mutable)

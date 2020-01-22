@@ -12,6 +12,20 @@ packages:
   original:
     hackage: vinyl-0.12.0
 - completed:
+    hackage: primitive-0.7.0.0@sha256:ee352d97cc390d8513530029a2213a95c179a66c406906b18d03702c1d9ab8e5,3416
+    pantry-tree:
+      size: 3221
+      sha256: ad604aab554e26d78561ad1288636b52c2e88b40e1fb37594efc96465a0ce68c
+  original:
+    hackage: primitive-0.7.0.0
+- completed:
+    hackage: generic-lens-1.2.0.1@sha256:faecffd513340cd570866aa8f3e0e139d3f9240ecd3eb766357cdf47f550004c,6550
+    pantry-tree:
+      size: 4315
+      sha256: ea2099153bc65265915f206f08d25eed0d21270412505ea6470665df74b7f5ec
+  original:
+    hackage: generic-lens-1.2.0.1
+- completed:
     hackage: inliterate-0.1.0@sha256:61b17ab3cef803512c264e27e463390b47af59d7d2b3a2a89bea2eac0cf84266,1853
     pantry-tree:
       size: 618

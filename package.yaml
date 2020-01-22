@@ -5,6 +5,7 @@ license:             BSD3
 author:              Justin Le
 maintainer:          justin@jle.im
 copyright:           (c) Justin Le 2019
+tested-with:         GHC >= 8.6 && < 8.10
 
 extra-source-files:
 - README.md
@@ -36,18 +37,15 @@ ghc-options:
 - -Wredundant-constraints
 - -Werror=incomplete-patterns
 
-dependencies:
-- base >= 4.7 && < 5
-
 library:
   source-dirs: src
   other-modules:
   - Data.Mutable.Internal
   dependencies:
-  - array
+  - base >= 4.11 && < 5
   - constraints
-  - generic-lens
-  - primitive
+  - generic-lens >= 1.1
+  - primitive >= 0.6.4
   - reflection
   - transformers
   - vector
@@ -63,6 +61,7 @@ benchmarks:
     - -with-rtsopts=-N
     - -O2
     dependencies:
+    - base >= 4.12 && < 5
     - criterion
     - deepseq
     - directory

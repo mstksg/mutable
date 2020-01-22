@@ -2,7 +2,7 @@
 -- See Hoogle, http://www.haskell.org/hoogle/
 
 
--- | Piecewise-mutable references for product types
+-- | Automatic piecewise-mutable references for your types
 --   
 --   Associate and generate "piecewise-mutable" versions for your composite
 --   data types. Think of it like a "generalized <tt>MVector</tt> for all
@@ -68,8 +68,15 @@ RecRef :: Ref m (f a) -> RecRef m f a
 --   type. For a sum type (with multiple constructors), an extra layer of
 --   indirection is added to account for the dynamically changable shape.
 --   
---   See <a>fieldMut</a>/<a>posMut</a> for ways to inspect and mutate the
---   internals of this type (as demonstrated above).
+--   See <a>fieldMut</a>/<a>posMut</a> for nice ways to inspect and mutate
+--   the internals of this type (as demonstrated above).
+--   
+--   If the facilities in those modules are not adequate, you can also
+--   manually crack open <a>GRef</a> and work with the internals. Getting
+--   the <i>type</i> of <tt><a>unGRef</a> @MyType</tt> should allow you to
+--   navigate what is going on, if you are familiar with
+--   <a>GHC.Generics</a>. However, ideally, you would never need to do
+--   this.
 newtype GRef m a
 GRef :: GRef_ m (Rep a) () -> GRef m a
 [unGRef] :: GRef m a -> GRef_ m (Rep a) ()
@@ -196,7 +203,12 @@ copyCoerce :: (Coercible s a, Mutable m a) => CoerceRef m s a -> s -> m ()
 --   using the fields of the <a>Traversable</a> instance to <i>purely</i>
 --   store mutable references.
 --   
---   Copying and modifying semantics can be a bit funky.
+--   Note that this really only makes complete sense if the
+--   <a>Traversable</a> is fixed-size, or you never modify the length of
+--   the traversable as you use it as a reference.
+--   
+--   If you <i>do</i> modify the length, copying and modifying semantics
+--   can be a bit funky:
 --   
 --   <ul>
 --   <li>If copying a shorter item into a longer item ref, the "leftovers"
@@ -248,6 +260,49 @@ freezeTraverse :: (Traversable f, Mutable m a) => TraverseRef m f a -> m (f a)
 --   <a>TraverseRef</a> for more information.
 copyTraverse :: (Traversable f, Mutable m a) => TraverseRef m f a -> f a -> m ()
 
+-- | A "<a>Ref</a>" that can be used to give a default <a>Mutable</a>
+--   instance that is immutable. Nothing is allocated ever, all attempts to
+--   modify it will be ignored, and <a>freezeRef</a> will just get the
+--   original thawed value.
+--   
+--   Really only exists to be used with <a>Immutable</a>.
+newtype ImmutableRef a
+ImmutableRef :: a -> ImmutableRef a
+[getImmutableRef] :: ImmutableRef a -> a
+
+-- | Default <a>thawRef</a> for <a>ImmutableRef</a>.
+--   
+--   You likely won't ever use this directly, since it is automatically
+--   provided if you have a <a>Mutable</a> instance with
+--   <a>ImmutableRef</a> as the <a>Ref</a>. However, it can be useful if
+--   you are using a <tt><a>ImmutableRef</a> m s a</tt> just as a normal
+--   data type, independent of the <a>Ref</a> class. See documentation for
+--   <a>ImmutableRef</a> for more information.
+thawImmutable :: Applicative m => a -> m (ImmutableRef a)
+
+-- | Default <a>freezeRef</a> for <a>ImmutableRef</a>. This will always
+--   return the originally thawed value, ignoring all copies and writes.
+--   
+--   You likely won't ever use this directly, since it is automatically
+--   provided if you have a <a>Mutable</a> instance with
+--   <a>ImmutableRef</a> as the <a>Ref</a>. However, it can be useful if
+--   you are using a <tt><a>ImmutableRef</a> m s a</tt> just as a normal
+--   data type, independent of the <a>Ref</a> class. See documentation for
+--   <a>ImmutableRef</a> for more information.
+freezeImmutable :: Applicative m => ImmutableRef a -> m a
+
+-- | Default <a>copyRef</a> for <a>ImmutableRef</a>. This is a no-op and
+--   does nothing, since freezing will always return the originally thawed
+--   value.
+--   
+--   You likely won't ever use this directly, since it is automatically
+--   provided if you have a <a>Mutable</a> instance with
+--   <a>ImmutableRef</a> as the <a>Ref</a>. However, it can be useful if
+--   you are using a <tt><a>ImmutableRef</a> m s a</tt> just as a normal
+--   data type, independent of the <a>Ref</a> class. See documentation for
+--   <a>ImmutableRef</a> for more information.
+copyImmutable :: Applicative m => ImmutableRef a -> a -> m ()
+
 -- | A <a>Ref</a> for instances of <a>GMutable</a>, which are the
 --   <a>GHC.Generics</a> combinators.
 newtype GMutableRef m f a
@@ -283,17 +338,9 @@ freezeGMutableRef :: GMutable m f => GMutableRef m f a -> m (f a)
 --   independent of the <a>Ref</a> class. See documentation for
 --   <a>GMutableRef</a> for more information.
 copyGMutableRef :: GMutable m f => GMutableRef m f a -> f a -> m ()
-instance Data.Traversable.Traversable f => Data.Traversable.Traversable (Data.Mutable.Instances.TraverseMut f)
-instance Data.Foldable.Foldable f => Data.Foldable.Foldable (Data.Mutable.Instances.TraverseMut f)
-instance GHC.Base.Functor f => GHC.Base.Functor (Data.Mutable.Instances.TraverseMut f)
-instance forall k (f :: k -> *) (a :: k). GHC.Generics.Generic (Data.Mutable.Instances.TraverseMut f a)
-instance forall k (f :: k -> *) (a :: k). GHC.Classes.Ord (f a) => GHC.Classes.Ord (Data.Mutable.Instances.TraverseMut f a)
-instance forall k (f :: k -> *) (a :: k). GHC.Classes.Eq (f a) => GHC.Classes.Eq (Data.Mutable.Instances.TraverseMut f a)
-instance forall k (f :: k -> *) (a :: k). GHC.Show.Show (f a) => GHC.Show.Show (Data.Mutable.Instances.TraverseMut f a)
 instance forall u (m :: * -> *) (f :: u -> *). GHC.Base.Monad m => Data.Mutable.Internal.Mutable m (Data.Vinyl.Core.Rec f '[])
 instance forall a1 (m :: * -> *) (f :: a1 -> *) (a2 :: a1) (as :: [a1]). (GHC.Base.Monad m, Data.Mutable.Internal.Mutable m (f a2), Data.Mutable.Internal.Mutable m (Data.Vinyl.Core.Rec f as), Data.Mutable.Internal.Ref m (Data.Vinyl.Core.Rec f as) GHC.Types.~ Data.Vinyl.Core.Rec (Data.Mutable.Instances.RecRef m f) as) => Data.Mutable.Internal.Mutable m (Data.Vinyl.Core.Rec f (a2 : as))
 instance forall k (m :: * -> *) (as :: [k]) (f :: k -> *). (GHC.Base.Monad m, Data.Vinyl.Core.RecApplicative as, Data.Vinyl.TypeLevel.NatToInt (Data.Vinyl.TypeLevel.RLength as), Data.Vinyl.Core.RPureConstrained (Data.Vinyl.ARec.IndexableField as) as, Data.Mutable.Internal.Mutable m (Data.Vinyl.Core.Rec f as), Data.Mutable.Internal.Ref m (Data.Vinyl.Core.Rec f as) GHC.Types.~ Data.Vinyl.Core.Rec (Data.Mutable.Instances.RecRef m f) as) => Data.Mutable.Internal.Mutable m (Data.Vinyl.ARec.ARec f as)
-instance (Data.Traversable.Traversable f, Data.Mutable.Internal.Mutable m a) => Data.Mutable.Internal.Mutable m (Data.Mutable.Instances.TraverseMut f a)
 instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m GHC.Types.Int
 instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m GHC.Integer.Type.Integer
 instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m GHC.Natural.Natural
@@ -701,47 +748,6 @@ updateRef :: Mutable m a => Ref m a -> (a -> (a, b)) -> m b
 --   in the reference.
 updateRef' :: Mutable m a => Ref m a -> (a -> (a, b)) -> m b
 
--- | Newtype wrapper that can provide any type with a <a>Mutable</a>
---   instance, giving it a "non-piecewise" instance. Can be useful for
---   avoiding orphan instances yet still utilizing auto-deriving features,
---   or for overwriting the <a>Mutable</a> instance of other instances.
---   
---   For example, let's say you want to auto-derive an instance for your
---   data type:
---   
---   <pre>
---   data MyType = MT Int Double OtherType
---     deriving Generic
---   </pre>
---   
---   This is possible if all of <tt>MyType</tt>s fields have <a>Mutable</a>
---   instances. However, let's say <tt>OtherType</tt> comes from an
---   external library that you don't have control over, and so you cannot
---   give it a <a>Mutable</a> instance without incurring an orphan
---   instance.
---   
---   One solution is to wrap it in <a>MutRef</a>:
---   
---   <pre>
---   data MyType = MT Int Double (<a>MutRef</a> OtherType)
---     deriving Generic
---   </pre>
---   
---   This can then be auto-derived:
---   
---   <pre>
---   instance Mutable m MyType where
---       type Ref m MyType = GRef m MyType
---   </pre>
---   
---   It can also be used to <i>override</i> a <a>Mutable</a> instance. For
---   example, even if the <a>Mutable</a> instance of <tt>SomeType</tt> is
---   piecewise-mutable, the <a>Mutable</a> instance of <tt><a>MutRef</a>
---   SomeType</tt> will be not be piecewise.
-newtype MutRef a
-MutRef :: a -> MutRef a
-[getMutRef] :: MutRef a -> a
-
 -- | A handy newtype wrapper that allows you to partially apply <a>Ref</a>.
 --   <tt><a>RefFor</a> m a</tt> is the same as <tt><a>Ref</a> m a</tt>, but
 --   can be partially applied.
@@ -808,6 +814,136 @@ defaultThawRef :: DefaultMutable m a r => a -> m r
 defaultFreezeRef :: DefaultMutable m a r => r -> m a
 defaultCopyRef :: DefaultMutable m a r => r -> a -> m ()
 
+-- | Newtype wrapper that can provide any type with a <a>Mutable</a>
+--   instance, giving it a "non-piecewise" instance. Can be useful for
+--   avoiding orphan instances yet still utilizing auto-deriving features,
+--   or for overwriting the <a>Mutable</a> instance of other instances.
+--   
+--   For example, let's say you want to auto-derive an instance for your
+--   data type:
+--   
+--   <pre>
+--   data MyType = MT Int Double OtherType
+--     deriving Generic
+--   </pre>
+--   
+--   This is possible if all of <tt>MyType</tt>s fields have <a>Mutable</a>
+--   instances. However, let's say <tt>OtherType</tt> comes from an
+--   external library that you don't have control over, and so you cannot
+--   give it a <a>Mutable</a> instance without incurring an orphan
+--   instance.
+--   
+--   One solution is to wrap it in <a>VarMut</a>:
+--   
+--   <pre>
+--   data MyType = MT Int Double (<a>VarMut</a> OtherType)
+--     deriving Generic
+--   </pre>
+--   
+--   This can then be auto-derived:
+--   
+--   <pre>
+--   instance Mutable m MyType where
+--       type Ref m MyType = GRef m MyType
+--   </pre>
+--   
+--   It can also be used to <i>override</i> a <a>Mutable</a> instance. For
+--   example, even if the <a>Mutable</a> instance of <tt>SomeType</tt> is
+--   piecewise-mutable, the <a>Mutable</a> instance of <tt><a>VarMut</a>
+--   SomeType</tt> will be not be piecewise.
+--   
+--   For example, the <a>Mutable</a> instance for <a>String</a> is a
+--   mutable linked list, but it might be more efficient to treat it as an
+--   atomic value to update all at once. You can use <tt><a>VarMut</a>
+--   <a>String</a></tt> to get that <a>Mutable</a> instance.
+newtype VarMut a
+VarMut :: a -> VarMut a
+[getVarMut] :: VarMut a -> a
+
+-- | Similar to <a>VarMut</a>, this allows you to overwrite the normal
+--   <a>Mutable</a> instance of a type to utilize a coercible type's
+--   <a>Mutable</a> instance instead of its normal instance. It's also
+--   useful to provide an instance for an externally defined type without
+--   incurring orphan instances.
+--   
+--   For example, if an external library provides
+--   
+--   <pre>
+--   newtype DoubleVec = DV (Vector Double)
+--   </pre>
+--   
+--   and you want to use it following <a>Vector</a>s <a>Mutable</a>
+--   instance (via <a>MVector</a>), but you don't want to write an orphan
+--   instance like
+--   
+--   <pre>
+--   instance Mutable m DoubleVec where
+--       type <a>Ref</a> m DoubleVec = <a>CoerceRef</a> m DoubleVec (Vector Double)
+--   </pre>
+--   
+--   then you can instead use <tt><a>CoerceMut</a> DoubleVec (Vector
+--   Double)</tt> as the data type. This wrapped type <i>does</i> use the
+--   inderlying <a>Mutable</a> insatnce for <a>Vector</a>.
+newtype CoerceMut s a
+CoerceMut :: s -> CoerceMut s a
+[getCoerceMut] :: CoerceMut s a -> s
+
+-- | Similar to <a>VarMut</a>, this allows you to overwrite the normal
+--   <a>Mutable</a> instance for a type to utilize its <a>Traversable</a>
+--   instance instead of its normal instance. It's also useful to provide
+--   an instance for an externally defined type without incurring orphan
+--   instances.
+--   
+--   For example, the instance of <tt><a>Mutable</a> (<a>TraverseMut</a> []
+--   a)</tt> is a normal list of mutable references, instead of a full-on
+--   mutable linked list.
+newtype TraverseMut f a
+TraverseMut :: f a -> TraverseMut f a
+[getTraverseMut] :: TraverseMut f a -> f a
+
+-- | Similar to <a>VarMut</a>, this allows you to overwrite the normal
+--   <a>Mutable</a> instance of a type to make it <i>immutable</i>.
+--   
+--   For example, let's say you have a type, with the automatically derived
+--   generic instance of <a>Mutable</a>:
+--   
+--   <pre>
+--   data MyType = MT
+--       { mtX :: Int
+--       , mtY :: Vector Double
+--       , mtZ :: String
+--       }
+--     deriving Generic
+--   
+--   instance Mutable m MyType where
+--       type Ref m MyType = GRef m MyType
+--   </pre>
+--   
+--   This basically uses three mutable references: the <a>Int</a>, the
+--   <tt><a>Vector</a> Double</tt>, and the <a>String</a>. However, you
+--   might want the <a>Mutable</a> instance of <tt>MyType</tt> to be
+--   <i>immutable</i> <a>String</a> field, and so it cannot be updated at
+--   all even when thawed. To do that, you can instead have:
+--   
+--   <pre>
+--   data MyType = MT
+--       { mtX :: Int
+--       , mtY :: Vector Double
+--       , mtZ :: <a>Immutable</a> String
+--       }
+--     deriving Generic
+--   
+--   instance Mutable m MyType where
+--       type Ref m MyType = GRef m MyType
+--   </pre>
+--   
+--   which has that behavior. The <a>Int</a> and the <a>Vector</a> will be
+--   mutable within <tt><a>Ref</a> m MyType</tt>, but not the
+--   <a>String</a>.
+newtype Immutable a
+Immutable :: a -> Immutable a
+[getImmutable] :: Immutable a -> a
+
 -- | If you can provice a natural transformation from <tt>m</tt> to
 --   <tt>n</tt>, you should be able to use a value as if it had
 --   <tt><a>Mutable</a> n a</tt> if you have <tt><a>Mutable</a> m a</tt>.
@@ -817,17 +953,32 @@ reMutable :: forall m n a r. (Mutable m a, Monad n) => (forall x. m x -> n x) ->
 --   <tt>n</tt>, then <tt><a>Mutable</a> m a</tt> should also imply
 --   <tt><a>Mutable</a> n a</tt>.
 reMutableConstraint :: forall m n a. (Mutable m a, Monad n) => (forall x. m x -> n x) -> Mutable m a :- Mutable n a
+instance Data.Traversable.Traversable f => Data.Traversable.Traversable (Data.Mutable.Class.TraverseMut f)
+instance Data.Foldable.Foldable f => Data.Foldable.Foldable (Data.Mutable.Class.TraverseMut f)
+instance GHC.Base.Functor f => GHC.Base.Functor (Data.Mutable.Class.TraverseMut f)
+instance forall k (f :: k -> *) (a :: k). GHC.Generics.Generic (Data.Mutable.Class.TraverseMut f a)
+instance forall k (f :: k -> *) (a :: k). GHC.Classes.Ord (f a) => GHC.Classes.Ord (Data.Mutable.Class.TraverseMut f a)
+instance forall k (f :: k -> *) (a :: k). GHC.Classes.Eq (f a) => GHC.Classes.Eq (Data.Mutable.Class.TraverseMut f a)
+instance forall k (f :: k -> *) (a :: k). GHC.Show.Show (f a) => GHC.Show.Show (Data.Mutable.Class.TraverseMut f a)
 instance (GHC.Base.Monad n, Data.Mutable.Internal.Mutable m a, Data.Reflection.Reifies s (Data.Mutable.Class.ReMutableTrans m n)) => Data.Mutable.Internal.Mutable n (Data.Mutable.Class.ReMutable s m a)
+instance Data.Vinyl.XRec.IsoHKD Data.Mutable.Class.Immutable a
+instance GHC.Base.Monad m => Data.Mutable.Internal.Mutable m (Data.Mutable.Class.Immutable a)
+instance forall k s (a :: k). Data.Vinyl.XRec.IsoHKD (Data.Mutable.Class.CoerceMut s) a
+instance (Data.Mutable.Internal.Mutable m a, GHC.Types.Coercible s a) => Data.Mutable.Internal.Mutable m (Data.Mutable.Class.CoerceMut s a)
+instance forall k (f :: k -> *) (a :: k). Data.Vinyl.XRec.IsoHKD (Data.Mutable.Class.TraverseMut f) a
+instance (Data.Traversable.Traversable f, Data.Mutable.Internal.Mutable m a) => Data.Mutable.Internal.Mutable m (Data.Mutable.Class.TraverseMut f a)
+instance Data.Vinyl.XRec.IsoHKD Data.Mutable.Class.VarMut a
+instance Control.Monad.Primitive.PrimMonad m => Data.Mutable.Internal.Mutable m (Data.Mutable.Class.VarMut a)
 
 
 -- | Tools for working with individual components of piecewise-mutable
 --   values.
-module Data.Mutable.MutPart
+module Data.Mutable.Parts
 
 -- | A <tt><a>MutPart</a> m s a</tt> is a way to "zoom into" an <tt>a</tt>,
 --   as a part of a mutable reference on <tt>s</tt>. This allows you to
 --   only modify a single <tt>a</tt> part of the <tt>s</tt>, without
---   touching the rest.
+--   touching the rest. It's spiritually similar to a <tt>Lens' s a</tt>.
 --   
 --   An example that is commonly found in the ecosystem is something like
 --   (flipped) <tt>write :: Int -&gt; <a>MVector</a> s a -&gt; a -&gt; m
@@ -954,6 +1105,10 @@ fieldMut :: FieldMut fld m s a => Label fld -> MutPart m s a
 --   #blah)</tt>. Create a <a>fieldMut</a> and directly use it.
 withField :: FieldMut fld m s a => Label fld -> Ref m s -> (Ref m a -> m b) -> m b
 
+-- | A helpful wrapper around <tt><a>getMutPart</a> (<a>fieldMut</a>
+--   #blah)</tt>. Directly use a <a>fieldMut</a> to access a mutable field.
+mutField :: forall fld m s a. FieldMut fld m s a => Label fld -> Ref m s -> Ref m a
+
 -- | Proxy for label type
 data Label (a :: Symbol)
 Label :: Label (a :: Symbol)
@@ -992,9 +1147,13 @@ class (Mutable m s, Mutable m a) => PosMut (i :: Nat) m s a | i s -> a
 --   performance characteristics.
 posMut :: PosMut i m s a => MutPart m s a
 
--- | A helpful wrapper over <tt><a>withMutPart</a> (<tt>posMot</tt>
---   @n)</tt>. Create a <a>posMut</a> and directly use it.
+-- | A helpful wrapper over <tt><a>withMutPart</a> (<a>posMut</a> @n)</tt>.
+--   Create a <a>posMut</a> and directly use it.
 withPos :: forall i m s a b. PosMut i m s a => Ref m s -> (Ref m a -> m b) -> m b
+
+-- | A helpful wrapper around <tt><a>getMutPart</a> (<a>posMut</a>
+--   @n)</tt>. Directly use a <a>posMut</a> to access a mutable field.
+mutPos :: forall i m s a. PosMut i m s a => Ref m s -> Ref m a
 
 -- | If you are using the "higher-kinded data" pattern, a la
 --   <a>https://reasonablypolymorphic.com/blog/higher-kinded-data/</a>, and
@@ -1054,16 +1213,19 @@ mutRec :: forall a as f rec m. (Ref m (rec f as) ~ rec (RecRef m f) as, RecElem 
 
 -- | A <a>MutPart</a> to get into a <a>CoerceRef</a>.
 coerceRef :: Ref m s ~ CoerceRef m s a => MutPart m s a
-instance (Data.Mutable.Internal.Mutable m s, Data.Mutable.Internal.Mutable m a, Data.Mutable.Internal.Ref m s GHC.Types.~ Data.Mutable.Internal.GRef m s, gref GHC.Types.~ Data.Mutable.MutPart.Fst (Data.Mutable.MutPart.Traverse (Data.Mutable.Internal.GRef_ m (Data.Generics.Product.Internal.Positions.CRep s)) 1), GHC.Types.Coercible (Data.Mutable.Internal.GRef_ m (GHC.Generics.Rep s) ()) (gref ()), Data.Generics.Product.Internal.GLens.GLens' (Data.Mutable.MutPart.HasTotalPositionPSym i) gref (Data.Mutable.Internal.Ref m a), Data.Generics.Product.Positions.HasPosition' i s a) => Data.Mutable.MutPart.PosMut i m s a
-instance (Data.Mutable.Internal.Mutable m s, Data.Mutable.Internal.Mutable m a, Data.Mutable.Internal.Ref m s GHC.Types.~ Data.Mutable.Internal.GRef m s, Data.Generics.Product.Internal.GLens.GLens' (Data.Mutable.MutPart.HasTotalFieldPSym fld) (Data.Mutable.Internal.GRef_ m (GHC.Generics.Rep s)) (Data.Mutable.Internal.Ref m a), Data.Generics.Product.Fields.HasField' fld s a) => Data.Mutable.MutPart.FieldMut fld m s a
-instance (Data.Mutable.Internal.Mutable m (z Data.Vinyl.Functor.Identity), Data.Mutable.Internal.Ref m (z Data.Vinyl.Functor.Identity) GHC.Types.~ z (Data.Mutable.Internal.RefFor m)) => Data.Mutable.MutPart.HKDMutParts m z (GHC.Generics.K1 i (Data.Mutable.Internal.RefFor m c)) (GHC.Generics.K1 i (Data.Mutable.MutPart.MutPart m (z Data.Vinyl.Functor.Identity) c))
-instance (Data.Mutable.Internal.Mutable m (z Data.Vinyl.Functor.Identity), Data.Mutable.Internal.Ref m (z Data.Vinyl.Functor.Identity) GHC.Types.~ z (Data.Mutable.Internal.RefFor m)) => Data.Mutable.MutPart.HKDMutParts m z GHC.Generics.U1 GHC.Generics.U1
-instance (Data.Mutable.Internal.Mutable m (z Data.Vinyl.Functor.Identity), Data.Mutable.Internal.Ref m (z Data.Vinyl.Functor.Identity) GHC.Types.~ z (Data.Mutable.Internal.RefFor m), (TypeError ...)) => Data.Mutable.MutPart.HKDMutParts m z GHC.Generics.V1 GHC.Generics.V1
-instance forall k (m :: * -> *) (z :: (* -> *) -> *) (i :: k -> *) (o :: k -> *) a (b :: GHC.Generics.Meta). Data.Mutable.MutPart.HKDMutParts m z i o => Data.Mutable.MutPart.HKDMutParts m z (GHC.Generics.M1 a b i) (GHC.Generics.M1 a b o)
-instance forall k (m :: * -> *) (z :: (* -> *) -> *) (i :: k -> *) (o :: k -> *) (i' :: k -> *) (o' :: k -> *). (Data.Mutable.MutPart.HKDMutParts m z i o, Data.Mutable.MutPart.HKDMutParts m z i' o') => Data.Mutable.MutPart.HKDMutParts m z (i GHC.Generics.:*: i') (o GHC.Generics.:*: o')
-instance forall k (m :: * -> *) (z :: (* -> *) -> *) (i :: k -> *) (i' :: k -> *) (o :: k -> *). (Data.Mutable.Internal.Mutable m (z Data.Vinyl.Functor.Identity), Data.Mutable.Internal.Ref m (z Data.Vinyl.Functor.Identity) GHC.Types.~ z (Data.Mutable.Internal.RefFor m), (TypeError ...)) => Data.Mutable.MutPart.HKDMutParts m z (i GHC.Generics.:+: i') o
-instance Control.Category.Category (Data.Mutable.MutPart.MutPart m)
-instance Data.Vinyl.XRec.IsoHKD (Data.Mutable.MutPart.MutPart m s) a
+
+-- | Handy wrapper over <tt><a>getMutPart</a> <a>coerceRef</a></tt>.
+withCoerceRef :: CoerceRef m s a -> (Ref m a -> m r) -> m r
+instance (Data.Mutable.Internal.Mutable m s, Data.Mutable.Internal.Mutable m a, Data.Mutable.Internal.Ref m s GHC.Types.~ Data.Mutable.Internal.GRef m s, gref GHC.Types.~ Data.Mutable.Parts.Fst (Data.Mutable.Parts.Traverse (Data.Mutable.Internal.GRef_ m (Data.Generics.Product.Internal.Positions.CRep s)) 1), GHC.Types.Coercible (Data.Mutable.Internal.GRef_ m (GHC.Generics.Rep s) ()) (gref ()), Data.Generics.Product.Internal.GLens.GLens' (Data.Mutable.Parts.HasTotalPositionPSym i) gref (Data.Mutable.Internal.Ref m a), Data.Generics.Product.Positions.HasPosition' i s a) => Data.Mutable.Parts.PosMut i m s a
+instance (Data.Mutable.Internal.Mutable m s, Data.Mutable.Internal.Mutable m a, Data.Mutable.Internal.Ref m s GHC.Types.~ Data.Mutable.Internal.GRef m s, Data.Generics.Product.Internal.GLens.GLens' (Data.Mutable.Parts.HasTotalFieldPSym fld) (Data.Mutable.Internal.GRef_ m (GHC.Generics.Rep s)) (Data.Mutable.Internal.Ref m a), Data.Generics.Product.Fields.HasField' fld s a) => Data.Mutable.Parts.FieldMut fld m s a
+instance (Data.Mutable.Internal.Mutable m (z Data.Vinyl.Functor.Identity), Data.Mutable.Internal.Ref m (z Data.Vinyl.Functor.Identity) GHC.Types.~ z (Data.Mutable.Internal.RefFor m)) => Data.Mutable.Parts.HKDMutParts m z (GHC.Generics.K1 i (Data.Mutable.Internal.RefFor m c)) (GHC.Generics.K1 i (Data.Mutable.Parts.MutPart m (z Data.Vinyl.Functor.Identity) c))
+instance (Data.Mutable.Internal.Mutable m (z Data.Vinyl.Functor.Identity), Data.Mutable.Internal.Ref m (z Data.Vinyl.Functor.Identity) GHC.Types.~ z (Data.Mutable.Internal.RefFor m)) => Data.Mutable.Parts.HKDMutParts m z GHC.Generics.U1 GHC.Generics.U1
+instance (Data.Mutable.Internal.Mutable m (z Data.Vinyl.Functor.Identity), Data.Mutable.Internal.Ref m (z Data.Vinyl.Functor.Identity) GHC.Types.~ z (Data.Mutable.Internal.RefFor m), (TypeError ...)) => Data.Mutable.Parts.HKDMutParts m z GHC.Generics.V1 GHC.Generics.V1
+instance forall k (m :: * -> *) (z :: (* -> *) -> *) (i :: k -> *) (o :: k -> *) a (b :: GHC.Generics.Meta). Data.Mutable.Parts.HKDMutParts m z i o => Data.Mutable.Parts.HKDMutParts m z (GHC.Generics.M1 a b i) (GHC.Generics.M1 a b o)
+instance forall k (m :: * -> *) (z :: (* -> *) -> *) (i :: k -> *) (o :: k -> *) (i' :: k -> *) (o' :: k -> *). (Data.Mutable.Parts.HKDMutParts m z i o, Data.Mutable.Parts.HKDMutParts m z i' o') => Data.Mutable.Parts.HKDMutParts m z (i GHC.Generics.:*: i') (o GHC.Generics.:*: o')
+instance forall k (m :: * -> *) (z :: (* -> *) -> *) (i :: k -> *) (i' :: k -> *) (o :: k -> *). (Data.Mutable.Internal.Mutable m (z Data.Vinyl.Functor.Identity), Data.Mutable.Internal.Ref m (z Data.Vinyl.Functor.Identity) GHC.Types.~ z (Data.Mutable.Internal.RefFor m), (TypeError ...)) => Data.Mutable.Parts.HKDMutParts m z (i GHC.Generics.:+: i') o
+instance Control.Category.Category (Data.Mutable.Parts.MutPart m)
+instance Data.Vinyl.XRec.IsoHKD (Data.Mutable.Parts.MutPart m s) a
 
 
 -- | Main entrypoint of the package. Abstract over different types for
@@ -1409,47 +1571,6 @@ updateRef :: Mutable m a => Ref m a -> (a -> (a, b)) -> m b
 --   in the reference.
 updateRef' :: Mutable m a => Ref m a -> (a -> (a, b)) -> m b
 
--- | Newtype wrapper that can provide any type with a <a>Mutable</a>
---   instance, giving it a "non-piecewise" instance. Can be useful for
---   avoiding orphan instances yet still utilizing auto-deriving features,
---   or for overwriting the <a>Mutable</a> instance of other instances.
---   
---   For example, let's say you want to auto-derive an instance for your
---   data type:
---   
---   <pre>
---   data MyType = MT Int Double OtherType
---     deriving Generic
---   </pre>
---   
---   This is possible if all of <tt>MyType</tt>s fields have <a>Mutable</a>
---   instances. However, let's say <tt>OtherType</tt> comes from an
---   external library that you don't have control over, and so you cannot
---   give it a <a>Mutable</a> instance without incurring an orphan
---   instance.
---   
---   One solution is to wrap it in <a>MutRef</a>:
---   
---   <pre>
---   data MyType = MT Int Double (<a>MutRef</a> OtherType)
---     deriving Generic
---   </pre>
---   
---   This can then be auto-derived:
---   
---   <pre>
---   instance Mutable m MyType where
---       type Ref m MyType = GRef m MyType
---   </pre>
---   
---   It can also be used to <i>override</i> a <a>Mutable</a> instance. For
---   example, even if the <a>Mutable</a> instance of <tt>SomeType</tt> is
---   piecewise-mutable, the <a>Mutable</a> instance of <tt><a>MutRef</a>
---   SomeType</tt> will be not be piecewise.
-newtype MutRef a
-MutRef :: a -> MutRef a
-[getMutRef] :: MutRef a -> a
-
 -- | A handy newtype wrapper that allows you to partially apply <a>Ref</a>.
 --   <tt><a>RefFor</a> m a</tt> is the same as <tt><a>Ref</a> m a</tt>, but
 --   can be partially applied.
@@ -1540,8 +1661,15 @@ class DefaultMutable m a r
 --   type. For a sum type (with multiple constructors), an extra layer of
 --   indirection is added to account for the dynamically changable shape.
 --   
---   See <a>fieldMut</a>/<a>posMut</a> for ways to inspect and mutate the
---   internals of this type (as demonstrated above).
+--   See <a>fieldMut</a>/<a>posMut</a> for nice ways to inspect and mutate
+--   the internals of this type (as demonstrated above).
+--   
+--   If the facilities in those modules are not adequate, you can also
+--   manually crack open <a>GRef</a> and work with the internals. Getting
+--   the <i>type</i> of <tt><a>unGRef</a> @MyType</tt> should allow you to
+--   navigate what is going on, if you are familiar with
+--   <a>GHC.Generics</a>. However, ideally, you would never need to do
+--   this.
 data GRef m a
 
 -- | A <a>MutVar</a> behaves like a single-element mutable array associated
@@ -1569,7 +1697,12 @@ data CoerceRef m s a
 --   using the fields of the <a>Traversable</a> instance to <i>purely</i>
 --   store mutable references.
 --   
---   Copying and modifying semantics can be a bit funky.
+--   Note that this really only makes complete sense if the
+--   <a>Traversable</a> is fixed-size, or you never modify the length of
+--   the traversable as you use it as a reference.
+--   
+--   If you <i>do</i> modify the length, copying and modifying semantics
+--   can be a bit funky:
 --   
 --   <ul>
 --   <li>If copying a shorter item into a longer item ref, the "leftovers"
@@ -1593,10 +1726,140 @@ data TraverseRef m f a
 --   <a>GHC.Generics</a> combinators.
 data GMutableRef m f a
 
+-- | Newtype wrapper that can provide any type with a <a>Mutable</a>
+--   instance, giving it a "non-piecewise" instance. Can be useful for
+--   avoiding orphan instances yet still utilizing auto-deriving features,
+--   or for overwriting the <a>Mutable</a> instance of other instances.
+--   
+--   For example, let's say you want to auto-derive an instance for your
+--   data type:
+--   
+--   <pre>
+--   data MyType = MT Int Double OtherType
+--     deriving Generic
+--   </pre>
+--   
+--   This is possible if all of <tt>MyType</tt>s fields have <a>Mutable</a>
+--   instances. However, let's say <tt>OtherType</tt> comes from an
+--   external library that you don't have control over, and so you cannot
+--   give it a <a>Mutable</a> instance without incurring an orphan
+--   instance.
+--   
+--   One solution is to wrap it in <a>VarMut</a>:
+--   
+--   <pre>
+--   data MyType = MT Int Double (<a>VarMut</a> OtherType)
+--     deriving Generic
+--   </pre>
+--   
+--   This can then be auto-derived:
+--   
+--   <pre>
+--   instance Mutable m MyType where
+--       type Ref m MyType = GRef m MyType
+--   </pre>
+--   
+--   It can also be used to <i>override</i> a <a>Mutable</a> instance. For
+--   example, even if the <a>Mutable</a> instance of <tt>SomeType</tt> is
+--   piecewise-mutable, the <a>Mutable</a> instance of <tt><a>VarMut</a>
+--   SomeType</tt> will be not be piecewise.
+--   
+--   For example, the <a>Mutable</a> instance for <a>String</a> is a
+--   mutable linked list, but it might be more efficient to treat it as an
+--   atomic value to update all at once. You can use <tt><a>VarMut</a>
+--   <a>String</a></tt> to get that <a>Mutable</a> instance.
+newtype VarMut a
+VarMut :: a -> VarMut a
+[getVarMut] :: VarMut a -> a
+
+-- | Similar to <a>VarMut</a>, this allows you to overwrite the normal
+--   <a>Mutable</a> instance of a type to utilize a coercible type's
+--   <a>Mutable</a> instance instead of its normal instance. It's also
+--   useful to provide an instance for an externally defined type without
+--   incurring orphan instances.
+--   
+--   For example, if an external library provides
+--   
+--   <pre>
+--   newtype DoubleVec = DV (Vector Double)
+--   </pre>
+--   
+--   and you want to use it following <a>Vector</a>s <a>Mutable</a>
+--   instance (via <a>MVector</a>), but you don't want to write an orphan
+--   instance like
+--   
+--   <pre>
+--   instance Mutable m DoubleVec where
+--       type <a>Ref</a> m DoubleVec = <a>CoerceRef</a> m DoubleVec (Vector Double)
+--   </pre>
+--   
+--   then you can instead use <tt><a>CoerceMut</a> DoubleVec (Vector
+--   Double)</tt> as the data type. This wrapped type <i>does</i> use the
+--   inderlying <a>Mutable</a> insatnce for <a>Vector</a>.
+newtype CoerceMut s a
+CoerceMut :: s -> CoerceMut s a
+[getCoerceMut] :: CoerceMut s a -> s
+
+-- | Similar to <a>VarMut</a>, this allows you to overwrite the normal
+--   <a>Mutable</a> instance for a type to utilize its <a>Traversable</a>
+--   instance instead of its normal instance. It's also useful to provide
+--   an instance for an externally defined type without incurring orphan
+--   instances.
+--   
+--   For example, the instance of <tt><a>Mutable</a> (<a>TraverseMut</a> []
+--   a)</tt> is a normal list of mutable references, instead of a full-on
+--   mutable linked list.
+newtype TraverseMut f a
+TraverseMut :: f a -> TraverseMut f a
+[getTraverseMut] :: TraverseMut f a -> f a
+
+-- | Similar to <a>VarMut</a>, this allows you to overwrite the normal
+--   <a>Mutable</a> instance of a type to make it <i>immutable</i>.
+--   
+--   For example, let's say you have a type, with the automatically derived
+--   generic instance of <a>Mutable</a>:
+--   
+--   <pre>
+--   data MyType = MT
+--       { mtX :: Int
+--       , mtY :: Vector Double
+--       , mtZ :: String
+--       }
+--     deriving Generic
+--   
+--   instance Mutable m MyType where
+--       type Ref m MyType = GRef m MyType
+--   </pre>
+--   
+--   This basically uses three mutable references: the <a>Int</a>, the
+--   <tt><a>Vector</a> Double</tt>, and the <a>String</a>. However, you
+--   might want the <a>Mutable</a> instance of <tt>MyType</tt> to be
+--   <i>immutable</i> <a>String</a> field, and so it cannot be updated at
+--   all even when thawed. To do that, you can instead have:
+--   
+--   <pre>
+--   data MyType = MT
+--       { mtX :: Int
+--       , mtY :: Vector Double
+--       , mtZ :: <a>Immutable</a> String
+--       }
+--     deriving Generic
+--   
+--   instance Mutable m MyType where
+--       type Ref m MyType = GRef m MyType
+--   </pre>
+--   
+--   which has that behavior. The <a>Int</a> and the <a>Vector</a> will be
+--   mutable within <tt><a>Ref</a> m MyType</tt>, but not the
+--   <a>String</a>.
+newtype Immutable a
+Immutable :: a -> Immutable a
+[getImmutable] :: Immutable a -> a
+
 -- | A <tt><a>MutPart</a> m s a</tt> is a way to "zoom into" an <tt>a</tt>,
 --   as a part of a mutable reference on <tt>s</tt>. This allows you to
 --   only modify a single <tt>a</tt> part of the <tt>s</tt>, without
---   touching the rest.
+--   touching the rest. It's spiritually similar to a <tt>Lens' s a</tt>.
 --   
 --   An example that is commonly found in the ecosystem is something like
 --   (flipped) <tt>write :: Int -&gt; <a>MVector</a> s a -&gt; a -&gt; m
@@ -1706,6 +1969,10 @@ fieldMut :: FieldMut fld m s a => Label fld -> MutPart m s a
 --   #blah)</tt>. Create a <a>fieldMut</a> and directly use it.
 withField :: FieldMut fld m s a => Label fld -> Ref m s -> (Ref m a -> m b) -> m b
 
+-- | A helpful wrapper around <tt><a>getMutPart</a> (<a>fieldMut</a>
+--   #blah)</tt>. Directly use a <a>fieldMut</a> to access a mutable field.
+mutField :: forall fld m s a. FieldMut fld m s a => Label fld -> Ref m s -> Ref m a
+
 -- | Proxy for label type
 data Label (a :: Symbol)
 Label :: Label (a :: Symbol)
@@ -1739,9 +2006,19 @@ Label :: Label (a :: Symbol)
 --   performance characteristics.
 posMut :: PosMut i m s a => MutPart m s a
 
--- | A helpful wrapper over <tt><a>withMutPart</a> (<tt>posMot</tt>
---   @n)</tt>. Create a <a>posMut</a> and directly use it.
+-- | A helpful wrapper over <tt><a>withMutPart</a> (<a>posMut</a> @n)</tt>.
+--   Create a <a>posMut</a> and directly use it.
 withPos :: forall i m s a b. PosMut i m s a => Ref m s -> (Ref m a -> m b) -> m b
+
+-- | A helpful wrapper around <tt><a>getMutPart</a> (<a>posMut</a>
+--   @n)</tt>. Directly use a <a>posMut</a> to access a mutable field.
+mutPos :: forall i m s a. PosMut i m s a => Ref m s -> Ref m a
+
+-- | A <a>MutPart</a> to get into a <a>CoerceRef</a>.
+coerceRef :: Ref m s ~ CoerceRef m s a => MutPart m s a
+
+-- | Handy wrapper over <tt><a>getMutPart</a> <a>coerceRef</a></tt>.
+withCoerceRef :: CoerceRef m s a -> (Ref m a -> m r) -> m r
 
 -- | If you are using the "higher-kinded data" pattern, a la
 --   <a>https://reasonablypolymorphic.com/blog/higher-kinded-data/</a>, and
@@ -1782,9 +2059,6 @@ withPos :: forall i m s a b. PosMut i m s a => Ref m s -> (Ref m a -> m b) -> m 
 --   <a>hkdMutParts</a>...but this probably does vary on a case-by-case
 --   basis.
 hkdMutParts :: forall z m. (Generic (z (RefFor m)), Generic (z (MutPart m (z Identity))), HKDMutParts m z (Rep (z (RefFor m))) (Rep (z (MutPart m (z Identity))))) => z (MutPart m (z Identity))
-
--- | A <a>MutPart</a> to get into a <a>CoerceRef</a>.
-coerceRef :: Ref m s ~ CoerceRef m s a => MutPart m s a
 
 -- | A <a>MutPart</a> for a field in a vinyl <a>Rec</a>, automatically
 --   generated as the first field with a matching type. This is polymorphic

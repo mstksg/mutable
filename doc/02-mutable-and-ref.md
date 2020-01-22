@@ -1,0 +1,142 @@
+---
+title: Mutable and Ref
+---
+
+Mutable and Ref
+===============
+
+```haskell top hide
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedLabels      #-}
+{-# LANGUAGE TypeFamilies          #-}
+
+import           Control.Monad
+import           Control.Monad.ST
+import           Data.Foldable
+import           Data.Mutable
+import           Data.Primitive.MutVar
+import           GHC.Generics
+import           Inliterate.Import
+import qualified Data.Vector         as V
+import qualified Data.Vector.Mutable as MV
+
+instance Show a => AskInliterate (V.Vector a)
+```
+
+Let's go over the high level view of what's going on.  Conceptually, the entire
+library revolves around the `Mutable` typeclass and the `Ref` associated type.
+
+```haskell
+class Mutable m a where
+    type Ref m a = v     | v -> a
+
+
+    thawRef   :: a -> m (Ref m a)
+    freezeRef :: Ref m a -> m a
+    copyRef   :: Ref m a -> a -> m ()
+```
+
+An instance of `Mutable m a` is an `a` that has a "mutable version" that can be
+updated/mutated in the `m` Monad.
+
+The type family `Ref` associates every type `a` with its "mutable version".
+For example, for *[Vector][]*, their "mutable version" is an
+*[MVector][]*:
+
+[Vector]: https://hackage.haskell.org/package/vector/docs/Data-Vector.html
+[MVector]: https://hackage.haskell.org/package/vector/docs/Data-Vector-Mutable.html
+
+```haskell
+class PrimMonad m => Mutable m (Vector a) where
+    type Ref m (Vector a) = MVector (PrimState m) a
+
+    thawRef   = V.thaw
+    freezeRef = V.freeze
+    copyRef   = V.copy
+```
+
+For simple non-composite data types like `Int`, you can just use a
+*[MutVar][]* (a polymorphic version of `IORef`/`STRef`):
+
+[MutVar]: https://hackage.haskell.org/package/primitive/docs/Data-Primitive-MutVar.html
+
+```haskell
+class PrimMonad m => Mutable m Int where
+    type Ref m Int = MutVar (PrimState m) Int
+
+    thawRef   = newMutVar
+    freezeRef = readMutVar
+    copyRef   = writeMutVar
+
+class PrimMonad m => Mutable m Double where
+    type Ref m Int = MutVar (PrimState m) Double
+
+    thawRef   = newMutVar
+    freezeRef = readMutVar
+    copyRef   = writeMutVar
+```
+
+All we are doing so far is associating a type with its "mutable" version.  But,
+what happens if we had some composite type?
+
+```haskell top
+data MyType = MT
+    { mtInt    :: Int
+    , mtDouble :: Double
+    , mtVec    :: V.Vector Double
+    }
+  deriving (Show, Generic)
+```
+
+We might imagine making a piecewise-mutable version of it, where each field is
+its own mutable reference:
+
+```haskell top
+data MyTypeRef s = MTR
+    { mtrInt    :: MutVar s Int
+    , mtrDouble :: MutVar s Double
+    , mtrVec    :: MV.MVector s Double
+    }
+
+instance PrimMonad m => Mutable m MyType where
+    type Ref m MyType = MyTypeRef (PrimState m)
+
+    thawRef (MT x y z) = MTR <$> newMutVar x
+                             <*> newMutVar y
+                             <*> V.thaw   z
+
+    freezeRef (MTR x y z) = MT <$> readMutVar x
+                               <*> readMutVar y
+                               <*> V.freeze   z
+
+    copyRef (MTR a b c) (MT x y z) = do
+        writeMutVar a x
+        writeMutVar b y
+        V.copy c z
+```
+
+But, this is pretty tedious to write for every single data type we have.  What
+if we could instead automatically derive a reference type?
+
+Well, we're in luck.  If `MyType` is an instance of `Generic`, then we can just
+write:
+
+```haskell
+instance PrimMonad m => Mutable m MyType where
+    type Ref MyType = GRef m MyType
+```
+
+We can now leave the rest of the typeclass body blank...and the *mutable*
+library will do the rest for us!
+
+*   `GRef m MyType` is an automatically derived type that is equivalent to
+    the `MyTypeRef` that we wrote earlier.  It leverages the power of GHC
+    generics and typeclasses.  Every field of type `X` turns into a field of
+    type `Ref m X`.  This "does the right thing" as long as all your fields are
+    instances of `Mutable`.
+*   The mechanisms in `DefaultMutable` will automatically fill in the rest of
+    the typeclass for you.
+
+

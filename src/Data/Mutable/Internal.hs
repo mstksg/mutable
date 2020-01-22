@@ -674,8 +674,14 @@ instance (GMutable m f, GMutable m g, PrimMonad m) => Mutable m ((f :+: g) a) wh
 -- indirection is added to account for the dynamically changable shape.
 --
 -- See 'Data.Mutable.MutPart.fieldMut'/'Data.Mutable.MutPart.posMut' for
--- ways to inspect and mutate the internals of this type (as demonstrated
--- above).
+-- nice ways to inspect and mutate the internals of this type (as
+-- demonstrated above).
+--
+-- If the facilities in those modules are not adequate, you can also
+-- manually crack open 'GRef' and work with the internals.  Getting the
+-- /type/ of @'unGRef' \@MyType@ should allow you to navigate what is going
+-- on, if you are familiar with "GHC.Generics".  However, ideally, you
+-- would never need to do this.
 newtype GRef m a = GRef { unGRef :: GRef_ m (Rep a) () }
 
 -- | Default 'thawRef' for 'GRef'.

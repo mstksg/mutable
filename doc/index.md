@@ -24,10 +24,13 @@ import qualified Data.Vector.Mutable as MV
 instance Show a => AskInliterate (V.Vector a)
 ```
 
-Take back the power of **mutable objects** with 
+Making piecewise updates on your giant composite data types (like artificial
+neural networks or game states in your game loop) got you down?  Tired of
+requiring a full deep copy every time you make a small change, and want to be
+able to build mutable versions of your types automatically in composable ways?
 
-Bring back the power of mutable data types with type-safety and explicit
-mutability.  Associate and generate "piecewise-mutable" versions for your
+Take back the power of **mutable objects** with all the **safety** and explicit
+state of Haskell. Associate and generate "piecewise-mutable" versions for your
 composite data types in a composable and automatic way.  Think of it like a
 "generalized `MVector` for all ADTs".
 
@@ -47,7 +50,18 @@ instance PrimMonad m => Mutable m MyType where
 instance AskInliterate MyType
 ```
 
-The type `Ref m MyType` is now a mutable version of `MyType`:
+The type `Ref m MyType` is now a "mutable `MyType`", just like how `MVector s
+a` is a "mutable `Vector a`".  You have:
+
+```haskell
+thawRef   :: MyType -> m (Ref m MyType)
+freezeRef :: Ref m MyType -> m MyType
+```
+
+You can use `thawRef` to allocate a mutable `MyType` that essentially consists
+of a mutable `Int`, a mutable `Double`, and a mutable `Vector` (an `MVector`)
+all tupled together. You can edit these pieces in isolation, and then
+`freezeRef` it all back together:
 
 ```haskell top
 doStuff :: MyType -> MyType
@@ -75,3 +89,10 @@ expensive, especially if `mtVec` is a huge vector --- it would require copying
 every item in the entire vector every step, being *O(n \* l)* , with *n* number
 of repetitions and *l* length of vector and number of fields.  With mutable
 vectors and mutable cells, this now becomes *O(n + l)*.
+
+The main motivation for this library is to implement *automatically derivable*
+piecewise-mutable references for the purposes of mutation-heavy algorithms,
+like artificial neural networks.  In the end, you're able to have an Artificial
+Neural Network (which can have huuuuge vectors) and being able to do piecewise
+updates on them (automatically) without having to copy over the entire network
+every training step.

@@ -422,7 +422,12 @@ instance X.IsoHKD (RefFor m) a where
 -- | A 'Ref' that works for any instance of 'Traversable', by using the
 -- fields of the 'Traversable' instance to /purely/ store mutable references.
 --
--- Copying and modifying semantics can be a bit funky.
+-- Note that this really only makes complete sense if the 'Traversable' is
+-- fixed-size, or you never modify the length of the traversable as you use
+-- it as a reference.
+--
+-- If you /do/ modify the length, copying and modifying semantics can be
+-- a bit funky:
 --
 -- *   If copying a shorter item into a longer item ref, the "leftovers" items
 --     in the longer item are unchanged.
@@ -440,6 +445,12 @@ instance X.IsoHKD (RefFor m) a where
 -- @
 --
 newtype TraverseRef m f a = TraverseRef { getTraverseRef :: f (Ref m a) }
+
+-- | Use a @'TraverseRef' m f a@ as if it were a @f ('Ref' m a)@
+instance X.IsoHKD (TraverseRef m f) a where
+    type HKD (TraverseRef m f) a = f (Ref m a)
+    unHKD = TraverseRef
+    toHKD = getTraverseRef
 
 -- | Default 'thawRef' for 'TraverseRef'.
 --
@@ -491,6 +502,12 @@ copyTraverse (TraverseRef rs) xs = evalStateT (traverse_ go rs) (toList xs)
 -- It's essentially a special case of 'GRef' for newtypes.
 newtype CoerceRef m s a = CoerceRef { getCoerceRef :: Ref m a }
 
+-- | Use a @'CoerceRef' m s a@ as if it were a @'Ref' m a@
+instance X.IsoHKD (CoerceRef m s) a where
+    type HKD (CoerceRef m s) a = Ref m a
+    unHKD = CoerceRef
+    toHKD = getCoerceRef
+
 -- | Default 'thawRef' for 'CoerceRef'.
 --
 -- You likely won't ever use this directly, since it is automatically
@@ -524,10 +541,18 @@ copyCoerce (CoerceRef r) = copyRef r . coerce
 -- | A "'Ref'" that can be used to give a default 'Mutable' instance that
 -- is immutable.  Nothing is allocated ever, all attempts to modify it will
 -- be ignored, and 'freezeRef' will just get the original thawed value.
-newtype ImmutableRef a = Immutable { getImmutableRef :: a }
+--
+-- Really only exists to be used with 'Data.Mutable.Class.Immutable'.
+newtype ImmutableRef a = ImmutableRef { getImmutableRef :: a }
+
+-- | Use a @'ImmutableRef' a@ as if it were an @a@
+instance X.IsoHKD ImmutableRef a where
+    type HKD ImmutableRef a = a
+    unHKD = ImmutableRef
+    toHKD = getImmutableRef
 
 thawImmutable :: Applicative m => a -> m (ImmutableRef a)
-thawImmutable = pure . Immutable
+thawImmutable = pure . ImmutableRef
 
 freezeImmutable :: Applicative m => ImmutableRef a -> m a
 freezeImmutable = pure . getImmutableRef

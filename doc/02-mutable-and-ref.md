@@ -13,16 +13,11 @@ Mutable and Ref
 {-# LANGUAGE TypeFamilies          #-}
 
 import           Control.Monad
-import           Control.Monad.ST
-import           Data.Foldable
 import           Data.Mutable
 import           Data.Primitive.MutVar
 import           GHC.Generics
-import           Inliterate.Import
 import qualified Data.Vector         as V
 import qualified Data.Vector.Mutable as MV
-
-instance Show a => AskInliterate (V.Vector a)
 ```
 
 Let's go over the high level view of what's going on.  Conceptually, the entire
@@ -41,9 +36,10 @@ class Mutable m a where
 An instance of `Mutable m a` is an `a` that has a "mutable version" that can be
 updated/mutated in the `m` Monad.
 
-The type family `Ref` associates every type `a` with its "mutable version".
-For example, for *[Vector][]*, their "mutable version" is an
-*[MVector][]*:
+The (injective) type family `Ref` associates every type `a` with its "mutable
+version".
+
+For example, for *[Vector][]*, their "mutable version" is an *[MVector][]*:
 
 [Vector]: https://hackage.haskell.org/package/vector/docs/Data-Vector.html
 [MVector]: https://hackage.haskell.org/package/vector/docs/Data-Vector-Mutable.html
@@ -77,6 +73,16 @@ class PrimMonad m => Mutable m Double where
     freezeRef = readMutVar
     copyRef   = writeMutVar
 ```
+
+(A quick note on `PrimMonad` --- it comes from the *[primitive][]* library and
+is used across the ecosystem; it's a typeclass that abstracts over all "impure"
+monads like `IO`, `ST s`, `ReaderT r IO`, etc.  You can think of it as an
+expanded version of `MonadIO` to also include monads that use `ST s`.
+`PrimState` is what you give to `MutVar` and `MVector` to make things "work
+properly")
+
+[primitive]: https://hackage.haskell.org/package/primitive
+
 
 All we are doing so far is associating a type with its "mutable" version.  But,
 what happens if we had some composite type?

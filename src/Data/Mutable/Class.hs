@@ -123,13 +123,13 @@ updateRef' v f = do
 -- 'Mutable' instance.
 newtype VarMut a = VarMut { getVarMut :: a }
 
-instance PrimMonad m => Mutable m (VarMut a)
-
 -- | Use a @'VarMut' a@ as if it were an @a@.
 instance X.IsoHKD VarMut a where
     type HKD VarMut a = a
     unHKD = VarMut
     toHKD = getVarMut
+
+instance PrimMonad m => Mutable m (VarMut a)
 
 -- | Similar to 'MutRef', this allows you to overwrite the normal 'Mutable'
 -- instance for a type to utilize its 'Traversable' instance instead of its
@@ -141,6 +141,12 @@ instance X.IsoHKD VarMut a where
 -- list.
 newtype TraverseMut f a = TraverseMut { getTraverseMut :: f a }
   deriving (Show, Eq, Ord, Generic, Functor, Foldable, Traversable)
+
+-- | Use a @'TraverseMut' f a@ as if it were an @f a@
+instance X.IsoHKD (TraverseMut f) a where
+    type HKD (TraverseMut f) a = f a
+    unHKD = TraverseMut
+    toHKD = getTraverseMut
 
 instance (Traversable f, Mutable m a) => Mutable m (TraverseMut f a) where
     type Ref m (TraverseMut f a) = TraverseRef m (TraverseMut f) a
@@ -168,6 +174,12 @@ instance (Traversable f, Mutable m a) => Mutable m (TraverseMut f a) where
 -- data type.  This wrapped type /does/ use the inderlying 'Mutable'
 -- insatnce for 'V.Vector'.
 newtype CoerceMut s a = CoerceMut { getCoerceMut :: s }
+
+-- | Use a @'CoerceMut' s a@ as if it were an @s@
+instance X.IsoHKD (CoerceMut s) a where
+    type HKD (CoerceMut s) a = s
+    unHKD = CoerceMut
+    toHKD = getCoerceMut
 
 instance (Mutable m a, Coercible s a) => Mutable m (CoerceMut s a) where
     type Ref m (CoerceMut s a) = CoerceRef m (CoerceMut s a) a
@@ -210,6 +222,13 @@ instance (Mutable m a, Coercible s a) => Mutable m (CoerceMut s a) where
 -- which has that behavior.  The 'Int' and the 'Vector' will be mutable
 -- within @'Ref' m 'MyType'@, but not the 'String'.
 newtype Immutable a = Immutable { getImmutable :: a }
+
+-- | Use an @'Immutable' a@ as if it were an @a@
+instance X.IsoHKD Immutable a where
+    type HKD Immutable a = a
+    unHKD = Immutable
+    toHKD = getImmutable
+
 
 instance Monad m => Mutable m (Immutable a) where
     type Ref m (Immutable a) = ImmutableRef (Immutable a)

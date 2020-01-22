@@ -39,7 +39,7 @@ module Data.Mutable.MutPart (
   , PosMut, posMut, withPos
   , hkdMutParts, HKDMutParts
   , mutRec
-  , coerceRef
+  , coerceRef, withCoerceRef
   ) where
 
 import           Data.Coerce
@@ -182,6 +182,13 @@ mutRec = MutPart $ getRecRef . rget @a @as @(RecRef m f) @rec
 -- | A 'MutPart' to get into a 'CoerceRef'.
 coerceRef :: (Ref m s ~ CoerceRef m s a) => MutPart m s a
 coerceRef = MutPart coerce
+
+-- | Handy wrapper over @'getMutPart' 'coerceRef'@.
+withCoerceRef
+    :: CoerceRef m s a
+    -> (Ref m a -> m r)
+    -> m r
+withCoerceRef x f = f (coerce x)
 
 -- | Typeclass used to implement 'hkdMutParts'.  See documentation of
 -- 'hkdMutParts' for more information.

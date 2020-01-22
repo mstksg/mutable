@@ -20,8 +20,6 @@ import           Inliterate.Import
 import           Data.Mutable
 import qualified Data.Vector         as V
 import qualified Data.Vector.Mutable as MV
-
-instance Show a => AskInliterate (V.Vector a)
 ```
 
 Making piecewise updates on your giant composite data types (like artificial

@@ -37,8 +37,8 @@ module Data.Mutable (
   , mutFst, mutSnd
   , fieldMut, withField, Label(..)
   , posMut, withPos
+  , coerceRef, withCoerceRef
   , hkdMutParts
-  , coerceRef
   , mutRec
   -- ** Re-exports
   , PrimMonad, PrimState

@@ -13,21 +13,17 @@ Getting Started
 {-# LANGUAGE TypeFamilies          #-}
 
 import           Control.Monad
-import           Control.Monad.ST
-import           Data.Foldable
 import           Data.Mutable
 import           Data.Primitive.MutVar
 import           GHC.Generics
-import           Inliterate.Import
-import qualified Data.Vector         as V
-import qualified Data.Vector.Mutable as MV
-
-instance Show a => AskInliterate (V.Vector a)
 ```
 
 If you have a data type like:
 
 ```haskell top
+import qualified Data.Vector         as V
+import qualified Data.Vector.Mutable as MV
+
 data MyType = MT
     { mtInt    :: Int
     , mtDouble :: Double
@@ -48,8 +44,8 @@ instance PrimMonad m => Mutable m MyType where
 
 We now have some nice operations:
 
-Wholewise operations
---------------------
+Whole-wise operations
+---------------------
 
 Sometimes you just want to operate on the whole `MyType`.  Well, you now have:
 
@@ -67,6 +63,58 @@ copyRef :: Ref m MyType -> MyType -> m ()
 modifyRef :: Ref m MyType -> (MyType -> MyType) -> m ()
 ```
 
+Piecewise Operations
+--------------------
+
 This is nice, but we really the juicy stuff: a way to modify each part
 individually.  For that, we have two main mechanisms: the field name based
-ones, and the position based ones.
+ones (using `-XOverloadedLabels`), and the position based ones (using
+`-XTypeApplications`).  We have the continuation-based combinators:
+
+```haskell
+-- | Do something with the 'Int' field
+withField #mtInt
+    :: (PrimMonad m, s ~ PrimState m)
+    => Ref m MyType
+    -> (MutVar s Int -> m r)
+    -> m r
+
+-- | Do something with the 'Vector' field
+withField #mtVec
+    :: (PrimMonad m, s ~ PrimState m)
+    => Ref m MyType
+    -> (MVector s Double -> m r)
+    -> m r
+
+-- | Do something with the second field, the Double
+withPos @2
+    :: (PrimMonad m, s ~ PrimState m)
+    => Ref m MyType
+    -> (MutVar s Double -> m r)
+    -> m r
+```
+
+And the `MutPart`-based ones, which yield a `MutPart m s a` (a way to "zoom
+into" a mutable `a`, if you have a mutable `s`), which can be used with
+functions like `modifyPart` and `freezePart`:
+
+```haskell
+fieldMut #mtDouble
+    :: MutPart m MyType Double
+
+-- | Modify the 'Double' in the mutable 'MyType'
+modifyPart (fieldMut #mtDouble)
+    :: Ref m MyType
+    -> (Double -> Double)
+    -> m ()
+```
+
+```haskell
+posMut @1
+    :: MutPart m MyType Int
+
+-- | Read out the 'Int' in the mutable 'MyType'
+freezePart (posMut @1)
+    :: Ref m MyPart
+    -> m Int
+```

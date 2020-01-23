@@ -7,6 +7,7 @@
 {-# LANGUAGE DerivingVia                   #-}
 {-# LANGUAGE FlexibleContexts              #-}
 {-# LANGUAGE FlexibleInstances             #-}
+{-# LANGUAGE LambdaCase                    #-}
 {-# LANGUAGE MultiParamTypeClasses         #-}
 {-# LANGUAGE NumericUnderscores            #-}
 {-# LANGUAGE OverloadedLabels              #-}
@@ -161,6 +162,7 @@ main = do
             , bgroup "mutable" [
                   bench "field" $ nf (modifyPartMut (partRep (fieldMut #_v4X)) 50_000_000) bigADT
                 , bench "pos"   $ nf (modifyPartMut (partRep (posMut @1     )) 50_000_000) bigADT
+                , bench "list"  $ nf (modifyPartMut (partRep firstList       ) 50_000_000) bigADT
                 , bench "hkd"   $ nf (modifyPartMut modPartHKD                 50_000_000) bigADTF
                 ]
             ]
@@ -170,6 +172,7 @@ main = do
             , bgroup "mutable" [
                   bench "field" $ nf (modifyWholeMut    withAllRefV4Field 20_000) bigADT
                 , bench "pos"   $ nf (modifyWholeMut    withAllRefV4Pos   20_000) bigADT
+                , bench "list"  $ nf (modifyWholeMut    withAllRefV4List  20_000) bigADT
                 , bench "hkd"   $ nf (modifyWholeMutHKD                   20_000) bigADTF
                 ]
             ]
@@ -181,6 +184,7 @@ main = do
             , bgroup "mutable" [
                   bench "field" $ nf (modifyPartMutV (fieldMut #_v4X) 100) bigVec
                 , bench "pos"   $ nf (modifyPartMutV (posMut @1     ) 100) bigVec
+                , bench "list"  $ nf (modifyPartMutV (firstList     ) 100) bigVec
                 , bench "hkd"   $ nf (modifyPartMutV  (_vf4X vfParts) 100) bigVecF
                 ]
             ]
@@ -190,6 +194,7 @@ main = do
             , bgroup "mutable" [
                   bench "field" $ nf (modifyWholeMutV withAllRefV4Field 3) bigVec
                 , bench "pos"   $ nf (modifyWholeMutV withAllRefV4Pos   3) bigVec
+                , bench "list"  $ nf (modifyWholeMutV withAllRefV4List  3) bigVec
                 , bench "hkd"   $ nf (modifyWholeMutV withAllRefV4HKD   3) bigVecF
                 ]
             ]
@@ -221,6 +226,9 @@ vfParts = hkdMutParts @(V4F a)
 partRep :: Mutable m a => (forall b. Mutable m b => MutPart m (V4 b) b) -> MutPart m (V16 a) a
 partRep f = f . f . f . f . coerceRef
 
+firstList :: Mutable m a => MutPart m (V4 a) a
+firstList = MutPart (\case x :!> _ -> x) . listMut
+
 modPartHKD :: forall m a. Mutable m a => MutPart m (V16F a) a
 modPartHKD = _vf4X vfParts
            . _vf4X vfParts
@@ -243,6 +251,14 @@ withAllRefV4Pos r = ContT $ \f -> do
     withMutPart (posMut @2) r f
     withMutPart (posMut @3) r f
     withMutPart (posMut @4) r f
+
+withAllRefV4List :: Mutable m a => Ref m (V4 a) -> ContT () m (Ref m a)
+withAllRefV4List r = ContT         $ \f ->
+                     withListMut r $ \(x :!> y :!> z :!> w :!> NilRef) -> do
+      f x
+      f y
+      f z
+      f w
 
 withAllRefV4HKD :: forall m a. Mutable m a => V4F a (RefFor m) -> ContT () m (Ref m a)
 withAllRefV4HKD r = ContT $ \f -> do

@@ -2,6 +2,7 @@
 {-# LANGUAGE EmptyCase             #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE StandaloneDeriving    #-}
@@ -25,7 +26,9 @@
 module Data.Mutable.Instances (
     ListRefCell(..)
   , unconsListRef, consListRef
+  , MaybeRef(..)
   , RecRef(..)
+  , HListRef(..)
   -- * Generic
   , GRef(..)
   , gThawRef, gFreezeRef
@@ -60,6 +63,8 @@ import           Data.Functor.Compose
 import           Data.Functor.Identity
 import           Data.Functor.Product
 import           Data.Functor.Sum
+import           Data.GenericLens.Internal     (HList(..))
+import           Data.Kind
 import           Data.Mutable.Internal
 import           Data.Ord
 import           Data.Primitive.Array
@@ -69,13 +74,14 @@ import           Data.Primitive.PrimArray
 import           Data.Primitive.SmallArray
 import           Data.Primitive.Types
 import           Data.Ratio
-import           Data.Vinyl                    as V
+import           Data.Vinyl                    as V hiding (HList)
 import           Data.Void
 import           Data.Word
 import           Foreign.C.Types
 import           Foreign.Storable
 import           GHC.Generics
 import           Numeric.Natural
+import qualified Data.GenericLens.Internal     as GL
 import qualified Data.Monoid                   as M
 import qualified Data.Vector                   as V
 import qualified Data.Vector.Generic           as VG
@@ -154,8 +160,49 @@ instance Mutable m a => Mutable m (Down a) where
 instance Mutable m a => Mutable m (M.Dual a) where
     type Ref m (M.Dual a) = CoerceRef m (M.Dual a) a
 
+-- | The mutable version of 'Maybe'.  It contains a reference that can
+-- either contain a mutable version or not.
+--
+-- It serves as a prototypical example of a "sum type" mutable value.
+-- Aside from using the instance of @'Mutable' m 'Maybe'@, you can also
+-- directly inspect and use the parts of this reference with normal pattern
+-- matching and monadic binds.
+newtype MaybeRef m a = MaybeRef { getMaybeRef :: MutVar (PrimState m) (Maybe (Ref m a)) }
+
+-- | Uses a custom 'Ref', 'MaybeRef'.
 instance (Mutable m a, PrimMonad m) => Mutable m (Maybe a) where
-    type Ref m (Maybe a) = GRef m (Maybe a)
+    -- type Ref m (Maybe a) = GRef m (Maybe a)
+    type Ref m (Maybe a) = MaybeRef m a
+
+    thawRef = \case
+      Nothing -> MaybeRef <$> newMutVar Nothing
+      Just x  -> fmap MaybeRef . newMutVar . Just =<< thawRef x
+    freezeRef (MaybeRef r) = readMutVar r >>= \case
+      Nothing -> pure Nothing
+      Just s  -> Just <$> freezeRef s
+    copyRef (MaybeRef r) = \case
+      Nothing -> readMutVar r >>= \case
+        Nothing -> pure ()
+        Just _  -> writeMutVar r Nothing
+      Just x  -> readMutVar r >>= \case
+        Nothing -> writeMutVar r . Just =<< thawRef x
+        Just s  -> copyRef s x
+    moveRef (MaybeRef r) (MaybeRef s) = readMutVar s >>= \case
+      Nothing -> readMutVar r >>= \case
+        Nothing -> pure ()
+        Just _  -> writeMutVar r Nothing
+      Just s' -> readMutVar r >>= \case
+        Nothing -> writeMutVar r . Just =<< cloneRef s'
+        Just r' -> moveRef r' s'
+    cloneRef (MaybeRef r) = readMutVar r >>= \case
+      Nothing -> MaybeRef <$> newMutVar Nothing
+      Just r' -> fmap MaybeRef . newMutVar . Just =<< cloneRef r'
+    unsafeThawRef = \case
+      Nothing -> MaybeRef <$> newMutVar Nothing
+      Just x  -> fmap MaybeRef . newMutVar . Just =<< unsafeThawRef x
+    unsafeFreezeRef (MaybeRef r) = readMutVar r >>= \case
+      Nothing -> pure Nothing
+      Just s  -> Just <$> unsafeFreezeRef s
 
 instance (Mutable m a, Mutable m b, PrimMonad m) => Mutable m (Either a b) where
     type Ref m (Either a b) = GRef m (Either a b)
@@ -433,3 +480,38 @@ instance (Monad m, RecApplicative as, V.NatToInt (V.RLength as), RPureConstraine
     unsafeThawRef   = fmap toARec . unsafeThawRef   . fromARec
     unsafeFreezeRef = fmap toARec . unsafeFreezeRef . fromARec
 
+-- | The mutable reference of the 'HList' type from generic-lens.
+data HListRef :: (Type -> Type) -> [Type] -> Type where
+    NilRef :: HListRef m '[]
+    (:!>)  :: Ref m a -> HListRef m as -> HListRef m (a ': as)
+infixr 5 :!>
+
+instance Monad m => Mutable m (HList '[]) where
+    type Ref m (HList '[]) = HListRef m '[]
+    thawRef   _       = pure NilRef
+    freezeRef _       = pure Nil
+    copyRef _ _       = pure ()
+    moveRef _ _       = pure ()
+    cloneRef _        = pure NilRef
+    unsafeThawRef _   = pure NilRef
+    unsafeFreezeRef _ = pure Nil
+
+instance (Monad m, Mutable m a, Mutable m (HList as), Ref m (HList as) ~ HListRef m as) => Mutable m (HList (a ': as)) where
+    type Ref m (HList (a ': as)) = HListRef m (a ': as)
+    thawRef   = \case
+      x :> xs -> (:!>) <$> thawRef x <*> thawRef xs
+    freezeRef = \case
+      v :!> vs -> (:>) <$> freezeRef v <*> freezeRef vs
+    copyRef = \case
+      v :!> vs -> \case
+        x :> xs -> copyRef v x >> copyRef vs xs
+    moveRef = \case
+      v :!> vs -> \case
+        r :!> rs ->
+          moveRef v r >> moveRef vs rs
+    cloneRef = \case
+      v :!> rs -> (:!>) <$> cloneRef v <*> cloneRef rs
+    unsafeThawRef   = \case
+      x :> xs -> (:!>) <$> unsafeThawRef x <*> unsafeThawRef xs
+    unsafeFreezeRef = \case
+      v :!> vs -> (:>) <$> unsafeFreezeRef v <*> unsafeFreezeRef vs

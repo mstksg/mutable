@@ -21,9 +21,10 @@ module Data.Mutable (
   , DefaultMutable
   , GRef
   , MutVar
-  , CoerceRef
-  , TraverseRef
-  , GMutableRef
+  , CoerceRef(..)
+  , TraverseRef(..)
+  , GMutableRef(..)
+  , HListRef(..)
   -- * Providing/overriding instances
   , VarMut(..)
   , CoerceMut(..)
@@ -37,13 +38,18 @@ module Data.Mutable (
   , clonePart, unsafeFreezePart
   , modifyPart, modifyPart'
   , updatePart, updatePart'
-  -- ** Built-in 'MutPart'
+  -- * Built-in 'MutPart'
   , mutFst, mutSnd
-  , fieldMut, withField, mutField, Label(..)
-  , posMut, withPos, mutPos
-  , coerceRef, withCoerceRef
-  , hkdMutParts
+  -- ** Field
+  , FieldMut(..), withField, mutField, Label(..)
+  -- ** Position
+  , PosMut(..), withPos, mutPos
+  -- ** HList
+  , ListMut(..), withListMut
+  -- ** Other
+  , hkdMutParts, HKDMutParts
   , mutRec
+  , coerceRef, withCoerceRef
   -- ** Re-exports
   , PrimMonad, PrimState
   ) where

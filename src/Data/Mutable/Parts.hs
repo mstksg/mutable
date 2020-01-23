@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs                  #-}
+{-# LANGUAGE LambdaCase             #-}
 {-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TypeApplications       #-}
@@ -37,20 +38,28 @@ module Data.Mutable.Parts (
   , idMP
   -- * Built-in 'MutPart'
   , mutFst, mutSnd
-  , FieldMut, fieldMut, withField, mutField, Label(..)
-  , PosMut, posMut, withPos, mutPos
+  -- ** Field
+  , FieldMut(..), withField, mutField, Label(..)
+  -- ** Position
+  , PosMut(..), withPos, mutPos
+  -- ** HList
+  , ListMut(..), withListMut
+  -- ** Other
   , hkdMutParts, HKDMutParts
   , mutRec
   , coerceRef, withCoerceRef
   ) where
 
+import           Control.Monad.Primitive
 import           Data.Coerce
+import           Data.GenericLens.Internal              (HList(..))
 import           Data.Kind
 import           Data.Mutable.Class
 import           Data.Mutable.Instances
-import           Data.Vinyl.Derived
+import           Data.Primitive.MutVar
+import           Data.Proxy
+import           Data.Vinyl hiding                      (HList)
 import           Data.Vinyl.Functor
-import           Data.Vinyl.Lens
 import           GHC.Generics
 import           GHC.TypeLits
 import qualified Control.Category                       as C
@@ -437,11 +446,11 @@ mutField
     -> Ref m a              -- ^ Internal mutable field
 mutField = getMutPart . fieldMut @_ @m
 
--- | Create a 'MutPart' for a position in a sum type.  Should work for any
+-- | Create a 'MutPart' for a position in a product type.  Should work for any
 -- type with one constructor whose mutable reference is 'GRef'.  See
 -- 'posMut' for usage directions.
 class (Mutable m s, Mutable m a) => PosMut (i :: Nat) m s a | i s -> a where
-    -- | Create a 'MutPart' for a position in a sum type.  Should work for any
+    -- | Create a 'MutPart' for a position in a product type.  Should work for any
     -- type with one constructor whose mutable reference is 'GRef'.
     --
     -- Meant to be used with TypeApplications:
@@ -500,6 +509,130 @@ mutPos
     => Ref m s              -- ^ Larger record reference
     -> Ref m a              -- ^ Internal mutable field
 mutPos = getMutPart (posMut @i @m)
+
+-- | Create a 'MutPart' splitting out a product type into an 'HListRef' of
+-- every field in that product type. Should work for any type with one
+-- constructor whose mutable reference is 'GRef'.  See 'listMut' for usage
+-- directions.
+class (Mutable m s, Mutable m (HList as), Ref m (HList as) ~ HListRef m as) => ListMut m s as | s -> as where
+    -- | Create a 'MutPart' splitting out a product type into an 'HListRef' of
+    -- every field in that product type. Should work for any type with one
+    -- constructor whose mutable reference is 'GRef'.
+    --
+    -- Probably most easily used using 'withListMut':
+    --
+    -- @
+    -- data Foo = Foo Int Double
+    --   deriving (Generic, Show)
+    --
+    -- instance Mutable m Foo where
+    --     type Ref m Foo = 'GRef' m Foo
+    -- @
+    --
+    -- @
+    -- ghci> r <- 'thawRef' (Foo 3 4.5)
+    -- ghci> 'withListMut' r $ \(rI :!> rD :!> NilRef) -> do
+    --    ..     'modifyRef' rI negate
+    --    ..     modifyRef rD (* 2)
+    -- ghci> 'freezeRef' r
+    -- Foo (-3) 9
+    -- @
+    --
+    -- As can be seen, within the lambda, we can get access to every
+    -- mutable reference inside a 'Foo' reference.
+    listMut :: MutPart m s (HList as)
+
+type family MapRef m as where
+    MapRef m '[] = '[]
+    MapRef m (a ': as) = Ref m a ': MapRef m as
+
+instance
+      ( Mutable m s
+      , Mutable m (HList as)
+      , Ref m s ~ GRef m s
+      , Ref m (HList as) ~ HListRef m as
+      , GL.GIsList (GRef_ m (Rep s)) (GRef_ m (Rep s)) (MapRef m as) (MapRef m as)
+      , GL.GIsList (Rep s) (Rep s) as as
+      , RecApplicative as
+      )
+      => ListMut m s as where
+    listMut = MutPart $ hListToRef (rpure Proxy)
+                      . GLP.view (GL.glist @(GRef_ m (Rep s)) @(GRef_ m (Rep s)) @(MapRef m as) @(MapRef m as))
+                      . unGRef
+
+
+hListToRef :: Rec Proxy as -> HList (MapRef m as) -> HListRef m as
+hListToRef = \case
+    RNil -> \case
+      Nil -> NilRef
+    _ :& ps -> \case
+      x :> xs -> x :!> hListToRef ps xs
+
+-- | A helpful wrapper over @'withMutPart' 'listMut'@.  Directly operate on
+-- the items in the 'HList'.  See 'listMut' for more details on when this
+-- should work.
+--
+-- @
+-- data Foo = Foo Int Double
+--   deriving (Generic, Show)
+--
+-- instance Mutable m Foo where
+--     type Ref m Foo = 'GRef' m Foo
+-- @
+--
+-- @
+-- ghci> r <- 'thawRef' (Foo 3 4.5)
+-- ghci> 'withListMut' r $ \case rI :!> rD :!> NilRef -> do
+--    ..     'modifyRef' rI negate
+--    ..     modifyRef rD (* 2)
+-- ghci> 'freezeRef' r
+-- Foo (-3) 9
+-- @
+withListMut
+    :: ListMut m s as
+    => Ref m s                    -- ^ Larger record reference
+    -> (HListRef m as -> m b)     -- ^ What to do with each mutable field
+    -> m b
+withListMut = withMutPart listMut
+
+
+
+
+-- | A @'MutBranch' m s a@ represents the information that @s@ could
+-- potentially be an @a@.  Similar in spirit to a @Prism' s a@.
+--
+-- Information to clone out a potential option/branch @a@ of an @s@, and
+-- also to copy in a version of @a@ into @s@.
+data MutBranch m s a = MutBranch
+    { cloneMutBranch :: Ref m s -> m (Maybe (Ref m a))
+    , moveMutBranch  :: Ref m s -> Ref m a -> m ()
+    }
+
+consMB :: (PrimMonad m, Mutable m a) => MutBranch m [a] (a, [a])
+consMB = MutBranch
+    { cloneMutBranch = \case
+        GRef (M1 (Comp1 r)) -> readMutVar r >>= \case
+          L1 _ -> pure Nothing
+          R1 (M1 (M1 (K1 x) :*: M1 (K1 xs))) -> do
+            y  <- cloneRef x
+            ys <- cloneRef xs
+            pure $ Just (y, ys)
+    , moveMutBranch  = \case
+        GRef (M1 (Comp1 r)) -> \(x, xs) -> readMutVar r >>= \case
+          L1 _ -> writeMutVar r $ R1 (M1 (M1 (K1 x) :*: M1 (K1 xs)))
+          R1 (M1 (M1 (K1 y) :*: M1 (K1 ys))) -> do
+            moveRef y  x
+            moveRef ys xs
+    }
+
+
+
+
+
+
+
+
+
 
 
 -- stuff from generic-lens that wasn't exported

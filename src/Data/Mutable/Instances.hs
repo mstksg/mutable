@@ -26,7 +26,6 @@
 module Data.Mutable.Instances (
     ListRefCell(..)
   , unconsListRef, consListRef
-  , MaybeRef(..)
   , RecRef(..)
   , HListRef(..)
   -- * Generic
@@ -54,6 +53,8 @@ module Data.Mutable.Instances (
   -- * Instances for Generics combinators themselves
   , GMutableRef(..)
   , MutSumF(..)
+  -- * Utility
+  , MapRef
   ) where
 
 import           Control.Applicative
@@ -160,49 +161,8 @@ instance Mutable m a => Mutable m (Down a) where
 instance Mutable m a => Mutable m (M.Dual a) where
     type Ref m (M.Dual a) = CoerceRef m (M.Dual a) a
 
--- | The mutable version of 'Maybe'.  It contains a reference that can
--- either contain a mutable version or not.
---
--- It serves as a prototypical example of a "sum type" mutable value.
--- Aside from using the instance of @'Mutable' m 'Maybe'@, you can also
--- directly inspect and use the parts of this reference with normal pattern
--- matching and monadic binds.
-newtype MaybeRef m a = MaybeRef { getMaybeRef :: MutVar (PrimState m) (Maybe (Ref m a)) }
-
--- | Uses a custom 'Ref', 'MaybeRef'.
 instance (Mutable m a, PrimMonad m) => Mutable m (Maybe a) where
-    -- type Ref m (Maybe a) = GRef m (Maybe a)
-    type Ref m (Maybe a) = MaybeRef m a
-
-    thawRef = \case
-      Nothing -> MaybeRef <$> newMutVar Nothing
-      Just x  -> fmap MaybeRef . newMutVar . Just =<< thawRef x
-    freezeRef (MaybeRef r) = readMutVar r >>= \case
-      Nothing -> pure Nothing
-      Just s  -> Just <$> freezeRef s
-    copyRef (MaybeRef r) = \case
-      Nothing -> readMutVar r >>= \case
-        Nothing -> pure ()
-        Just _  -> writeMutVar r Nothing
-      Just x  -> readMutVar r >>= \case
-        Nothing -> writeMutVar r . Just =<< thawRef x
-        Just s  -> copyRef s x
-    moveRef (MaybeRef r) (MaybeRef s) = readMutVar s >>= \case
-      Nothing -> readMutVar r >>= \case
-        Nothing -> pure ()
-        Just _  -> writeMutVar r Nothing
-      Just s' -> readMutVar r >>= \case
-        Nothing -> writeMutVar r . Just =<< cloneRef s'
-        Just r' -> moveRef r' s'
-    cloneRef (MaybeRef r) = readMutVar r >>= \case
-      Nothing -> MaybeRef <$> newMutVar Nothing
-      Just r' -> fmap MaybeRef . newMutVar . Just =<< cloneRef r'
-    unsafeThawRef = \case
-      Nothing -> MaybeRef <$> newMutVar Nothing
-      Just x  -> fmap MaybeRef . newMutVar . Just =<< unsafeThawRef x
-    unsafeFreezeRef (MaybeRef r) = readMutVar r >>= \case
-      Nothing -> pure Nothing
-      Just s  -> Just <$> unsafeFreezeRef s
+    type Ref m (Maybe a) = GRef m (Maybe a)
 
 instance (Mutable m a, Mutable m b, PrimMonad m) => Mutable m (Either a b) where
     type Ref m (Either a b) = GRef m (Either a b)
@@ -479,6 +439,16 @@ instance (Monad m, RecApplicative as, V.NatToInt (V.RLength as), RPureConstraine
     cloneRef        = fmap toARec . cloneRef . fromARec
     unsafeThawRef   = fmap toARec . unsafeThawRef   . fromARec
     unsafeFreezeRef = fmap toARec . unsafeFreezeRef . fromARec
+
+-- | Useful type family to @'Ref' m@ over every item in a type-level list
+--
+-- @
+-- ghci> :kind! MapRef IO '[Int, V.Vector Double]
+-- '[ MutVar RealWorld Int, MVector RealWorld Double ]
+-- @
+type family MapRef m as where
+    MapRef m '[] = '[]
+    MapRef m (a ': as) = Ref m a ': MapRef m as
 
 -- | The mutable reference of the 'HList' type from generic-lens.
 data HListRef :: (Type -> Type) -> [Type] -> Type where

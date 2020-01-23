@@ -32,10 +32,11 @@ composite data types in a composable and automatic way.  Think of it like a
 working with piecewise mutability as simple as possible.
 
 Making piecewise updates on your giant composite data types (like artificial
-neural networks or game states in your game loop) got you down?  Tired of
-requiring a full deep copy every time you make a small change, and want to be
-able to build mutable versions of your types automatically in composable ways?
-This is the package for you.
+neural networks or game states in your game loop) got you down because they
+require re-allocating the entire value?  Tired of requiring a full deep copy
+every time you make a small change, and want to be able to build mutable
+versions of your types automatically in composable ways? This is the package
+for you.
 
 ```haskell top
 data MyType = MT

@@ -451,10 +451,12 @@ library revolves around the <code>Mutable</code> typeclass and the <code>Ref</co
 <pre class="haskell"><code>class Mutable m a where
     type Ref m a = v     | v -&gt; a
 
-
     thawRef   :: a -&gt; m (Ref m a)
     freezeRef :: Ref m a -&gt; m a
     copyRef   :: Ref m a -&gt; a -&gt; m ()
+
+    -- ... plus some more methods that can be implemented using
+    -- the others in most cases
 </code></pre>
 <p>An instance of <code>Mutable m a</code> is an <code>a</code> that has a &quot;mutable version&quot; that can be
 updated/mutated in the <code>m</code> Monad.</p>

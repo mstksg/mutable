@@ -158,7 +158,7 @@ instance PrimMonad m => Mutable m IntOrBool where
 
 this is essentially equivalent to:
 
-```haskell top
+```haskell
 newtype IntOrBoolRef s = IBR
     { getIBR :: MutVar s (Either (MutVar s Int) (MutVar s Bool))
     }

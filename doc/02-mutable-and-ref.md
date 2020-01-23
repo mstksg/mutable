@@ -101,7 +101,7 @@ data MyType = MT
 We might imagine making a piecewise-mutable version of it, where each field is
 its own mutable reference:
 
-```haskell top
+```haskell
 data MyTypeRef s = MTR
     { mtrInt    :: MutVar s Int
     , mtrDouble :: MutVar s Double

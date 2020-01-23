@@ -354,7 +354,7 @@ class Monad m => Mutable m a where
     -- This is safe as long as you never again use the original pure
     -- value, since it can potentially directly mutate it.
     unsafeThawRef   :: a -> m (Ref m a)
-     
+
     -- | A non-copying version of 'freezeRef' that can be more efficient for
     -- types where the mutable representation is the same as the immutable
     -- one (like 'V.Vector').
@@ -876,13 +876,13 @@ instance (GMutable m f, GMutable m g, PrimMonad m) => GMutable m (f :+: g) where
       R1 u -> case xy of
         L1 x -> writeMutVar r . L1 =<< gThawRef_ x
         R1 y -> gCopyRef_ u y
-    gMoveRef_ (Comp1 v) (Comp1 u) = readMutVar v >>= \case
+    gMoveRef_ (Comp1 u) (Comp1 v) = readMutVar v >>= \case
       L1 vl -> readMutVar u >>= \case
-        L1 ul -> gMoveRef_ vl ul
+        L1 ul -> gMoveRef_ ul vl
         R1 _  -> writeMutVar u . L1 =<< gCloneRef_ vl
       R1 vr -> readMutVar u >>= \case
         L1 _  -> writeMutVar u . R1 =<< gCloneRef_ vr
-        R1 ur -> gMoveRef_ vr ur
+        R1 ur -> gMoveRef_ ur vr
     gCloneRef_ (Comp1 v) = readMutVar v >>= \case
       L1 u -> fmap Comp1 . newMutVar . L1 =<< gCloneRef_ u
       R1 u -> fmap Comp1 . newMutVar . R1 =<< gCloneRef_ u

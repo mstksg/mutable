@@ -448,14 +448,15 @@ footer .site-generated-message
 /* Generated with Clay, http://fvisser.nl/clay */</style></head><body class="tintin-fg-black tintin-bg-white"><div class="tintin-navigation tintin-bg-bronze"><div class="cover-container d-flex p-3 mx-auto flex-column tintin-fg-white"><main role="main" class="masthead mb-auto"><div class="container"><div class="row align-items-center"><div id="header-container" class="col"><h1 class="cover-heading">mutable</h1><p class="cover-heading-subtitle">Automatic piecewise-mutable references for your types</p></div></div></div></main></div><nav style="width: 100%;" class="tintin-navbar"><div class="container d-flex align-items-center"><div class="mr-auto"><ul class="left-part"><li class="tintin-navbar-active"><a href="index.html" class>Home</a></li><li class><a href="01-getting-started.html" class>Docs</a></li></ul></div><div class><ul class><li class><a href="https://github.com/mstksg/mutable" class>View on GitHub</a></li></ul></div></div></nav></div><section id="content" class="animated fadeIn"><div class="container"><div class="content"><div><h1>Mutability can be Awesome</h1>
 <p><a href="https://hackage.haskell.org/package/mutable"><img src="https://img.shields.io/hackage/v/mutable.svg?maxAge=86400" alt="mutable on Hackage" /></a>
 <a href="https://travis-ci.org/mstksg/mutable"><img src="https://travis-ci.org/mstksg/mutable.svg?branch=master" alt="Build Status" /></a></p>
-<p>Making piecewise updates on your giant composite data types (like artificial
-neural networks or game states in your game loop) got you down? Tired of
-requiring a full deep copy every time you make a small change, and want to be
-able to build mutable versions of your types automatically in composable ways?</p>
 <p>Take back the power of <strong>mutable objects</strong> with all the <strong>safety</strong> and explicit
 state of Haskell. Associate and generate &quot;piecewise-mutable&quot; versions for your
 composite data types in a composable and automatic way. Think of it like a
 &quot;generalized <code>MVector</code> for all ADTs&quot;.</p>
+<p>Making piecewise updates on your giant composite data types (like artificial
+neural networks or game states in your game loop) got you down? Tired of
+requiring a full deep copy every time you make a small change, and want to be
+able to build mutable versions of your types automatically in composable ways?
+This is the package for you.</p>
 <pre class="haskell"><code>data MyType = MT
     { mtInt    :: Int
     , mtDouble :: Double

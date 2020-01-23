@@ -21,7 +21,7 @@ Both of these situations are tested below:
 (Only bars of the same color are comparable, and shorter bars are better,
 performance-wise)
 
-![Benchmarks](https://i.imgur.com/frA5gXP.png)
+![Benchmarks](https://i.imgur.com/S95TuiM.png)
 
 There are four setups here, compared and contrasted between pure and mutable
 versions.

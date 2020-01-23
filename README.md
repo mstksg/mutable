@@ -147,7 +147,7 @@ Show me the numbers
 Here are some benchmark cases --- only bars of the same color are comparable,
 and shorter bars are better (performance-wise).
 
-![Benchmarks](https://i.imgur.com/frA5gXP.png)
+![Benchmarks](https://i.imgur.com/S95TuiM.png)
 
 There are four situations here, compared and contrasted between pure and
 mutable versions

@@ -157,6 +157,7 @@ main = do
         bgroup "adt-256" [
           bgroup "part-50M"
             [ bench "pure"      $ nf (modifyPartPure                           50_000_000) bigADT
+            -- , bench "mutable" $ nf (modifyPartMut (partRep (fieldMut #_v4X)) 50_000_000) bigADT
             , bgroup "mutable" [
                   bench "field" $ nf (modifyPartMut (partRep (fieldMut #_v4X)) 50_000_000) bigADT
                 , bench "pos"   $ nf (modifyPartMut (partRep (posMut @1     )) 50_000_000) bigADT
@@ -165,6 +166,7 @@ main = do
             ]
         , bgroup "whole-20K"
             [ bench "pure"      $ nf (modifyWholePure                     20_000) bigADT
+            -- , bench "mutable" $ nf (modifyWholeMut    withAllRefV4Field 20_000) bigADT
             , bgroup "mutable" [
                   bench "field" $ nf (modifyWholeMut    withAllRefV4Field 20_000) bigADT
                 , bench "pos"   $ nf (modifyWholeMut    withAllRefV4Pos   20_000) bigADT
@@ -175,6 +177,7 @@ main = do
       , bgroup "vector-2M" [
           bgroup "part-100"
             [ bench "pure"      $ nf (modifyPartPureV                 100) bigVec
+            -- , bench "mutable" $ nf (modifyPartMutV (fieldMut #_v4X) 100) bigVec
             , bgroup "mutable" [
                   bench "field" $ nf (modifyPartMutV (fieldMut #_v4X) 100) bigVec
                 , bench "pos"   $ nf (modifyPartMutV (posMut @1     ) 100) bigVec
@@ -183,6 +186,7 @@ main = do
             ]
         , bgroup "whole-3"
             [ bench "pure"      $ nf (modifyWholePureV                  3) bigVec
+            -- , bench "mutable" $ nf (modifyWholeMutV withAllRefV4Field 3) bigVec
             , bgroup "mutable" [
                   bench "field" $ nf (modifyWholeMutV withAllRefV4Field 3) bigVec
                 , bench "pos"   $ nf (modifyWholeMutV withAllRefV4Pos   3) bigVec

@@ -33,6 +33,8 @@ module Data.Mutable (
   , MutPart(..)
   , withMutPart
   , freezePart, copyPart
+  , movePartInto, movePartOver, movePartWithin
+  , clonePart, unsafeFreezePart
   , modifyPart, modifyPart'
   , updatePart, updatePart'
   -- ** Built-in 'MutPart'

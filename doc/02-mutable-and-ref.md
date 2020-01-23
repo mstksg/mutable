@@ -27,10 +27,12 @@ library revolves around the `Mutable` typeclass and the `Ref` associated type.
 class Mutable m a where
     type Ref m a = v     | v -> a
 
-
     thawRef   :: a -> m (Ref m a)
     freezeRef :: Ref m a -> m a
     copyRef   :: Ref m a -> a -> m ()
+
+    -- ... plus some more methods that can be implemented using
+    -- the others in most cases
 ```
 
 An instance of `Mutable m a` is an `a` that has a "mutable version" that can be

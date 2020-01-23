@@ -23,22 +23,33 @@
 -- Provides 'Ref' instances for various data types, as well as automatic
 -- derivation of instances.  See "Data.Mutable" for more information.
 module Data.Mutable.Instances (
-  -- * Instances
     ListRefCell(..)
   , unconsListRef, consListRef
   , RecRef(..)
-  -- ** Generic
-  , GRef(..), gThawRef, gFreezeRef, gCopyRef, GMutable (GRef_)
-  -- ** Higher-Kinded Data Pattern
-  , thawHKD, freezeHKD, copyHKD
-  -- ** Coercible
-  , CoerceRef(..), thawCoerce, freezeCoerce, copyCoerce
-  -- ** Traversable
-  , TraverseRef(..), thawTraverse, freezeTraverse, copyTraverse
-  -- ** Immutable
+  -- * Generic
+  , GRef(..)
+  , gThawRef, gFreezeRef
+  , gCopyRef, gMoveRef, gCloneRef
+  , gUnsafeThawRef, gUnsafeFreezeRef
+  , GMutable (GRef_)
+  -- * Higher-Kinded Data Pattern
+  , thawHKD, freezeHKD
+  , copyHKD, moveHKD, cloneHKD
+  , unsafeThawHKD, unsafeFreezeHKD
+  -- * Coercible
+  , CoerceRef(..)
+  , thawCoerce, freezeCoerce
+  , copyCoerce, moveCoerce, cloneCoerce
+  , unsafeThawCoerce, unsafeFreezeCoerce
+  -- * Traversable
+  , TraverseRef(..)
+  , thawTraverse, freezeTraverse
+  , copyTraverse, moveTraverse, cloneTraverse
+  , unsafeThawTraverse, unsafeFreezeTraverse
+  -- * Immutable
   , ImmutableRef(..), thawImmutable, freezeImmutable, copyImmutable
-  -- ** Instances for Generics combinators themselves
-  , GMutableRef(..), thawGMutableRef, freezeGMutableRef, copyGMutableRef
+  -- * Instances for Generics combinators themselves
+  , GMutableRef(..)
   ) where
 
 import           Control.Applicative
@@ -68,6 +79,7 @@ import           Numeric.Natural
 import qualified Data.Monoid                   as M
 import qualified Data.Vector                   as V
 import qualified Data.Vector.Generic           as VG
+import qualified Data.Vector.Generic.Mutable   as MVG
 import qualified Data.Vector.Mutable           as MV
 import qualified Data.Vector.Primitive         as VP
 import qualified Data.Vector.Primitive.Mutable as MVP
@@ -193,34 +205,54 @@ instance Mutable m a => Mutable m (V.Identity a) where
     thawRef (V.Identity x) = RefFor <$> thawRef x
     freezeRef (RefFor r) = V.Identity <$> freezeRef r
     copyRef (RefFor r) (V.Identity x) = copyRef r x
+    moveRef (RefFor r) (RefFor v) = moveRef r v
+    cloneRef = fmap RefFor . cloneRef . getRefFor
+    unsafeThawRef (V.Identity x) = RefFor <$> unsafeThawRef x
+    unsafeFreezeRef (RefFor r) = V.Identity <$> unsafeFreezeRef r
 
 -- | Mutable reference is 'MV.MVector'.
 instance PrimMonad m => Mutable m (V.Vector a) where
     type Ref m (V.Vector a) = MV.MVector (PrimState m) a
-    thawRef   = VG.thaw
-    freezeRef = VG.freeze
-    copyRef   = VG.copy
+    thawRef         = VG.thaw
+    freezeRef       = VG.freeze
+    copyRef         = VG.copy
+    moveRef         = MVG.move
+    cloneRef        = MVG.clone
+    unsafeThawRef   = VG.unsafeThaw
+    unsafeFreezeRef = VG.unsafeFreeze
 
 -- | Mutable reference is 'MVS.MVector'.
 instance (PrimMonad m, Storable a) => Mutable m (VS.Vector a) where
     type Ref m (VS.Vector a) = MVS.MVector (PrimState m) a
-    thawRef   = VG.thaw
-    freezeRef = VG.freeze
-    copyRef   = VG.copy
+    thawRef         = VG.thaw
+    freezeRef       = VG.freeze
+    copyRef         = VG.copy
+    moveRef         = MVG.move
+    cloneRef        = MVG.clone
+    unsafeThawRef   = VG.unsafeThaw
+    unsafeFreezeRef = VG.unsafeFreeze
 
 -- | Mutable reference is 'MVU.MVector'.
 instance (PrimMonad m, VU.Unbox a) => Mutable m (VU.Vector a) where
     type Ref m (VU.Vector a) = MVU.MVector (PrimState m) a
-    thawRef   = VG.thaw
-    freezeRef = VG.freeze
-    copyRef   = VG.copy
+    thawRef         = VG.thaw
+    freezeRef       = VG.freeze
+    copyRef         = VG.copy
+    moveRef         = MVG.move
+    cloneRef        = MVG.clone
+    unsafeThawRef   = VG.unsafeThaw
+    unsafeFreezeRef = VG.unsafeFreeze
 
 -- | Mutable reference is 'MVP.MVector'.
 instance (PrimMonad m, Prim a) => Mutable m (VP.Vector a) where
     type Ref m (VP.Vector a) = MVP.MVector (PrimState m) a
-    thawRef   = VG.thaw
-    freezeRef = VG.freeze
-    copyRef   = VG.copy
+    thawRef         = VG.thaw
+    freezeRef       = VG.freeze
+    copyRef         = VG.copy
+    moveRef         = MVG.move
+    cloneRef        = MVG.clone
+    unsafeThawRef   = VG.unsafeThaw
+    unsafeFreezeRef = VG.unsafeFreeze
 
 instance PrimMonad m => Mutable m (Array a) where
     type Ref m (Array a) = MutableArray (PrimState m) a
@@ -230,6 +262,12 @@ instance PrimMonad m => Mutable m (Array a) where
     copyRef rs xs = copyArray rs 0 xs 0 l
       where
         l = sizeofArray xs `min` sizeofMutableArray rs
+    moveRef rs vs = copyMutableArray rs 0 vs 0 l
+      where
+        l = sizeofMutableArray vs `min` sizeofMutableArray rs
+    cloneRef rs = cloneMutableArray rs 0 (sizeofMutableArray rs)
+    unsafeThawRef   = unsafeThawArray
+    unsafeFreezeRef = unsafeFreezeArray
 
 instance PrimMonad m => Mutable m (SmallArray a) where
     type Ref m (SmallArray a) = SmallMutableArray (PrimState m) a
@@ -239,6 +277,12 @@ instance PrimMonad m => Mutable m (SmallArray a) where
     copyRef rs xs = copySmallArray rs 0 xs 0 l
       where
         l = sizeofSmallArray xs `min` sizeofSmallMutableArray rs
+    moveRef rs vs = copySmallMutableArray rs 0 vs 0 l
+      where
+        l = sizeofSmallMutableArray vs `min` sizeofSmallMutableArray rs
+    cloneRef rs = cloneSmallMutableArray rs 0 (sizeofSmallMutableArray rs)
+    unsafeThawRef   = unsafeThawSmallArray
+    unsafeFreezeRef = unsafeFreezeSmallArray
 
 instance PrimMonad m => Mutable m ByteArray where
     type Ref m ByteArray = MutableByteArray (PrimState m)
@@ -254,6 +298,15 @@ instance PrimMonad m => Mutable m ByteArray where
     copyRef rs xs = copyByteArray rs 0 xs 0 l
       where
         l = sizeofByteArray xs `min` sizeofMutableByteArray rs
+    moveRef rs vs = copyMutableByteArray rs 0 vs 0 l
+      where
+        l = sizeofMutableByteArray vs `min` sizeofMutableByteArray rs
+    cloneRef rs = do
+        vs <- newByteArray (sizeofMutableByteArray rs)
+        copyMutableByteArray vs 0 rs 0 (sizeofMutableByteArray rs)
+        pure vs
+    unsafeThawRef   = unsafeThawByteArray
+    unsafeFreezeRef = unsafeFreezeByteArray
 
 instance (PrimMonad m, Prim a) => Mutable m (PrimArray a) where
     type Ref m (PrimArray a) = MutablePrimArray (PrimState m) a
@@ -269,36 +322,69 @@ instance (PrimMonad m, Prim a) => Mutable m (PrimArray a) where
     copyRef rs xs = copyPrimArray rs 0 xs 0 l
       where
         l = sizeofPrimArray xs `min` sizeofMutablePrimArray rs
+    moveRef rs vs = copyMutablePrimArray rs 0 vs 0 l
+      where
+        l = sizeofMutablePrimArray vs `min` sizeofMutablePrimArray rs
+    cloneRef rs = do
+        vs <- newPrimArray (sizeofMutablePrimArray rs)
+        copyMutablePrimArray vs 0 rs 0 (sizeofMutablePrimArray rs)
+        pure vs
+    unsafeThawRef   = unsafeThawPrimArray
+    unsafeFreezeRef = unsafeFreezePrimArray
+
+
+
+    
 
 instance Monad m => Mutable m Void where
     type Ref m Void = Void
-    thawRef   = \case {}
-    freezeRef = \case {}
-    copyRef   = \case {}
+    thawRef         = \case {}
+    freezeRef       = \case {}
+    copyRef         = \case {}
+    moveRef         = \case {}
+    cloneRef        = \case {}
+    unsafeThawRef   = \case {}
+    unsafeFreezeRef = \case {}
 
 instance Monad m => Mutable m () where
     type Ref m () = ()
-    thawRef   _ = pure ()
-    freezeRef _ = pure ()
-    copyRef _ _ = pure ()
+    thawRef   _       = pure ()
+    freezeRef _       = pure ()
+    copyRef _ _       = pure ()
+    moveRef _ _       = pure ()
+    cloneRef _        = pure ()
+    unsafeThawRef _   = pure ()
+    unsafeFreezeRef _ = pure ()
 
 instance (Monad m, Mutable m a, Mutable m b) => Mutable m (a, b) where
     type Ref m (a, b) = (Ref m a, Ref m b)
     thawRef   (!x, !y) = (,) <$> thawRef x   <*> thawRef y
     freezeRef (u , v ) = (,) <$> freezeRef u <*> freezeRef v
     copyRef   (u , v ) (!x, !y) = copyRef u x *> copyRef v y
+    moveRef   (u , v ) ( x,  y) = moveRef u x *> moveRef v y
+    cloneRef  (x , y ) = (,) <$> cloneRef x   <*> cloneRef y
+    unsafeThawRef   (!x, !y) = (,) <$> unsafeThawRef x   <*> unsafeThawRef y
+    unsafeFreezeRef (u , v ) = (,) <$> unsafeFreezeRef u <*> unsafeFreezeRef v
 
 instance (Monad m, Mutable m a, Mutable m b, Mutable m c) => Mutable m (a, b, c) where
     type Ref m (a, b, c) = (Ref m a, Ref m b, Ref m c)
     thawRef   (!x, !y, !z) = (,,) <$> thawRef x   <*> thawRef y   <*> thawRef z
     freezeRef (u , v , w ) = (,,) <$> freezeRef u <*> freezeRef v <*> freezeRef w
     copyRef   (u , v , w ) (!x, !y, !z) = copyRef u x *> copyRef v y *> copyRef w z
+    moveRef   (u , v , w ) ( x,  y,  z) = moveRef u x *> moveRef v y *> moveRef w z
+    cloneRef  (x , y , z ) = (,,) <$> cloneRef x   <*> cloneRef y   <*> cloneRef z
+    unsafeThawRef   (!x, !y, !z) = (,,) <$> unsafeThawRef x   <*> unsafeThawRef y   <*> unsafeThawRef z
+    unsafeFreezeRef (u , v , w ) = (,,) <$> unsafeFreezeRef u <*> unsafeFreezeRef v <*> unsafeFreezeRef w
 
 instance (Monad m, Mutable m a, Mutable m b, Mutable m c, Mutable m d) => Mutable m (a, b, c, d) where
     type Ref m (a, b, c, d) = (Ref m a, Ref m b, Ref m c, Ref m d)
     thawRef   (!x, !y, !z, !a) = (,,,) <$> thawRef x   <*> thawRef y   <*> thawRef z   <*> thawRef a
     freezeRef (u , v , w , j ) = (,,,) <$> freezeRef u <*> freezeRef v <*> freezeRef w <*> freezeRef j
     copyRef   (u , v , w , j ) (!x, !y, !z, !a) = copyRef u x *> copyRef v y *> copyRef w z *> copyRef j a
+    moveRef   (u , v , w , j ) ( x,  y,  z,  a) = moveRef u x *> moveRef v y *> moveRef w z *> moveRef j a
+    cloneRef  (x , y , z , a ) = (,,,) <$> cloneRef x   <*> cloneRef y   <*> cloneRef z   <*> cloneRef a
+    unsafeThawRef   (!x, !y, !z, !a) = (,,,) <$> unsafeThawRef x   <*> unsafeThawRef y   <*> unsafeThawRef z   <*> unsafeThawRef a
+    unsafeFreezeRef (u , v , w , j ) = (,,,) <$> unsafeFreezeRef u <*> unsafeFreezeRef v <*> unsafeFreezeRef w <*> unsafeFreezeRef j
 
 -- | 'Ref' for components in a vinyl 'Rec'.
 newtype RecRef m f a = RecRef { getRecRef :: Ref m (f a) }
@@ -308,9 +394,13 @@ deriving instance Ord (Ref m (f a)) => Ord (RecRef m f a)
 
 instance Monad m => Mutable m (Rec f '[]) where
     type Ref m (Rec f '[]) = Rec (RecRef m f) '[]
-    thawRef   _ = pure RNil
-    freezeRef _ = pure RNil
-    copyRef _ _ = pure ()
+    thawRef   _       = pure RNil
+    freezeRef _       = pure RNil
+    copyRef _ _       = pure ()
+    moveRef _ _       = pure ()
+    cloneRef _        = pure RNil
+    unsafeThawRef _   = pure RNil
+    unsafeFreezeRef _ = pure RNil
 
 instance (Monad m, Mutable m (f a), Mutable m (Rec f as), Ref m (Rec f as) ~ Rec (RecRef m f) as) => Mutable m (Rec f (a ': as)) where
     type Ref m (Rec f (a ': as)) = Rec (RecRef m f) (a ': as)
@@ -321,11 +411,26 @@ instance (Monad m, Mutable m (f a), Mutable m (Rec f as), Ref m (Rec f as) ~ Rec
     copyRef = \case
       RecRef v :& vs -> \case
         x :& xs -> copyRef v x >> copyRef vs xs
+    moveRef = \case
+      RecRef v :& vs -> \case
+        RecRef r :& rs ->
+          moveRef v r >> moveRef vs rs
+    cloneRef = \case
+      RecRef v :& rs -> (:&) <$> (RecRef <$> cloneRef v) <*> cloneRef rs
+    unsafeThawRef   = \case
+      x :& xs -> (:&) <$> (RecRef <$> unsafeThawRef x) <*> unsafeThawRef xs
+    unsafeFreezeRef = \case
+      RecRef v :& vs -> (:&) <$> unsafeFreezeRef v <*> unsafeFreezeRef vs
+
 
 instance (Monad m, RecApplicative as, V.NatToInt (V.RLength as), RPureConstrained (V.IndexableField as) as, Mutable m (Rec f as), Ref m (Rec f as) ~ Rec (RecRef m f) as) => Mutable m (ARec f as) where
     type Ref m (ARec f as) = ARec (RecRef m f) as
 
-    thawRef   = fmap toARec . thawRef   . fromARec
-    freezeRef = fmap toARec . freezeRef . fromARec
-    copyRef r x = copyRef (fromARec r) (fromARec x)
+    thawRef         = fmap toARec . thawRef   . fromARec
+    freezeRef       = fmap toARec . freezeRef . fromARec
+    copyRef r x     = copyRef (fromARec r) (fromARec x)
+    moveRef r v     = moveRef (fromARec r) (fromARec v)
+    cloneRef        = fmap toARec . cloneRef . fromARec
+    unsafeThawRef   = fmap toARec . unsafeThawRef   . fromARec
+    unsafeFreezeRef = fmap toARec . unsafeFreezeRef . fromARec
 

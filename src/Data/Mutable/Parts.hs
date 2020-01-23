@@ -27,6 +27,8 @@ module Data.Mutable.Parts (
     MutPart(..)
   , withMutPart
   , freezePart, copyPart
+  , movePartInto, movePartOver, movePartWithin
+  , clonePart, unsafeFreezePart
   , modifyPart, modifyPart'
   , updatePart, updatePart'
   , compMP
@@ -142,6 +144,104 @@ freezePart mp = freezeRef . getMutPart mp
 -- | With a 'MutPart', overwrite into a specific part of a 'Ref'.
 copyPart :: Mutable m a => MutPart m s a -> Ref m s -> a -> m ()
 copyPart mp = copyRef . getMutPart mp
+
+-- | With a 'MutPart', copy a 'Ref' containing a subvalue into a specific
+-- part of a larger 'Ref'.
+--
+-- @
+-- data MyType = MT { mtInt :: Int, mtDouble :: Double }
+--   deriving Generic
+--
+-- instance Mutable m MyType where
+--     type Ref m MyType = GRef m MyType
+-- @
+--
+-- @
+-- ghci> x <- thawRef $ MyType 3 4.5
+-- ghci> y <- thawRef $ 100
+-- ghci> movePartInto (fieldMut #mtInt) x y
+-- ghci> freezeRef x
+-- MyType 100 4.5
+-- @
+movePartInto
+    :: Mutable m a
+    => MutPart m s a
+    -> Ref m s          -- ^ bigger type (destination)
+    -> Ref m a          -- ^ smaller type (source)
+    -> m ()
+movePartInto mp = moveRef . getMutPart mp
+
+-- | With a 'MutPart', copy a specific part of a larger 'Ref' into a 'Ref'
+-- of the smaller subvalue value.
+--
+-- @
+-- data MyType = MT { mtInt :: Int, mtDouble :: Double }
+--   deriving Generic
+--
+-- instance Mutable m MyType where
+--     type Ref m MyType = GRef m MyType
+-- @
+--
+-- @
+-- ghci> x <- thawRef $ MyType 3 4.5
+-- ghci> y <- thawRef $ 100
+-- ghci> movePartOver (fieldMut #mtInt) y x
+-- ghci> freezeRef y
+-- 3
+-- @
+movePartOver
+    :: Mutable m a
+    => MutPart m s a
+    -> Ref m a          -- ^ smaller type (destination)
+    -> Ref m s          -- ^ bigger type (source)
+    -> m ()
+movePartOver mp r = moveRef r . getMutPart mp
+
+-- | With a 'MutPart', copy a specific part of a large 'Ref' into that
+-- same part in another large 'Ref'.
+--
+-- @
+-- data MyType = MT { mtInt :: Int, mtDouble :: Double }
+--   deriving Generic
+--
+-- instance Mutable m MyType where
+--     type Ref m MyType = GRef m MyType
+-- @
+--
+-- @
+-- ghci> x <- thawRef $ MyType 3   4.5
+-- ghci> y <- thawRef $ MyType 100 12.34
+-- ghci> movePartWithin (fieldMut #mtInt) x y
+-- ghci> freezeRef x
+-- MyType 100 4.5
+-- @
+movePartWithin
+    :: Mutable m a
+    => MutPart m s a
+    -> Ref m s              -- ^ destination
+    -> Ref m s              -- ^ source
+    -> m ()
+movePartWithin mp r v = moveRef (getMutPart mp r) (getMutPart mp v)
+
+-- | Clone out a subvalue of a larger 'Ref'.
+clonePart
+    :: Mutable m a
+    => MutPart m s a
+    -> Ref m s
+    -> m (Ref m a)
+clonePart mp = cloneRef . getMutPart mp
+
+-- | A non-copying version of 'unsafeFreezeRef' that can be more efficient for
+-- types where the mutable representation is the same as the immutable
+-- one (like 'V.Vector').
+--
+-- This is safe as long as you never again modify the mutable
+-- reference, since it can potentially directly mutate the frozen value
+-- magically.
+unsafeFreezePart :: Mutable m a => MutPart m s a -> Ref m s -> m a
+unsafeFreezePart mp = unsafeFreezeRef . getMutPart mp
+
+
 
 -- | With a 'MutPart', modify a specific part of a 'Ref' with a pure
 -- function.

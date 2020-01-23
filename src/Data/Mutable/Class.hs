@@ -28,6 +28,7 @@
 -- 'Data.Mutable' for the main "entrypoint".
 module Data.Mutable.Class (
     Mutable(..)
+  , copyRefWhole, moveRefWhole, cloneRefWhole
   , modifyRef, modifyRef'
   , updateRef, updateRef'
   , RefFor(..)
@@ -41,6 +42,7 @@ module Data.Mutable.Class (
   , reMutable, reMutableConstraint
   ) where
 
+import           Control.Monad
 import           Control.Monad.Primitive
 import           Data.Coerce
 import           Data.Constraint
@@ -79,6 +81,33 @@ updateRef' v f = do
     (x, y) <- f <$> freezeRef v
     x `seq` copyRef v x
     return y
+
+-- | A default implementation of 'copyRef' using 'thawRef' and 'moveRef'.
+copyRefWhole
+    :: Mutable m a
+    => Ref m a          -- ^ destination to overwrite
+    -> a                -- ^ pure value
+    -> m ()
+copyRefWhole r v = moveRef r =<< thawRef v
+
+-- | A default implementation of 'moveRef' that round-trips through the
+-- pure type, using 'freeeRef' and 'copyRef'.  It freezes the entire source
+-- and then re-copies it into the destination.
+moveRefWhole
+    :: Mutable m a
+    => Ref m a          -- ^ destination
+    -> Ref m a          -- ^ source
+    -> m ()
+moveRefWhole r v = copyRef r =<< freezeRef v
+
+-- | A default implementation of 'moveRef' that round-trips through the
+-- pure type, using 'freezeRef' and 'thawRef'.  It freezes the entire
+-- source and then re-copies it into the destination.
+cloneRefWhole
+    :: Mutable m a
+    => Ref m a
+    -> m (Ref m a)
+cloneRefWhole = thawRef <=< freezeRef
 
 -- | Newtype wrapper that can provide any type with a 'Mutable' instance,
 -- giving it a "non-piecewise" instance.  Can be useful for avoiding orphan
@@ -247,6 +276,18 @@ instance (Monad n, Mutable m a, Reifies s (ReMutableTrans m n)) => Mutable n (Re
       where
         rmt = reflect (Proxy @s)
     copyRef (ReMutable x) (ReMutable v) = runRMT rmt $ copyRef @m @a x v
+      where
+        rmt = reflect (Proxy @s)
+    moveRef (ReMutable x) (ReMutable v) = runRMT rmt $ moveRef @m @a x v
+      where
+        rmt = reflect (Proxy @s)
+    cloneRef (ReMutable x) = runRMT rmt $ ReMutable <$> cloneRef @m @a x
+      where
+        rmt = reflect (Proxy @s)
+    unsafeThawRef (ReMutable x) = runRMT rmt $ ReMutable <$> unsafeThawRef @m @a x
+      where
+        rmt = reflect (Proxy @s)
+    unsafeFreezeRef (ReMutable v) = runRMT rmt $ ReMutable <$> unsafeFreezeRef @m @a v
       where
         rmt = reflect (Proxy @s)
 

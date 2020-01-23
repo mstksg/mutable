@@ -507,7 +507,8 @@ withPos @2
 <p>And the <code>MutPart</code>-based ones, which yield a <code>MutPart m s a</code> (a way to &quot;zoom
 into&quot; a mutable <code>a</code>, if you have a mutable <code>s</code>), which can be used with
 functions like <code>modifyPart</code> and <code>freezePart</code>:</p>
-<pre class="haskell"><code>fieldMut #mtDouble
+<pre class="haskell"><code>-- | Data type to &quot;focus in&quot; on the &#39;mtDouble&#39; field in a &#39;MyType&#39;
+fieldMut #mtDouble
     :: MutPart m MyType Double
 
 -- | Modify the &#39;Double&#39; in the mutable &#39;MyType&#39;
@@ -516,7 +517,8 @@ modifyPart (fieldMut #mtDouble)
     -&gt; (Double -&gt; Double)
     -&gt; m ()
 </code></pre>
-<pre class="haskell"><code>posMut @1
+<pre class="haskell"><code>-- | Data type to &quot;focus in&quot; on the first item in a &#39;MyType&#39;
+posMut @1
     :: MutPart m MyType Int
 
 -- | Read out the &#39;Int&#39; in the mutable &#39;MyType&#39;
@@ -525,5 +527,5 @@ freezePart (posMut @1)
     -&gt; m Int
 </code></pre>
 <p><a href="/02-mutable-and-ref.html">Read on</a> for more information on how the library
-works, or jump right into the library with <a href="https://hackage.haskell.org/package/mutable">Haddock Documentation</a>**!</p>
+works, or jump right into the library with <strong><a href="https://hackage.haskell.org/package/mutable">Haddock Documentation</a></strong>!</p>
 </div></div></div></div></div></section><div class="tintin-doc-footer clear-fix"><div class="row next-prev"><div class="col-md-4 offset-md-4"><a href="index.html">&lt; Previous: Home</a></div><div class="col-md-4 ml-auto"><a href="02-mutable-and-ref.html">Next: Mutable and Ref &gt;</a></div></div><footer><div class="container"><div class="row"><div class="col"><p class="author">Developed by <span>Justin Le</span></p><p class="site-generated-message">Site generated with <a href="https://theam.github.io/tintin" class="tintin-logo"><img src="https://s3-eu-west-1.amazonaws.com/worldwideapps/assets/logo.svg" class="filter-gray"></a><span>&mdash; &copy; 2019 </span><a href="https://www.theagilemonkeys.com">The Agile Monkeys</a></p></div></div></div></footer></div></div><script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script><script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/haskell.min.js"></script><script src="https://cdn.rawgit.com/icons8/bower-webicon/v0.10.7/jquery-webicon.min.js"></script><script>hljs.initHighlightingOnLoad()</script><script>$(function () {$("#menu-toggle").click(function(e) {e.preventDefault();$("#wrapper").toggleClass("toggled");$("#menu-toggle img").toggleClass("rotateIn rotateOut");})});</script><script src="https://cdn.jsdelivr.net/npm/katex@0.10.0-alpha/dist/katex.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.9.0/contrib/auto-render.min.js"></script><script>renderMathInElement(document.body);</script></body></html>

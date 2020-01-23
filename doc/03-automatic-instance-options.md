@@ -182,6 +182,12 @@ instance PrimMonad m => Mutable m IntOrBool where
           (_      , IBBool c) -> writeMutVar r . Right =<< newMutVar c
 ```
 
+The combinators in the *[Data.Mutable.Branches][DMB]* module are intended for usage
+with mutable sum types like this.  See the [mutable
+branches](/06-mutable-branches.html) module for more information.
+
+[DMB]: https://hackage.haskell.org/package/mutable/docs/Data-Mutable-Branches.html
+
 Newtyped Instances
 ------------------
 

@@ -26,6 +26,10 @@
 --
 -- If "Data.Mutable.Branches" is for sum types, then "Data.Mutable.Parts"
 -- is for sum types.
+--
+-- See <https://mutable.jle.im/05-mutable-parts.html> for an introduction
+-- to this module.
+--
 module Data.Mutable.Parts (
     MutPart(..)
   , withPart
@@ -45,19 +49,18 @@ module Data.Mutable.Parts (
   -- ** Position
   , PosMut(..), withPos, mutPos
   -- ** HList
-  , ListMut(..), withListMut, MapRef
+  , TupleMut(..), withTuple
   -- ** Other
   , hkdMutParts, HKDMutParts
   , mutRec
   , coerceRef, withCoerceRef
+  , MapRef
   ) where
 
 import           Data.Coerce
-import           Data.GenericLens.Internal              (HList(..))
 import           Data.Kind
 import           Data.Mutable.Class
 import           Data.Mutable.Instances
-import           Data.Proxy
 import           Data.Vinyl hiding                      (HList)
 import           Data.Vinyl.Functor
 import           GHC.Generics
@@ -78,6 +81,9 @@ import qualified Data.Vinyl.XRec                        as X
 --
 -- If 'Data.Mutable.Branches.MutBranch' is for sum types, then 'MutPart' is
 -- for product types.
+--
+-- See <https://mutable.jle.im/05-mutable-parts.html> for an introduction
+-- to this type.
 --
 -- An example that is commonly found in the ecosystem is something like
 -- (flipped) @write :: Int -> 'Data.Vector.MVector' s a -> a -> m ()@ from
@@ -146,8 +152,8 @@ mutSnd = MutPart snd
 withPart
     :: MutPart m s a        -- ^ How to zoom into an @a@ from an @s@
     -> Ref m s              -- ^ The larger reference of @s@
-    -> (Ref m a -> m b)     -- ^ What do do with the smaller sub-reference of @a@
-    -> m b
+    -> (Ref m a -> m r)     -- ^ What do do with the smaller sub-reference of @a@
+    -> m r
 withPart mp x f = f (getMutPart mp x)
 
 -- | With a 'MutPart', read out a specific part of a 'Ref'.
@@ -358,8 +364,8 @@ instance (Mutable m (z Identity), Ref m (z Identity) ~ z (RefFor m), TypeError (
 --
 -- @
 -- data MyTypeF f = MT
---      { fInt    :: f Int
---      , fDouble :: f Double
+--      { mtInt    :: f Int
+--      , mtDouble :: f Double
 --      }
 --   deriving Generic
 --
@@ -375,7 +381,7 @@ instance (Mutable m (z Identity), Ref m (z Identity) ~ z (RefFor m), TypeError (
 -- ghci> r <- thawRef (MT 3 4.5)
 -- ghci> 'freezePart' mx r
 -- 3
--- ghci> 'copyPart' (fDouble (hkdMutParts @MyTypeF)) r 12.3
+-- ghci> 'copyPart' (mtDouble (hkdMutParts @MyTypeF)) r 12.3
 -- ghci> 'freezeRef' r
 -- MT 3 12.3
 -- @
@@ -406,27 +412,27 @@ class (Mutable m s, Mutable m a) => FieldMut (fld :: Symbol) m s a | fld s -> a 
     -- Is meant to be used with OverloadedLabels:
     --
     -- @
-    -- data Foo = Foo { fInt :: Int, fDouble :: Double }
+    -- data MyType = MyType { mtInt :: Int, mtDouble :: Double }
     --   deriving (Generic, Show)
     --
-    -- instance Mutable m Foo where
-    --     type Ref m Foo = 'GRef' m Foo
+    -- instance Mutable m MyType where
+    --     type Ref m MyType = 'GRef' m MyType
     -- @
     --
     -- @
-    -- ghci> r <- 'thawRef' (Foo 3 4.5)
-    -- ghci> 'freezePart' ('fieldMut' #fInt) r
+    -- ghci> r <- 'thawRef' (MyType 3 4.5)
+    -- ghci> 'freezePart' ('fieldMut' #mtInt) r
     -- 3
-    -- ghci> 'copyPart' (fieldMut #fDouble) 1.23
+    -- ghci> 'copyPart' (fieldMut #mtDouble) 1.23
     -- ghci> 'freezeRef' r
-    -- Foo 3 1.23
+    -- MyType 3 1.23
     -- @
     --
     -- However, you can use it without OverloadedLabels by using 'Label' with
     -- TypeApplications:
     --
     -- @
-    -- ghci> 'freezePart' ('fieldMut' ('Label' @"fInt")) r
+    -- ghci> 'freezePart' ('fieldMut' ('Label' @"mtInt")) r
     -- 3
     -- @
     --
@@ -480,20 +486,20 @@ class (Mutable m s, Mutable m a) => PosMut (i :: Nat) m s a | i s -> a where
     -- Meant to be used with TypeApplications:
     --
     -- @
-    -- data Foo = Foo Int Double
+    -- data MyType = MyType Int Double
     --   deriving (Generic, Show)
     --
-    -- instance Mutable m Foo where
-    --     type Ref m Foo = 'GRef' m Foo
+    -- instance Mutable m MyType where
+    --     type Ref m MyType = 'GRef' m MyType
     -- @
     --
     -- @
-    -- ghci> r <- 'thawRef' (Foo 3 4.5)
+    -- ghci> r <- 'thawRef' (MyType 3 4.5)
     -- ghci> 'freezePart' ('posMut' \@1) r
     -- 3
     -- ghci> 'copyPart' (posMut \@2) 1.23
     -- ghci> 'freezeRef' r
-    -- Foo 3 1.23
+    -- MyType 3 1.23
     -- @
     --
     -- This and 'fieldMut' are the main ways to generate a 'MutPart' for
@@ -520,10 +526,10 @@ type instance GL.Eval (HasTotalPositionPSym t) tt = GL.HasTotalPositionP t tt
 -- | A helpful wrapper over @'withPart' ('posMut' \@n)@.  Create
 -- a 'posMut' and directly use it.
 withPos
-    :: forall i m s a b. PosMut i m s a
+    :: forall i m s a r. PosMut i m s a
     => Ref m s              -- ^ Larger record reference
-    -> (Ref m a -> m b)     -- ^ What to do with the mutable field
-    -> m b
+    -> (Ref m a -> m r)     -- ^ What to do with the mutable field
+    -> m r
 withPos = withPart (posMut @i)
 
 -- | A helpful wrapper around @'getMutPart' ('posMut' \@n)@.  Directly
@@ -534,90 +540,87 @@ mutPos
     -> Ref m a              -- ^ Internal mutable field
 mutPos = getMutPart (posMut @i @m)
 
--- | Create a 'MutPart' splitting out a product type into an 'HListRef' of
--- every field in that product type. Should work for any type with one
--- constructor whose mutable reference is 'GRef'.  See 'listMut' for usage
+-- | Create a 'MutPart' splitting out a product type into a tuple of refs
+-- for every field in that product type. Should work for any type with one
+-- constructor whose mutable reference is 'GRef'.  See 'tupleMut' for usage
 -- directions.
-class (Mutable m s, Mutable m (HList as), Ref m (HList as) ~ HListRef m as) => ListMut m s as | s -> as where
-    -- | Create a 'MutPart' splitting out a product type into an 'HListRef' of
-    -- every field in that product type. Should work for any type with one
+class (Mutable m s, Mutable m a) => TupleMut m s a | s -> a where
+    -- | Create a 'MutPart' splitting out a product type into a tuple of refs
+    -- for every field in that product type. Should work for any type with one
     -- constructor whose mutable reference is 'GRef'.
     --
-    -- Probably most easily used using 'withListMut':
+    -- Probably most easily used using 'withTuple':
     --
     -- @
-    -- data Foo = Foo Int Double
+    -- data MyType = MyType Int Double
     --   deriving (Generic, Show)
     --
-    -- instance Mutable m Foo where
-    --     type Ref m Foo = 'GRef' m Foo
+    -- instance Mutable m MyType where
+    --     type Ref m MyType = 'GRef' m MyType
     -- @
     --
+    -- Now there is an instance of @'TupleMut' m 'MyType' (Int, Double)@.
+    --
     -- @
-    -- ghci> r <- 'thawRef' (Foo 3 4.5)
-    -- ghci> 'withListMut' r $ \(rI :!> rD :!> NilRef) -> do
+    -- ghci> r <- 'thawRef' (MyType 3 4.5)
+    -- ghci> 'withTuple' r $ \(rI, rD) -> do
     --    ..     'modifyRef' rI negate
     --    ..     modifyRef rD (* 2)
     -- ghci> 'freezeRef' r
-    -- Foo (-3) 9
+    -- MyType (-3) 9
     -- @
     --
     -- As can be seen, within the lambda, we can get access to every
-    -- mutable reference inside a @Foo@ reference.
+    -- mutable reference inside a @MyType@ reference.
     --
     -- Performance-wise, this appears to be faster than 'fieldMut' and
-    -- 'listMut' when using a single reference, but slower if using all
+    -- 'posMut' when using a single reference, but slower if using all
     -- references.
-    listMut :: MutPart m s (HList as)
+    tupleMut :: MutPart m s a
 
 instance
       ( Mutable m s
-      , Mutable m (HList as)
+      , Mutable m a
       , Ref m s ~ GRef m s
-      , Ref m (HList as) ~ HListRef m as
       , GL.GIsList (GRef_ m (Rep s)) (GRef_ m (Rep s)) (MapRef m as) (MapRef m as)
       , GL.GIsList (Rep s) (Rep s) as as
-      , RecApplicative as
+      , GL.ListTuple a as
+      , GL.ListTuple b (MapRef m as)
+      , Ref m a ~ b
       )
-      => ListMut m s as where
-    listMut = MutPart $ hListToRef (rpure Proxy)
-                      . GLP.view GL.glist
-                      . unGRef
+      => TupleMut m s a where
+    tupleMut = MutPart $ GL.listToTuple
+                       . GLP.view GL.glist
+                       . unGRef
 
-
-hListToRef :: Rec Proxy as -> HList (MapRef m as) -> HListRef m as
-hListToRef = \case
-    RNil -> \case
-      Nil -> NilRef
-    _ :& ps -> \case
-      x :> xs -> x :!> hListToRef ps xs
-
--- | A helpful wrapper over @'withPart' 'listMut'@.  Directly operate on
--- the items in the 'HList'.  See 'listMut' for more details on when this
+-- | A helpful wrapper over @'withPart' 'tupleMut'@.  Directly operate on
+-- the items in the 'HList'.  See 'tupleMut' for more details on when this
 -- should work.
 --
 -- @
--- data Foo = Foo Int Double
+-- data MyType = MyType Int Double
 --   deriving (Generic, Show)
 --
--- instance Mutable m Foo where
---     type Ref m Foo = 'GRef' m Foo
+-- instance Mutable m MyType where
+--     type Ref m MyType = 'GRef' m MyType
 -- @
 --
 -- @
--- ghci> r <- 'thawRef' (Foo 3 4.5)
--- ghci> 'withListMut' r $ \case rI :!> rD :!> NilRef -> do
+-- ghci> r <- 'thawRef' (MyType 3 4.5)
+-- ghci> 'withTuple' r $ \(rI, rD) -> do
 --    ..     'modifyRef' rI negate
 --    ..     modifyRef rD (* 2)
 -- ghci> 'freezeRef' r
--- Foo (-3) 9
+-- MyType (-3) 9
 -- @
-withListMut
-    :: ListMut m s as
-    => Ref m s                    -- ^ Larger record reference
-    -> (HListRef m as -> m b)     -- ^ What to do with each mutable field
-    -> m b
-withListMut = withPart listMut
+withTuple
+    :: TupleMut m s a
+    => Ref m s              -- ^ Larger record reference
+    -> (Ref m a -> m r)     -- ^ What to do with each mutable field.  The
+                            -- @'Ref' m a@ will be a tuple of every field's ref.
+    -> m r
+withTuple = withPart tupleMut
+
 
 -- stuff from generic-lens that wasn't exported
 

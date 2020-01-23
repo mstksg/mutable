@@ -2,8 +2,8 @@
 title: Home
 ---
 
-Mutability can be Awesome
-=========================
+Beautiful Mutable Values
+========================
 
 [![mutable on Hackage](https://img.shields.io/hackage/v/mutable.svg?maxAge=86400)](https://hackage.haskell.org/package/mutable)
 [![Build Status](https://travis-ci.org/mstksg/mutable.svg?branch=master)](https://travis-ci.org/mstksg/mutable)
@@ -24,6 +24,8 @@ import           Data.Mutable
 import qualified Data.Vector         as V
 import qualified Data.Vector.Mutable as MV
 ```
+
+**Mutability can be awesome!**
 
 Take back the power of **mutable objects** with all the **safety** and explicit
 state of Haskell. Associate and generate "piecewise-mutable" versions for your

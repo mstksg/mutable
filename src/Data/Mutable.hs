@@ -43,17 +43,22 @@ module Data.Mutable (
   , FieldMut(..), withField, mutField, Label(..)
   -- *** Position
   , PosMut(..), withPos, mutPos
-  -- *** HList
-  , ListMut(..), withListMut
-  -- ** Other
+  -- *** Tuple
+  , TupleMut(..), withTuple
+  -- *** Higher-Kinded Data
   , hkdMutParts, HKDMutParts
+  -- *** Other
+  , mutFst, mutSnd
   , mutRec
   , coerceRef, withCoerceRef
   -- * Branches
   , MutBranch(..)
   , thawBranch
   , freezeBranch
+  , moveBranch
   , copyBranch
+  , cloneBranch
+  , hasBranch, hasn'tBranch
   , unsafeThawBranch
   , unsafeFreezeBranch
   , withBranch, withBranch_

@@ -8,6 +8,11 @@
 
 [docs]: https://mutable.jle.im
 
+Beautiful Mutable Values
+------------------------
+
+**Mutability can be awesome!**
+
 Take back the power of **mutable objects** with all the **safety** and explicit
 state of Haskell. Associate and generate "piecewise-mutable" versions for your
 composite data types in a composable and automatic way.  Think of it like a

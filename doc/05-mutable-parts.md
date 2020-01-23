@@ -29,8 +29,10 @@ import qualified Data.Vector           as V
 import qualified Data.Vector.Mutable   as MV
 ```
 
-The *Data.Mutable.Parts* module has some mechanisms for accessing specific
+The *[Data.Mutable.Parts][DMP]* module has some mechanisms for accessing specific
 parts of mutable references, to take full advantage of piecewise-mutability.
+
+[DMP]: https://hackage.haskell.org/package/mutable/docs/Data-Mutable-Parts.html
 
 The main data type is `MutPart`:
 
@@ -66,7 +68,7 @@ combinator to work directly with the smaller sub-reference:
 ```haskell
 -- | Using a 'MutPart', perform a function on a `Ref m s` as if you had
 -- a `Ref m a`.
-withMutPart
+withPart
     :: MutPart m s a        -- ^ How to zoom into an `a` from an `s`
     -> Ref m s              -- ^ The larger reference of `s`
     -> (Ref m a -> m b)     -- ^ What do do with the smaller sub-reference of `a`
@@ -110,6 +112,25 @@ and also each position:
 posMut @1 :: MutPart m MyType Int
 posMut @2 :: MutPart m MyType Double
 posMut @3 :: MutPart m MyType (V.Vector Double)
+```
+
+We can also get a `MutPart` into a view of your data type as a tuple:
+
+```haskell
+tupleMut :: MutPart m MyType (Int, Double, V.Vector Double)
+```
+
+Because the instance of `Ref` for tuples, this just turns a `Ref m MyType` into
+a `(MutVar s Int, MutVar s Double, MVector s Double)`.  This is arguably easier
+to use continuation-style, so there is a nice helper `withTuple = withPart
+tupleMut`
+
+```haskell
+withTuple
+    :: (PrimMonad m, s ~ PrimState m)
+    => MutPart m MyType
+    -> ((MutVar s Int, MutVar s Double, MVector s Double) -> m r)
+    -> m r
 ```
 
 Another way of generating `MutPart`s for your record types is if you are using

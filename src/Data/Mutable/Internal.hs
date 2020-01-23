@@ -102,7 +102,7 @@ import qualified Data.Vinyl.XRec           as X
 --   deriving Generic
 --
 -- instance Mutable m TwoVectors where
---     type Ref m Foo = 'GRef' m TwoVectors
+--     type Ref m TwoVectors = 'GRef' m TwoVectors
 -- @
 --
 -- Then now we get:
@@ -242,11 +242,11 @@ class Monad m => Mutable m a where
     --     type Ref m MyType = 'MutVar' ('PrimState' m) MyType
     --
     -- -- any 'Generic' instance
-    -- data Foo = Foo { fInt :: Int, fDouble :: Double }
+    -- data MyType = MyType { mtInt :: Int, mtDouble :: Double }
     --   deriving Generic
     --
-    -- instance Mutable m Foo where
-    --     type Ref m Foo = 'GRef' m Foo
+    -- instance Mutable m MyType where
+    --     type Ref m MyType = 'GRef' m MyType
     -- @
     --
     -- See <https://mutable.jle.im/02-mutable-and-ref.html> for more
@@ -981,22 +981,22 @@ instance (GMutable m f, GMutable m g, PrimMonad m) => Mutable m ((f :+: g) a) wh
 --
 -- @
 -- -- | any 'Generic' instance
--- data Foo = Foo { fInt :: Int, fDouble :: Double }
+-- data MyType = MyType { mtInt :: Int, mtDouble :: Double }
 --   deriving (Generic, Show)
 --
--- instance Mutable m Foo where
---     type Ref m Foo = 'GRef' m Foo
+-- instance Mutable m MyType where
+--     type Ref m MyType = 'GRef' m MyType
 -- @
 --
 -- @
--- ghci> r <- 'thawRef' (Foo 3 4.5)
+-- ghci> r <- 'thawRef' (MyType 3 4.5)
 -- ghci> 'freezeRef' r
--- Foo 3 4.5
--- ghci> 'Data.Mutable.MutPart.freezePart' ('Data.Mutable.MutPart.fieldMut' #fInt) r
+-- MyType 3 4.5
+-- ghci> 'Data.Mutable.MutPart.freezePart' ('Data.Mutable.MutPart.fieldMut' #mtInt) r
 -- 3
--- ghci> 'Data.Mutable.MutPart.copyPart' (fieldMut #fDouble) 1.23
+-- ghci> 'Data.Mutable.MutPart.copyPart' (fieldMut #mtDouble) 1.23
 -- ghci> freezeRef r
--- Foo 3 1.23
+-- MyType 3 1.23
 -- @
 --
 -- Note that this is basically just a bunch of tupled refs for a product
@@ -1004,7 +1004,7 @@ instance (GMutable m f, GMutable m g, PrimMonad m) => Mutable m ((f :+: g) a) wh
 -- indirection is added to account for the dynamically changable shape.
 --
 -- See "Data.Mutable.Parts" and "Data.Mutable.Branches" for nice ways to
--- inspect and mutate the internals of this type (as demonstrated above).  
+-- inspect and mutate the internals of this type (as demonstrated above).
 --
 -- If the facilities in those modules are not adequate, you can also
 -- manually crack open 'GRef' and work with the internals.  Getting the

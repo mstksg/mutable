@@ -362,6 +362,11 @@ instance Monad m => Mutable m () where
     unsafeThawRef _   = pure ()
     unsafeFreezeRef _ = pure ()
 
+-- | A 'Ref' of a tuple is a tuple of 'Ref's, for easy accessing.
+--
+-- @
+-- Ref m (Int, 'V.Vector' Double) = ('MutVar' s Int, 'MV.MVector' s Double)
+-- @
 instance (Monad m, Mutable m a, Mutable m b) => Mutable m (a, b) where
     type Ref m (a, b) = (Ref m a, Ref m b)
     thawRef   (!x, !y) = (,) <$> thawRef x   <*> thawRef y
@@ -372,6 +377,7 @@ instance (Monad m, Mutable m a, Mutable m b) => Mutable m (a, b) where
     unsafeThawRef   (!x, !y) = (,) <$> unsafeThawRef x   <*> unsafeThawRef y
     unsafeFreezeRef (u , v ) = (,) <$> unsafeFreezeRef u <*> unsafeFreezeRef v
 
+-- | A 'Ref' of a tuple is a tuple of 'Ref's, for easy accessing.
 instance (Monad m, Mutable m a, Mutable m b, Mutable m c) => Mutable m (a, b, c) where
     type Ref m (a, b, c) = (Ref m a, Ref m b, Ref m c)
     thawRef   (!x, !y, !z) = (,,) <$> thawRef x   <*> thawRef y   <*> thawRef z
@@ -382,6 +388,7 @@ instance (Monad m, Mutable m a, Mutable m b, Mutable m c) => Mutable m (a, b, c)
     unsafeThawRef   (!x, !y, !z) = (,,) <$> unsafeThawRef x   <*> unsafeThawRef y   <*> unsafeThawRef z
     unsafeFreezeRef (u , v , w ) = (,,) <$> unsafeFreezeRef u <*> unsafeFreezeRef v <*> unsafeFreezeRef w
 
+-- | A 'Ref' of a tuple is a tuple of 'Ref's, for easy accessing.
 instance (Monad m, Mutable m a, Mutable m b, Mutable m c, Mutable m d) => Mutable m (a, b, c, d) where
     type Ref m (a, b, c, d) = (Ref m a, Ref m b, Ref m c, Ref m d)
     thawRef   (!x, !y, !z, !a) = (,,,) <$> thawRef x   <*> thawRef y   <*> thawRef z   <*> thawRef a
@@ -391,6 +398,17 @@ instance (Monad m, Mutable m a, Mutable m b, Mutable m c, Mutable m d) => Mutabl
     cloneRef  (x , y , z , a ) = (,,,) <$> cloneRef x   <*> cloneRef y   <*> cloneRef z   <*> cloneRef a
     unsafeThawRef   (!x, !y, !z, !a) = (,,,) <$> unsafeThawRef x   <*> unsafeThawRef y   <*> unsafeThawRef z   <*> unsafeThawRef a
     unsafeFreezeRef (u , v , w , j ) = (,,,) <$> unsafeFreezeRef u <*> unsafeFreezeRef v <*> unsafeFreezeRef w <*> unsafeFreezeRef j
+
+-- | A 'Ref' of a tuple is a tuple of 'Ref's, for easy accessing.
+instance (Monad m, Mutable m a, Mutable m b, Mutable m c, Mutable m d, Mutable m e) => Mutable m (a, b, c, d, e) where
+    type Ref m (a, b, c, d, e) = (Ref m a, Ref m b, Ref m c, Ref m d, Ref m e)
+    thawRef   (!x, !y, !z, !a, !b) = (,,,,) <$> thawRef x   <*> thawRef y   <*> thawRef z   <*> thawRef a   <*> thawRef b
+    freezeRef (u , v , w , j , k ) = (,,,,) <$> freezeRef u <*> freezeRef v <*> freezeRef w <*> freezeRef j <*> freezeRef k
+    copyRef   (u , v , w , j , k ) (!x, !y, !z, !a, !b) = copyRef u x *> copyRef v y *> copyRef w z *> copyRef j a *> copyRef k b
+    moveRef   (u , v , w , j , k ) ( x,  y,  z,  a,  b) = moveRef u x *> moveRef v y *> moveRef w z *> moveRef j a *> moveRef k b
+    cloneRef  (x , y , z , a , b ) = (,,,,) <$> cloneRef x   <*> cloneRef y   <*> cloneRef z   <*> cloneRef a   <*> cloneRef b
+    unsafeThawRef   (!x, !y, !z, !a, !b) = (,,,,) <$> unsafeThawRef x   <*> unsafeThawRef y   <*> unsafeThawRef z   <*> unsafeThawRef a   <*> unsafeThawRef b
+    unsafeFreezeRef (u , v , w , j , k ) = (,,,,) <$> unsafeFreezeRef u <*> unsafeFreezeRef v <*> unsafeFreezeRef w <*> unsafeFreezeRef j <*> unsafeFreezeRef k
 
 -- | 'Ref' for components in a vinyl 'Rec'.
 newtype RecRef m f a = RecRef { getRecRef :: Ref m (f a) }

@@ -92,6 +92,13 @@ withPos @2
     => Ref m MyType
     -> (MutVar s Double -> m r)
     -> m r
+
+-- | Do something with a tuple of each ref in the type
+withTuple
+    :: (PrimMonad m, s ~ PrimState m)
+    => Ref m MyType
+    -> ((MutVar s Int, MutVar s Double, MVector s Double) -> m r)
+    -> m r
 ```
 
 And the `MutPart`-based ones, which yield a `MutPart m s a` (a way to "zoom

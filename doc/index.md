@@ -6,7 +6,7 @@ Mutability can be Awesome
 =========================
 
 [![mutable on Hackage](https://img.shields.io/hackage/v/mutable.svg?maxAge=86400)](https://hackage.haskell.org/package/mutable)
-[![Build Status](https://travis-ci.org/mstksg/backprop.svg?branch=master)](https://travis-ci.org/mstksg/backprop)
+[![Build Status](https://travis-ci.org/mstksg/mutable.svg?branch=master)](https://travis-ci.org/mstksg/mutable)
 
 ```haskell top hide
 {-# LANGUAGE DeriveGeneric         #-}

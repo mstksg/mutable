@@ -6,7 +6,7 @@
 
 [**Documentation and Walkthrough**][docs]
 
-[docs]: https://backprop.jle.im
+[docs]: https://mutable.jle.im
 
 Automatic *heterogeneous* back-propagation.
 

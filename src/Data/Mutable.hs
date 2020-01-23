@@ -32,29 +32,46 @@ module Data.Mutable (
   , Immutable(..)
   -- * Parts
   , MutPart(..)
-  , withMutPart
+  , withPart
   , freezePart, copyPart
   , movePartInto, movePartOver, movePartWithin
   , clonePart, unsafeFreezePart
   , modifyPart, modifyPart'
   , updatePart, updatePart'
-  -- * Built-in 'MutPart'
-  , mutFst, mutSnd
-  -- ** Field
+  -- ** Built-in 'MutPart'
+  -- *** Field
   , FieldMut(..), withField, mutField, Label(..)
-  -- ** Position
+  -- *** Position
   , PosMut(..), withPos, mutPos
-  -- ** HList
+  -- *** HList
   , ListMut(..), withListMut
   -- ** Other
   , hkdMutParts, HKDMutParts
   , mutRec
   , coerceRef, withCoerceRef
-  -- ** Re-exports
+  -- * Branches
+  , MutBranch(..)
+  , thawBranch
+  , freezeBranch
+  , copyBranch
+  , unsafeThawBranch
+  , unsafeFreezeBranch
+  , withBranch, withBranch_
+  , modifyBranch, modifyBranch'
+  , updateBranch, updateBranch'
+  -- ** Built-in 'MutBranch'
+  -- *** Using GHC Generics
+  , constrMB, CLabel(..), GMutBranchConstructor, MapRef
+  -- *** For common types
+  , nilMB, consMB
+  , nothingMB, justMB
+  , leftMB, rightMB
+  -- * Re-exports
   , PrimMonad, PrimState
   ) where
 
 import           Control.Monad.Primitive
+import           Data.Mutable.Branches
 import           Data.Mutable.Class
 import           Data.Mutable.Instances
 import           Data.Mutable.Parts

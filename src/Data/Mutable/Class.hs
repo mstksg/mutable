@@ -31,6 +31,8 @@ module Data.Mutable.Class (
   , copyRefWhole, moveRefWhole, cloneRefWhole
   , modifyRef, modifyRef'
   , updateRef, updateRef'
+  , modifyRefM, modifyRefM'
+  , updateRefM, updateRefM'
   , RefFor(..)
   , DefaultMutable(..)
   -- * Providing and overwriting instances
@@ -40,6 +42,8 @@ module Data.Mutable.Class (
   , Immutable(..)
   -- * Changing underlying monad
   , reMutable, reMutableConstraint
+  -- * Util
+  , MapRef
   ) where
 
 import           Control.Monad
@@ -48,7 +52,7 @@ import           Data.Coerce
 import           Data.Constraint
 import           Data.Constraint.Unsafe
 import           Data.Kind
-import           Data.Mutable.Instances  ()
+import           Data.Mutable.Instances
 import           Data.Mutable.Internal
 import           Data.Primitive.MutVar
 import           Data.Proxy
@@ -68,6 +72,19 @@ modifyRef' :: Mutable m a => Ref m a -> (a -> a) -> m ()
 modifyRef' v f = (copyRef v $!) . f =<< freezeRef v
 {-# INLINE modifyRef' #-}
 
+-- | Apply a monadic function on an immutable value onto a value stored in
+-- a mutable reference.  Uses 'copyRef' into the reference after the
+-- action is completed.
+modifyRefM  :: Mutable m a => Ref m a -> (a -> m a) -> m ()
+modifyRefM v f = copyRef v =<< f =<< freezeRef v
+{-# INLINE modifyRefM #-}
+
+-- | 'modifyRefM', but forces the result before storing it back in the
+-- reference.
+modifyRefM' :: Mutable m a => Ref m a -> (a -> m a) -> m ()
+modifyRefM' v f = (copyRef v $!) =<< f =<< freezeRef v
+{-# INLINE modifyRefM' #-}
+
 -- | Apply a pure function on an immutable value onto a value stored in
 -- a mutable reference, returning a result value from that function.
 updateRef  :: Mutable m a => Ref m a -> (a -> (a, b)) -> m b
@@ -84,6 +101,23 @@ updateRef' v f = do
     x `seq` copyRef v x
     return y
 
+-- | Apply a monadic function on an immutable value onto a value stored in
+-- a mutable reference, returning a result value from that function.  Uses
+-- 'copyRef' into the reference after the action is completed.
+updateRefM  :: Mutable m a => Ref m a -> (a -> m (a, b)) -> m b
+updateRefM v f = do
+    (x, y) <- f =<< freezeRef v
+    copyRef v x
+    return y
+
+-- | 'updateRefM', but forces the updated value before storing it back in the
+-- reference.
+updateRefM' :: Mutable m a => Ref m a -> (a -> m (a, b)) -> m b
+updateRefM' v f = do
+    (x, y) <- f =<< freezeRef v
+    x `seq` copyRef v x
+    return y
+
 -- | A default implementation of 'copyRef' using 'thawRef' and 'moveRef'.
 copyRefWhole
     :: Mutable m a
@@ -94,7 +128,7 @@ copyRefWhole r v = moveRef r =<< thawRef v
 {-# INLINE copyRefWhole #-}
 
 -- | A default implementation of 'moveRef' that round-trips through the
--- pure type, using 'freeeRef' and 'copyRef'.  It freezes the entire source
+-- pure type, using 'freezeRef' and 'copyRef'.  It freezes the entire source
 -- and then re-copies it into the destination.
 moveRefWhole
     :: Mutable m a

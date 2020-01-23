@@ -23,24 +23,29 @@
 --
 -- Tools for working with individual components of piecewise-mutable
 -- values.
+--
+-- If "Data.Mutable.Branches" is for sum types, then "Data.Mutable.Parts"
+-- is for sum types.
 module Data.Mutable.Parts (
     MutPart(..)
-  , withMutPart
+  , withPart
   , freezePart, copyPart
   , movePartInto, movePartOver, movePartWithin
   , clonePart, unsafeFreezePart
   , modifyPart, modifyPart'
   , updatePart, updatePart'
+  , modifyPartM, modifyPartM'
+  , updatePartM, updatePartM'
+  -- * Built-in 'MutPart'
   , compMP
   , idMP
-  -- * Built-in 'MutPart'
   , mutFst, mutSnd
   -- ** Field
   , FieldMut(..), withField, mutField, Label(..)
   -- ** Position
   , PosMut(..), withPos, mutPos
   -- ** HList
-  , ListMut(..), withListMut
+  , ListMut(..), withListMut, MapRef
   -- ** Other
   , hkdMutParts, HKDMutParts
   , mutRec
@@ -70,6 +75,9 @@ import qualified Data.Vinyl.XRec                        as X
 -- a mutable reference on @s@.  This allows you to only modify a single
 -- @a@ part of the @s@, without touching the rest.  It's spiritually
 -- similar to a @Lens' s a@.
+--
+-- If 'Data.Mutable.Branches.MutBranch' is for sum types, then 'MutPart' is
+-- for product types.
 --
 -- An example that is commonly found in the ecosystem is something like
 -- (flipped) @write :: Int -> 'Data.Vector.MVector' s a -> a -> m ()@ from
@@ -135,12 +143,12 @@ mutSnd = MutPart snd
 
 -- | Using a 'MutPart', perform a function on a @'Ref' m s@ as if you had
 -- a @'Ref' m a@.
-withMutPart
+withPart
     :: MutPart m s a        -- ^ How to zoom into an @a@ from an @s@
     -> Ref m s              -- ^ The larger reference of @s@
     -> (Ref m a -> m b)     -- ^ What do do with the smaller sub-reference of @a@
     -> m b
-withMutPart mp x f = f (getMutPart mp x)
+withPart mp x f = f (getMutPart mp x)
 
 -- | With a 'MutPart', read out a specific part of a 'Ref'.
 freezePart :: Mutable m a => MutPart m s a -> Ref m s -> m a
@@ -267,6 +275,27 @@ updatePart mp = updateRef . getMutPart mp
 -- reference.
 updatePart' :: Mutable m a => MutPart m s a -> Ref m s -> (a -> (a, b)) -> m b
 updatePart' mp = updateRef' . getMutPart mp
+
+-- | With a 'MutPart', modify a specific part of a 'Ref' with a monadic
+-- function.  Uses 'copyRef' into the reference after the action is
+-- completed.
+modifyPartM :: Mutable m a => MutPart m s a -> Ref m s -> (a -> m a) -> m ()
+modifyPartM mp = modifyRefM . getMutPart mp
+
+-- | 'modifyPartM', but forces the result before storing it back in the
+-- reference.
+modifyPartM' :: Mutable m a => MutPart m s a -> Ref m s -> (a -> m a) -> m ()
+modifyPartM' mp = modifyRefM' . getMutPart mp
+
+-- | 'updateRefM', under a 'MutPart' to only modify a specific part of
+-- a 'Ref'.  'copyRef' into the reference after the action is completed.
+updatePartM :: Mutable m a => MutPart m s a -> Ref m s -> (a -> m (a, b)) -> m b
+updatePartM mp = updateRefM . getMutPart mp
+
+-- | 'updatePartM', but forces the result before storing it back in the
+-- reference.
+updatePartM' :: Mutable m a => MutPart m s a -> Ref m s -> (a -> m (a, b)) -> m b
+updatePartM' mp = updateRefM' . getMutPart mp
 
 -- | A 'MutPart' for a field in a vinyl 'Data.Vinyl.Rec', automatically
 -- generated as the first field with a matching type.  This is polymorphic
@@ -422,7 +451,7 @@ instance
 data HasTotalFieldPSym :: Symbol -> GL.TyFun (Type -> Type) (Maybe Type)
 type instance GL.Eval (HasTotalFieldPSym sym) tt = GL.HasTotalFieldP sym tt
 
--- | A helpful wrapper over @'withMutPart' ('fieldMut' #blah)@.  Create
+-- | A helpful wrapper over @'withPart' ('fieldMut' #blah)@.  Create
 -- a 'fieldMut' and directly use it.
 withField
     :: FieldMut fld m s a
@@ -430,7 +459,7 @@ withField
     -> Ref m s              -- ^ Larger record reference
     -> (Ref m a -> m b)     -- ^ What to do with the mutable field
     -> m b
-withField l = withMutPart (fieldMut l)
+withField l = withPart (fieldMut l)
 
 -- | A helpful wrapper around @'getMutPart' ('fieldMut' #blah)@.  Directly
 -- use a 'fieldMut' to access a mutable field.
@@ -488,14 +517,14 @@ instance
 data HasTotalPositionPSym :: Nat -> GL.TyFun (Type -> Type) (Maybe Type)
 type instance GL.Eval (HasTotalPositionPSym t) tt = GL.HasTotalPositionP t tt
 
--- | A helpful wrapper over @'withMutPart' ('posMut' \@n)@.  Create
+-- | A helpful wrapper over @'withPart' ('posMut' \@n)@.  Create
 -- a 'posMut' and directly use it.
 withPos
     :: forall i m s a b. PosMut i m s a
     => Ref m s              -- ^ Larger record reference
     -> (Ref m a -> m b)     -- ^ What to do with the mutable field
     -> m b
-withPos = withMutPart (posMut @i)
+withPos = withPart (posMut @i)
 
 -- | A helpful wrapper around @'getMutPart' ('posMut' \@n)@.  Directly
 -- use a 'posMut' to access a mutable field.
@@ -534,7 +563,7 @@ class (Mutable m s, Mutable m (HList as), Ref m (HList as) ~ HListRef m as) => L
     -- @
     --
     -- As can be seen, within the lambda, we can get access to every
-    -- mutable reference inside a 'Foo' reference.
+    -- mutable reference inside a @Foo@ reference.
     --
     -- Performance-wise, this appears to be faster than 'fieldMut' and
     -- 'listMut' when using a single reference, but slower if using all
@@ -563,7 +592,7 @@ hListToRef = \case
     _ :& ps -> \case
       x :> xs -> x :!> hListToRef ps xs
 
--- | A helpful wrapper over @'withMutPart' 'listMut'@.  Directly operate on
+-- | A helpful wrapper over @'withPart' 'listMut'@.  Directly operate on
 -- the items in the 'HList'.  See 'listMut' for more details on when this
 -- should work.
 --
@@ -588,7 +617,7 @@ withListMut
     => Ref m s                    -- ^ Larger record reference
     -> (HListRef m as -> m b)     -- ^ What to do with each mutable field
     -> m b
-withListMut = withMutPart listMut
+withListMut = withPart listMut
 
 -- stuff from generic-lens that wasn't exported
 

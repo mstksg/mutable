@@ -138,7 +138,7 @@ modifyWholeMutHKD = mutLoop          $ \r ->
                         modifyRef s (+ 1)
 
 modifyPartMutV :: (forall s. Mutable (ST s) a) => (forall s. MutPart (ST s) a (Vector Double)) -> Int -> a -> a
-modifyPartMutV f = mutLoop $ \r -> withMutPart f r $ \mv ->
+modifyPartMutV f = mutLoop $ \r -> withPart f r $ \mv ->
                      (MV.write mv 0 $!) . (+ 1) =<< MV.read mv 0
 
 modifyWholeMutV :: (forall s. Mutable (ST s) a) => (forall s. Ref (ST s) a -> ContT () (ST s) (MV.MVector s Double)) -> Int -> a -> a
@@ -240,17 +240,17 @@ modPartHKD = _vf4X vfParts
 
 withAllRefV4Field :: Mutable m a => Ref m (V4 a) -> ContT () m (Ref m a)
 withAllRefV4Field r = ContT $ \f -> do
-    withMutPart (fieldMut #_v4X) r f
-    withMutPart (fieldMut #_v4Y) r f
-    withMutPart (fieldMut #_v4Z) r f
-    withMutPart (fieldMut #_v4W) r f
+    withPart (fieldMut #_v4X) r f
+    withPart (fieldMut #_v4Y) r f
+    withPart (fieldMut #_v4Z) r f
+    withPart (fieldMut #_v4W) r f
 
 withAllRefV4Pos :: Mutable m a => Ref m (V4 a) -> ContT () m (Ref m a)
 withAllRefV4Pos r = ContT $ \f -> do
-    withMutPart (posMut @1) r f
-    withMutPart (posMut @2) r f
-    withMutPart (posMut @3) r f
-    withMutPart (posMut @4) r f
+    withPart (posMut @1) r f
+    withPart (posMut @2) r f
+    withPart (posMut @3) r f
+    withPart (posMut @4) r f
 
 withAllRefV4List :: Mutable m a => Ref m (V4 a) -> ContT () m (Ref m a)
 withAllRefV4List r = ContT         $ \f ->
@@ -262,10 +262,10 @@ withAllRefV4List r = ContT         $ \f ->
 
 withAllRefV4HKD :: forall m a. Mutable m a => V4F a (RefFor m) -> ContT () m (Ref m a)
 withAllRefV4HKD r = ContT $ \f -> do
-    withMutPart (_vf4X vfParts) r f
-    withMutPart (_vf4Y vfParts) r f
-    withMutPart (_vf4Z vfParts) r f
-    withMutPart (_vf4W vfParts) r f
+    withPart (_vf4X vfParts) r f
+    withPart (_vf4Y vfParts) r f
+    withPart (_vf4Z vfParts) r f
+    withPart (_vf4W vfParts) r f
 
 withAllRefV16
     :: Mutable m a
@@ -275,7 +275,7 @@ withAllRefV16
     -> m ()
 withAllRefV16 a r f = flip runContT pure $ do
     s   <- a =<< a =<< a =<< a
-       =<< ContT (withMutPart coerceRef r)
+       =<< ContT (withPart coerceRef r)
     lift $ f s
 
 
@@ -285,7 +285,7 @@ withAllRefV16HKD r f = flip runContT pure $ do
        =<< withAllRefV4HKD
        =<< withAllRefV4HKD
        =<< withAllRefV4HKD
-       =<< ContT (withMutPart coerceRef r)
+       =<< ContT (withPart coerceRef r)
     lift $ f s
 
 populate :: Traversable f => f () -> f Double

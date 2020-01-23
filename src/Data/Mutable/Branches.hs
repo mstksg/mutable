@@ -4,6 +4,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs                  #-}
 {-# LANGUAGE LambdaCase             #-}
+{-# LANGUAGE OverloadedLabels       #-}
 {-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TypeApplications       #-}
@@ -13,16 +14,43 @@
 {-# LANGUAGE UndecidableInstances   #-}
 
 
-
-
-
+-- |
+-- Module      : Data.Mutable.MutBranch
+-- Copyright   : (c) Justin Le 2020
+-- License     : BSD3
+--
+-- Maintainer  : justin@jle.im
+-- Stability   : experimental
+-- Portability : non-portable
+--
+-- Tools for working with potential branches of piecewise-mutable
+-- values.
+--
+-- If "Data.Mutable.Parts" is for product types, then
+-- "Data.Mutable.Branches" is for sum types.
 module Data.Mutable.Branches (
     MutBranch(..)
-  , constrMutBranch, CLabel(..)
-  , nilMB
-  , consMB
+  , thawBranch
+  , freezeBranch
+  , copyBranch
+  , unsafeThawBranch
+  , unsafeFreezeBranch
+  , withBranch, withBranch_
+  , modifyBranch, modifyBranch'
+  , updateBranch, updateBranch'
+  , modifyBranchM, modifyBranchM'
+  , updateBranchM, updateBranchM'
+  -- * Built-in 'MutBranch'
+  , compMB, idMB
+  -- ** Using GHC Generics
+  , constrMB, CLabel(..), GMutBranchConstructor, MapRef
+  -- ** For common types
+  , nilMB, consMB
+  , nothingMB, justMB
+  , leftMB, rightMB
   ) where
 
+import           Control.Monad
 import           Control.Monad.Primitive
 import           Data.Mutable.Class
 import           Data.Mutable.Instances
@@ -30,24 +58,366 @@ import           Data.Primitive.MutVar
 import           GHC.Generics
 import           GHC.OverloadedLabels
 import           GHC.TypeLits
-import qualified Data.GenericLens.Internal                  as GL
-import qualified Data.Generics.Internal.Profunctor.Lens     as GLP
-
-
+import qualified Data.GenericLens.Internal              as GL
+import qualified Data.Generics.Internal.Profunctor.Lens as GLP
 
 -- | A @'MutBranch' m s a@ represents the information that @s@ could
 -- potentially be an @a@.  Similar in spirit to a @Prism' s a@.
 --
--- Information to clone out a potential option/branch @a@ of an @s@, and
--- also to copy in a version of @a@ into @s@.
+-- @'MutBranch' m s a@ means that @a@ is one potential option that @s@
+-- could be in, or that @s@ is a sum type and @a@ is one of the
+-- branches/constructors.
+--
+-- If 'Data.Mutable.Parts.MutPart' is for product types, then 'MutBranch'
+-- is for sum types.
+--
+-- The simplest way to make these is by using 'constrMB':
+--
+-- @
+-- ghci> r <- 'thawRef' (Left 10)
+-- ghci> 'freezeBranch' ('constrMB' #_Left) r
+-- Just 10
+-- ghci> freezeBranch (constrMB #_Right) r
+-- Nothing
+-- @
+--
+-- It uses OverloadedLabels, but requires an underscore before the
+-- constructor name due to limitations in the extension.
+--
+-- One nice way to /use/ these is with 'withBranch_':
+--
+-- @
+-- ghci> r <- 'thawRef' (Just 10)
+-- ghci> 'withBranch_' (constrMB #_Just) $ \i ->    -- @i@ is an Int ref
+--    ..   modifyRef i (+ 1)
+-- ghci> 'freezeRef' r
+-- Just 11
+-- @
+--
+-- @
+-- ghci> r <- thawRef Nothing
+-- ghci> withBranch_ (constrMB #_Just) $ \i ->    -- @i@ is an Int ref
+--    ..   modifyRef i (+ 1)
+-- ghci> freezeRef r
+-- Nothing
+-- @
 data MutBranch m s a = MutBranch
-    { cloneMutBranch :: Ref m s -> m (Maybe (Ref m a))
+    { -- | With a 'MutBranch', attempt to clone out a branch of a mutable
+      -- @s@, if possible.
+      --
+      -- @
+      -- ghci> r <- thawRef (Left 10)
+      -- ghci> s <- cloneMutBranch (constrMB #_Left)
+      -- ghci> case s of Just s' -> freezeRef s'
+      -- 10
+      -- @
+      --
+      -- @
+      -- ghci> r <- thawRef (Right True)
+      -- ghci> s <- cloneMutBranch (constrMB #_Left)
+      -- ghci> case s of Nothing -> "it was Right"
+      -- "it was Right"
+      -- @
+      cloneMutBranch :: Ref m s -> m (Maybe (Ref m a))
+      -- | With a 'MutBranch', overwrite an @s@ as an @a@, on that branch.
+      --
+      -- @
+      -- ghci> r <- thawRef (Left 10)
+      -- ghci> s <- thawRef 100
+      -- ghci> moveMutBranch (constrMB #_Left) r s
+      -- ghci> freezeRef r
+      -- Left 100
+      -- ghci> t <- thawRef True
+      -- ghci> moveMutBranch (constrMB #_Right) r t
+      -- ghci> freezeRef r
+      -- Right True
+      -- @
     , moveMutBranch  :: Ref m s -> Ref m a -> m ()
+      -- | Embed an @a@ ref as a part of a larger @s@ ref.  Note that this
+      -- /does not copy or clone/: any mutations to the @a@ ref will be
+      -- reflected in the @s@ ref, as long as the @s@ ref maintains the
+      -- reference.
+      --
+      -- @
+      -- ghci> r <- thawRef 100
+      -- ghci> s <- embedMutBranch (constMB #_Left) r
+      -- ghci> freezeRef s
+      -- Left 100
+      -- ghci> modifyRef r (+ 1)
+      -- ghci> freezeRef s
+      -- Left 101
+      -- @
+      --
+      -- Any mutations on @s@ (as long as they keep the same branch) will
+      -- also affect @a@:
+      --
+      -- @
+      -- ghci> copyRef s (Left 0)
+      -- ghci> freezeRef r
+      -- 0
+      -- @
+      --
+      -- However, "switching branches" on an 'Either' ref will cause it to
+      -- loose the original reference:
+      --
+      -- @
+      -- ghci> copyRef s (Right True)
+      -- ghci> copyRef s (Left 999)
+      -- ghci> freezeRef r
+      -- 0
+      -- @
+    , embedMutBranch :: Ref m a -> m (Ref m s)
     }
 
--- | A version of 'Label' that removes an underscore at the beginning when
--- used with -XOverloadedLabels.  Used to specify constructors, since
--- labels are currently not able to start with capital letters.
+-- | Compose two 'MutBranch's, to drill down on what is being focused.
+compMB :: Monad m => MutBranch m a b -> MutBranch m b c -> MutBranch m a c
+compMB mb1 mb2 = MutBranch
+    { cloneMutBranch = cloneMutBranch mb1 >=> \case
+        Nothing -> pure Nothing
+        Just s  -> cloneMutBranch mb2 s
+    , moveMutBranch  = \r x -> do
+        s <- embedMutBranch mb2 x
+        moveMutBranch mb1 r s
+    , embedMutBranch = embedMutBranch mb1 <=< embedMutBranch mb2
+    }
+
+-- | An identity 'MutBranch', treating the item itself as a whole branch.
+-- 'cloneMutBranch' will always "match".
+idMB :: Mutable m a => MutBranch m a a
+idMB = MutBranch (fmap Just . cloneRef) moveRef pure
+
+-- | With a 'MutBranch', thaw an @a@ into a mutable @s@ on that branch.
+--
+-- @
+-- ghci> r <- 'thawBranch' ('constrMB' #_Left) 10
+-- ghci> 'freezeRef' r
+-- Left 10
+-- @
+thawBranch
+    :: Mutable m a
+    => MutBranch m s a
+    -> a
+    -> m (Ref m s)
+thawBranch mb = embedMutBranch mb <=< thawRef
+
+-- | With a 'MutBranch', read out a specific @a@ branch of an @s@, if it exists.
+--
+-- @
+-- ghci> r <- 'thawRef' (Left 10)
+-- ghci> 'freezeBranch' ('constrMB' #_Left) r
+-- Just 10
+-- ghci> freezeBranch (constrMB #_Right) r
+-- Nothing
+-- @
+freezeBranch
+    :: Mutable m a
+    => MutBranch m s a    -- ^ How to check if is @s@ is an @a@
+    -> Ref m s            -- ^ Structure to read out of
+    -> m (Maybe a)
+freezeBranch mb = mapM freezeRef <=< cloneMutBranch mb
+
+-- | With a 'MutBranch', /set/ @s@ to have the branch @a@.
+--
+-- @
+-- ghci> r <- 'thawRef' (Left 10)
+-- ghci> 'copyBranch' ('constrMB' #_Left) r 5678
+-- ghci> 'freezeRef' r
+-- Left 5678
+-- ghci> copyBranch (constrMB #_Right) r True
+-- ghci> freezeRef r
+-- Right True
+-- @
+copyBranch
+    :: Mutable m a
+    => MutBranch m s a      -- ^ How to check if @s@ is an @a@
+    -> Ref m s              -- ^ Structure to write into
+    -> a                    -- ^ Value to set @s@ to be
+    -> m ()
+copyBranch mb r = moveMutBranch mb r <=< thawRef
+
+-- | A non-copying version of 'freezeBranch' that can be more efficient
+-- for types where the mutable representation is the same as the immutable
+-- one (like 'V.Vector').
+--
+-- This is safe as long as you never again modify the mutable
+-- reference, since it can potentially directly mutate the frozen value
+-- magically.
+unsafeFreezeBranch
+    :: Mutable m a
+    => MutBranch m s a    -- ^ How to check if is @s@ is an @a@
+    -> Ref m s            -- ^ Structure to read out of
+    -> m (Maybe a)
+unsafeFreezeBranch mb = mapM unsafeFreezeRef <=< cloneMutBranch mb
+
+-- | A non-copying version of 'thawBranch' that can be more efficient for
+-- types where the mutable representation is the same as the immutable one
+-- (like 'V.Vector').
+--
+-- This is safe as long as you never again use the original pure value,
+-- since it can potentially directly mutate it.
+unsafeThawBranch
+    :: Mutable m a
+    => MutBranch m s a
+    -> a
+    -> m (Ref m s)
+unsafeThawBranch mb = embedMutBranch mb <=< unsafeThawRef
+
+
+-- | With a 'MutBranch', if an @s@ is on the @a@ branch, perform an action
+-- on the @a@ reference and overwrite the @s@ with the modified @a@.
+-- Returns the result of the action, if @a@ was found.
+--
+-- @
+-- ghci> r <- 'thawRef' (Just 10)
+-- ghci> 'withBranch_' ('constrMB' #_Just) $ \i ->    -- @i@ is an Int ref
+--    ..   'modifyRef' i (+ 1)
+-- ghci> 'freezeRef' r
+-- Just 11
+-- @
+--
+-- @
+-- ghci> r <- thawRef Nothing
+-- ghci> withBranch_ (constrMB #_Just) $ \i ->    -- @i@ is an Int ref
+--    ..   modifyRef i (+ 1)
+-- ghci> freezeRef r
+-- Nothing
+-- @
+withBranch
+    :: Mutable m a
+    => MutBranch m s a    -- ^ How to check if is @s@ is an @a@
+    -> Ref m s            -- ^ Structure to read out of and write into
+    -> (Ref m a -> m b)   -- ^ Action to perform on the @a@ branch of @s@
+    -> m (Maybe b)
+withBranch mb r f = cloneMutBranch mb r >>= \case
+    Nothing -> pure Nothing
+    Just s  -> (Just <$> f s) <* moveMutBranch mb r s
+
+-- | 'withBranch', but discarding the returned value.
+withBranch_
+    :: Mutable m a
+    => MutBranch m s a    -- ^ How to check if is @s@ is an @a@
+    -> Ref m s            -- ^ Structure to read out of and write into
+    -> (Ref m a -> m b)   -- ^ Action to perform on the @a@ branch of @s@
+    -> m ()
+withBranch_ mb r = void . withBranch mb r
+
+-- | With a 'MutBranch', run a pure function over a potential branch @a@ of
+-- @s@.  If @s@ is not on that branch, leaves @s@ unchanged.
+--
+-- @
+-- ghci> r <- 'thawRef' (Just 10)
+-- ghci> 'modifyBranch' ('constrMB' #_Just) r (+ 1)
+-- ghci> freezeRef r
+-- Just 11
+-- @
+--
+-- @
+-- ghci> r <- thawRef Nothing
+-- ghci> modifyBranch (constrMB #_Just) r (+ 1)
+-- ghci> freezeRef r
+-- Nothing
+-- @
+modifyBranch
+    :: Mutable m a
+    => MutBranch m s a      -- ^ How to check if @s@ is an @a@
+    -> Ref m s            -- ^ Structure to read out of and write into
+    -> (a -> a)             -- ^ Pure function modifying @a@
+    -> m ()
+modifyBranch mb r f = withBranch_ mb r (`modifyRef` f)
+
+-- | 'modifyBranch', but forces the result before storing it back in the
+-- reference.
+modifyBranch'
+    :: Mutable m a
+    => MutBranch m s a      -- ^ How to check if @s@ is an @a@
+    -> Ref m s            -- ^ Structure to read out of and write into
+    -> (a -> a)             -- ^ Pure function modifying @a@
+    -> m ()
+modifyBranch' mb r f = withBranch_ mb r (`modifyRef'` f)
+
+-- | 'modifyBranch' but for a monadic function.  Uses 'copyRef' into the
+-- reference after the action is completed.
+modifyBranchM
+    :: Mutable m a
+    => MutBranch m s a      -- ^ How to check if @s@ is an @a@
+    -> Ref m s            -- ^ Structure to read out of and write into
+    -> (a -> m a)             -- ^ Monadic function modifying @a@
+    -> m ()
+modifyBranchM mb r f = withBranch_ mb r (`modifyRefM` f)
+
+-- | 'modifyBranchM', but forces the result before storing it back in the
+-- reference.
+modifyBranchM'
+    :: Mutable m a
+    => MutBranch m s a      -- ^ How to check if @s@ is an @a@
+    -> Ref m s            -- ^ Structure to read out of and write into
+    -> (a -> m a)             -- ^ Monadic function modifying @a@
+    -> m ()
+modifyBranchM' mb r f = withBranch_ mb r (`modifyRefM'` f)
+
+-- | With a 'MutBranch', run a pure function over a potential branch @a@ of
+-- @s@.  The function returns the updated @a@ and also an output value to
+-- observe.  If @s@ is not on that branch, leaves @s@ unchanged.
+--
+-- @
+-- ghci> r <- 'thawRef' (Just 10)
+-- ghci> 'updateBranch' ('constrMB' #_Just) r $ \i -> (i + 1, show i)
+-- Just "10"
+-- ghci> 'freezeRef' r
+-- Just 11
+-- @
+--
+-- @
+-- ghci> r <- thawRef Nothing
+-- ghci> updateBranch (constrMB #_Just) r $ \i -> (i + 1, show i)
+-- Nothing
+-- ghci> freezeRef r
+-- Nothing
+-- @
+updateBranch
+    :: Mutable m a
+    => MutBranch m s a      -- ^ How to check if @s@ is an @a@
+    -> Ref m s            -- ^ Structure to read out of and write into
+    -> (a -> (a, b))
+    -> m (Maybe b)
+updateBranch mb r f = withBranch mb r (`updateRef` f)
+
+-- | 'updateBranch', but forces the result before storing it back in the
+-- reference.
+updateBranch'
+    :: Mutable m a
+    => MutBranch m s a      -- ^ How to check if @s@ is an @a@
+    -> Ref m s            -- ^ Structure to read out of and write into
+    -> (a -> (a, b))
+    -> m (Maybe b)
+updateBranch' mb r f = withBranch mb r (`updateRef'` f)
+
+-- | 'updateBranch' but for a monadic function.  Uses 'copyRef' into the
+-- reference after the action is completed.
+updateBranchM
+    :: Mutable m a
+    => MutBranch m s a      -- ^ How to check if @s@ is an @a@
+    -> Ref m s            -- ^ Structure to read out of and write into
+    -> (a -> m (a, b))
+    -> m (Maybe b)
+updateBranchM mb r f = withBranch mb r (`updateRefM` f)
+
+-- | 'updateBranchM', but forces the result before storing it back in the
+-- reference.
+updateBranchM'
+    :: Mutable m a
+    => MutBranch m s a      -- ^ How to check if @s@ is an @a@
+    -> Ref m s            -- ^ Structure to read out of and write into
+    -> (a -> m (a, b))
+    -> m (Maybe b)
+updateBranchM' mb r f = withBranch mb r (`updateRefM'` f)
+
+
+
+-- | A version of 'Data.Vinyl.Derived.Label' that removes an underscore at
+-- the beginning when used with -XOverloadedLabels.  Used to specify
+-- constructors, since labels are currently not able to start with capital
+-- letters.
 data CLabel (ctor :: Symbol) = CLabel
 
 instance (ctor_ ~ AppendSymbol "_" ctor) => IsLabel ctor_ (CLabel ctor) where
@@ -55,9 +425,11 @@ instance (ctor_ ~ AppendSymbol "_" ctor) => IsLabel ctor_ (CLabel ctor) where
 
 
 
+-- | Typeclass powering 'constrMB' using GHC Generics.
 class (GMutable m f, Mutable m a) => GMutBranchConstructor (ctor :: Symbol) m f a | ctor f -> a where
     gmbcClone :: CLabel ctor -> GRef_ m f x -> m (Maybe (Ref m a))
     gmbcMove  :: CLabel ctor -> GRef_ m f x -> Ref m a -> m ()
+    gmbcEmbed :: CLabel ctor -> Ref m a -> m (GRef_ m f x)
 
 instance
       ( GMutable m f
@@ -74,11 +446,13 @@ instance
                 . GL.listToTuple
                 . GLP.view GL.glist
                 . unM1
-    gmbcMove _ = moveRef . GL.listToTuple . GLP.view GL.glist . unM1
+    gmbcMove _  = moveRef . GL.listToTuple . GLP.view GL.glist . unM1
+    gmbcEmbed _ = pure . M1 . GLP.view GL.glistR . GL.tupleToList
 
 instance GMutBranchConstructor ctor m f a => GMutBranchConstructor ctor m (M1 D meta f) a where
     gmbcClone lb = gmbcClone lb . unM1
     gmbcMove  lb = gmbcMove  lb . unM1
+    gmbcEmbed lb = fmap M1 . gmbcEmbed lb
 
 instance
       ( PrimMonad m
@@ -87,11 +461,13 @@ instance
       )
       => GMutBranchConstructor ctor m (l :+: r) a where
     gmbcClone = gmbsClone @ctor @(GL.HasCtorP ctor l)
-    gmbcMove  = gmbsMove @ctor @(GL.HasCtorP ctor l)
+    gmbcMove  = gmbsMove  @ctor @(GL.HasCtorP ctor l)
+    gmbcEmbed = gmbsEmbed @ctor @(GL.HasCtorP ctor l)
 
 class (GMutable m l, GMutable m r, Mutable m a) => GMutBranchSum (ctor :: Symbol) (contains :: Bool) m l r a | ctor l r -> a where
     gmbsClone :: CLabel ctor -> MutSumF m (GRef_ m l) (GRef_ m r) x -> m (Maybe (Ref m a))
     gmbsMove  :: CLabel ctor -> MutSumF m (GRef_ m l) (GRef_ m r) x -> Ref m a -> m ()
+    gmbsEmbed :: CLabel ctor -> Ref m a -> m (MutSumF m (GRef_ m l) (GRef_ m r) x)
 
 instance
       ( PrimMonad m
@@ -110,6 +486,7 @@ instance
     gmbsMove lb (MutSumF r) a = readMutVar r >>= \case
       L1 x  -> gmbcMove lb x a
       R1 _  -> writeMutVar r . L1 . GLP.view GL.glistR . GL.tupleToList $ a
+    gmbsEmbed _ = fmap MutSumF . newMutVar . L1 . GLP.view GL.glistR . GL.tupleToList
 
 instance
       ( PrimMonad m
@@ -128,23 +505,64 @@ instance
     gmbsMove lb (MutSumF r) a = readMutVar r >>= \case
       L1 _  -> writeMutVar r . R1 . GLP.view GL.glistR . GL.tupleToList $ a
       R1 x  -> gmbcMove lb x a
+    gmbsEmbed _ = fmap MutSumF . newMutVar . R1 . GLP.view GL.glistR . GL.tupleToList
 
-constrMutBranch
+-- | Create a 'MutBranch' for any data type with a 'Generic' instance by
+-- specifying the constructor name using OverloadedLabels
+--
+-- @
+-- ghci> r <- 'thawRef' (Left 10)
+-- ghci> 'freezeBranch' ('constrMB' #_Left) r
+-- Just 10
+-- ghci> freezeBranch (constrMB #_Right) r
+-- Nothing
+-- @
+--
+-- Note that due to limitations in OverloadedLabels, you must prefix the
+-- constructor name with an undescore.
+--
+-- There also isn't currently any way to utilize OverloadedLabels with
+-- operator identifiers, so using it with operator constructors (like @:@
+-- and @[]@) requires explicit TypeApplications:
+--
+-- @
+-- -- | 'MutBranch' focusing on the cons case of a list
+-- consMB :: (PrimMonad m, Mutable m a) => MutBranch m [a] (a, [a])
+-- consMB = 'constrMB' ('CLabel' @":")
+-- @
+constrMB
     :: forall ctor m s a.
      ( Ref m s ~ GRef m s
      , GMutBranchConstructor ctor m (Rep s) a
      )
     => CLabel ctor
     -> MutBranch m s a
-constrMutBranch l = MutBranch
+constrMB l = MutBranch
     { cloneMutBranch = gmbcClone l . unGRef
     , moveMutBranch  = gmbcMove  l . unGRef
+    , embedMutBranch = fmap GRef . gmbcEmbed l
     }
 
+-- | 'MutBranch' focusing on the nil case of a list
 nilMB :: (PrimMonad m, Mutable m a) => MutBranch m [a] ()
-nilMB = constrMutBranch (CLabel @"[]")
+nilMB = constrMB (CLabel @"[]")
 
+-- | 'MutBranch' focusing on the cons case of a list
 consMB :: (PrimMonad m, Mutable m a) => MutBranch m [a] (a, [a])
-consMB = constrMutBranch (CLabel @":")
+consMB = constrMB (CLabel @":")
 
+-- | 'MutBranch' focusing on the 'Nothing' case of a 'Maybe'
+nothingMB :: (PrimMonad m, Mutable m a) => MutBranch m (Maybe a) ()
+nothingMB = constrMB #_Nothing
 
+-- | 'MutBranch' focusing on the 'Just' case of a 'Maybe'
+justMB :: (PrimMonad m, Mutable m a) => MutBranch m (Maybe a) a
+justMB = constrMB #_Just
+
+-- | 'MutBranch' focusing on the 'Left' case of an 'Either'
+leftMB :: (PrimMonad m, Mutable m a, Mutable m b) => MutBranch m (Either a b) a
+leftMB = constrMB #_Left
+
+-- | 'MutBranch' focusing on the 'Right' case of an 'Either'
+rightMB :: (PrimMonad m, Mutable m a, Mutable m b) => MutBranch m (Either a b) b
+rightMB = constrMB #_Right

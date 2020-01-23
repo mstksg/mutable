@@ -540,6 +540,10 @@ class (Mutable m s, Mutable m (HList as), Ref m (HList as) ~ HListRef m as) => L
     --
     -- As can be seen, within the lambda, we can get access to every
     -- mutable reference inside a 'Foo' reference.
+    --
+    -- Performance-wise, this appears to be faster than 'fieldMut' and
+    -- 'listMut' when using a single reference, but slower if using all
+    -- references.
     listMut :: MutPart m s (HList as)
 
 type family MapRef m as where

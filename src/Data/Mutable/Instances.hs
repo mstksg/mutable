@@ -63,7 +63,7 @@ import           Data.Functor.Compose
 import           Data.Functor.Identity
 import           Data.Functor.Product
 import           Data.Functor.Sum
-import           Data.GenericLens.Internal     (HList(..))
+import           Data.GenericLens.Internal                 (HList(..))
 import           Data.Kind
 import           Data.Mutable.Internal
 import           Data.Ord
@@ -81,21 +81,20 @@ import           Foreign.C.Types
 import           Foreign.Storable
 import           GHC.Generics
 import           Numeric.Natural
-import qualified Data.GenericLens.Internal     as GL
-import qualified Data.Monoid                   as M
-import qualified Data.Vector                   as V
-import qualified Data.Vector.Generic           as VG
-import qualified Data.Vector.Generic.Mutable   as MVG
-import qualified Data.Vector.Mutable           as MV
-import qualified Data.Vector.Primitive         as VP
-import qualified Data.Vector.Primitive.Mutable as MVP
-import qualified Data.Vector.Storable          as VS
-import qualified Data.Vector.Storable.Mutable  as MVS
-import qualified Data.Vector.Unboxed           as VU
-import qualified Data.Vector.Unboxed.Mutable   as MVU
-import qualified Data.Vinyl.ARec               as V
-import qualified Data.Vinyl.Functor            as V
-import qualified Data.Vinyl.TypeLevel          as V
+import qualified Data.Monoid                               as M
+import qualified Data.Vector                               as V
+import qualified Data.Vector.Generic                       as VG
+import qualified Data.Vector.Generic.Mutable               as MVG
+import qualified Data.Vector.Mutable                       as MV
+import qualified Data.Vector.Primitive                     as VP
+import qualified Data.Vector.Primitive.Mutable             as MVP
+import qualified Data.Vector.Storable                      as VS
+import qualified Data.Vector.Storable.Mutable              as MVS
+import qualified Data.Vector.Unboxed                       as VU
+import qualified Data.Vector.Unboxed.Mutable               as MVU
+import qualified Data.Vinyl.ARec                           as V
+import qualified Data.Vinyl.Functor                        as V
+import qualified Data.Vinyl.TypeLevel                      as V
 
 instance PrimMonad m => Mutable m Int
 instance PrimMonad m => Mutable m Integer

@@ -1,4 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes    #-}
 {-# LANGUAGE DefaultSignatures      #-}
 {-# LANGUAGE EmptyCase              #-}
 {-# LANGUAGE FlexibleContexts       #-}
@@ -366,25 +365,18 @@ class Monad m => Mutable m a where
 
     default thawRef :: DefaultMutable m a (Ref m a) => a -> m (Ref m a)
     thawRef   = defaultThawRef
-    {-# INLINE thawRef #-}
     default freezeRef :: DefaultMutable m a (Ref m a) => Ref m a -> m a
     freezeRef = defaultFreezeRef
-    {-# INLINE freezeRef #-}
     default copyRef :: DefaultMutable m a (Ref m a) => Ref m a -> a -> m ()
     copyRef   = defaultCopyRef
-    {-# INLINE copyRef #-}
     default moveRef :: DefaultMutable m a (Ref m a) => Ref m a -> Ref m a -> m ()
     moveRef   = defaultMoveRef
-    {-# INLINE moveRef #-}
     default cloneRef :: DefaultMutable m a (Ref m a) => Ref m a -> m (Ref m a)
     cloneRef  = defaultCloneRef
-    {-# INLINE cloneRef #-}
     default unsafeThawRef :: DefaultMutable m a (Ref m a) => a -> m (Ref m a)
     unsafeThawRef   = defaultUnsafeThawRef
-    {-# INLINE unsafeThawRef #-}
     default unsafeFreezeRef :: DefaultMutable m a (Ref m a) => Ref m a -> m a
     unsafeFreezeRef = defaultUnsafeFreezeRef
-    {-# INLINE unsafeFreezeRef #-}
 
 -- | The default implementations of 'thawRef', 'freezeRef', and 'copyRef'
 -- dispatched for different choices of 'Ref'.
@@ -449,100 +441,58 @@ class DefaultMutable m a r | r -> a where
 
 instance (PrimMonad m, s ~ PrimState m) => DefaultMutable m a (MutVar s a) where
     defaultThawRef         = newMutVar
-    {-# INLINE defaultThawRef #-}
     defaultFreezeRef       = readMutVar
-    {-# INLINE defaultFreezeRef #-}
     defaultCopyRef         = writeMutVar
-    {-# INLINE defaultCopyRef #-}
     defaultMoveRef v u     = writeMutVar v =<< readMutVar u
-    {-# INLINE defaultMoveRef #-}
     defaultCloneRef v      = newMutVar =<< readMutVar v
-    {-# INLINE defaultCloneRef #-}
     defaultUnsafeThawRef   = newMutVar
-    {-# INLINE defaultUnsafeThawRef #-}
     defaultUnsafeFreezeRef = readMutVar
-    {-# INLINE defaultUnsafeFreezeRef #-}
 
 instance (Generic a, GMutable m (Rep a)) => DefaultMutable m a (GRef m a) where
     defaultThawRef         = gThawRef
-    {-# INLINE defaultThawRef #-}
     defaultFreezeRef       = gFreezeRef
-    {-# INLINE defaultFreezeRef #-}
     defaultCopyRef         = gCopyRef
-    {-# INLINE defaultCopyRef #-}
     defaultMoveRef         = gMoveRef
-    {-# INLINE defaultMoveRef #-}
     defaultCloneRef        = gCloneRef
-    {-# INLINE defaultCloneRef #-}
     defaultUnsafeThawRef   = gUnsafeThawRef
-    {-# INLINE defaultUnsafeThawRef #-}
     defaultUnsafeFreezeRef = gUnsafeFreezeRef
-    {-# INLINE defaultUnsafeFreezeRef #-}
 
 instance (Generic (z Identity), Generic (z (RefFor m)), GMutable m (Rep (z Identity)), GRef_ m (Rep (z Identity)) ~ Rep (z (RefFor m)))
         => DefaultMutable m (z Identity) (z (RefFor m)) where
     defaultThawRef         = thawHKD
-    {-# INLINE defaultThawRef #-}
     defaultFreezeRef       = freezeHKD
-    {-# INLINE defaultFreezeRef #-}
     defaultCopyRef         = copyHKD
-    {-# INLINE defaultCopyRef #-}
     defaultMoveRef         = moveHKD
-    {-# INLINE defaultMoveRef #-}
     defaultCloneRef        = cloneHKD
-    {-# INLINE defaultCloneRef #-}
     defaultUnsafeThawRef   = unsafeThawHKD
-    {-# INLINE defaultUnsafeThawRef #-}
     defaultUnsafeFreezeRef = unsafeFreezeHKD
-    {-# INLINE defaultUnsafeFreezeRef #-}
 
 instance (Traversable f, Mutable m a) => DefaultMutable m (f a) (TraverseRef m f a) where
     defaultThawRef         = thawTraverse
-    {-# INLINE defaultThawRef #-}
     defaultFreezeRef       = freezeTraverse
-    {-# INLINE defaultFreezeRef #-}
     defaultCopyRef         = copyTraverse
-    {-# INLINE defaultCopyRef #-}
     defaultMoveRef         = moveTraverse
-    {-# INLINE defaultMoveRef #-}
     defaultCloneRef        = cloneTraverse
-    {-# INLINE defaultCloneRef #-}
     defaultUnsafeThawRef   = unsafeThawTraverse
-    {-# INLINE defaultUnsafeThawRef #-}
     defaultUnsafeFreezeRef = unsafeFreezeTraverse
-    {-# INLINE defaultUnsafeFreezeRef #-}
 
 instance (Coercible s a, Mutable m a) => DefaultMutable m s (CoerceRef m s a) where
     defaultThawRef         = thawCoerce
-    {-# INLINE defaultThawRef #-}
     defaultFreezeRef       = freezeCoerce
-    {-# INLINE defaultFreezeRef #-}
     defaultCopyRef         = copyCoerce
-    {-# INLINE defaultCopyRef #-}
     defaultMoveRef         = moveCoerce
-    {-# INLINE defaultMoveRef #-}
     defaultCloneRef        = cloneCoerce
-    {-# INLINE defaultCloneRef #-}
     defaultUnsafeThawRef   = unsafeThawCoerce
-    {-# INLINE defaultUnsafeThawRef #-}
     defaultUnsafeFreezeRef = unsafeFreezeCoerce
-    {-# INLINE defaultUnsafeFreezeRef #-}
 
 instance Applicative m => DefaultMutable m a (ImmutableRef a) where
     defaultThawRef         = thawImmutable
-    {-# INLINE defaultThawRef #-}
     defaultFreezeRef       = freezeImmutable
-    {-# INLINE defaultFreezeRef #-}
     defaultCopyRef         = copyImmutable
-    {-# INLINE defaultCopyRef #-}
     defaultMoveRef         = moveImmutable
-    {-# INLINE defaultMoveRef #-}
     defaultCloneRef        = cloneImmutable
-    {-# INLINE defaultCloneRef #-}
     defaultUnsafeThawRef   = thawImmutable
-    {-# INLINE defaultUnsafeThawRef #-}
     defaultUnsafeFreezeRef = freezeImmutable
-    {-# INLINE defaultUnsafeFreezeRef #-}
 
 -- | A handy newtype wrapper that allows you to partially apply 'Ref'.
 -- @'RefFor' m a@ is the same as @'Ref' m a@, but can be partially applied.
@@ -558,9 +508,7 @@ deriving instance Ord (Ref m a) => Ord (RefFor m a)
 instance X.IsoHKD (RefFor m) a where
     type HKD (RefFor m) a = Ref m a
     unHKD = RefFor
-    {-# INLINE unHKD #-}
     toHKD = getRefFor
-    {-# INLINE toHKD #-}
 
 -- | A 'Ref' that works for any instance of 'Traversable', by using the
 -- fields of the 'Traversable' instance to /purely/ store mutable references.
@@ -593,9 +541,7 @@ newtype TraverseRef m f a = TraverseRef { getTraverseRef :: f (Ref m a) }
 instance X.IsoHKD (TraverseRef m f) a where
     type HKD (TraverseRef m f) a = f (Ref m a)
     unHKD = TraverseRef
-    {-# INLINE unHKD #-}
     toHKD = getTraverseRef
-    {-# INLINE toHKD #-}
 
 -- | Default 'thawRef' for 'TraverseRef'.
 --
@@ -606,7 +552,6 @@ instance X.IsoHKD (TraverseRef m f) a where
 -- documentation for 'TraverseRef' for more information.
 thawTraverse :: (Traversable f, Mutable m a) => f a -> m (TraverseRef m f a)
 thawTraverse = fmap TraverseRef . traverse thawRef
-{-# INLINE thawTraverse #-}
 
 -- | Default 'freezeRef' for 'TraverseRef'.
 --
@@ -617,7 +562,6 @@ thawTraverse = fmap TraverseRef . traverse thawRef
 -- documentation for 'TraverseRef' for more information.
 freezeTraverse :: (Traversable f, Mutable m a) => TraverseRef m f a -> m (f a)
 freezeTraverse = traverse freezeRef . getTraverseRef
-{-# INLINE freezeTraverse #-}
 
 -- | Default 'copyRef' for 'TraverseRef'.
 --
@@ -660,7 +604,6 @@ moveTraverse (TraverseRef rs) (TraverseRef vs) = evalStateT (traverse_ go rs) (t
 -- documentation for 'TraverseRef' for more information.
 cloneTraverse :: (Traversable f, Mutable m a) => TraverseRef m f a -> m (TraverseRef m f a)
 cloneTraverse = fmap TraverseRef . traverse cloneRef . getTraverseRef
-{-# INLINE cloneTraverse #-}
 
 -- | Default 'unsafeThawRef' for 'TraverseRef'.
 --
@@ -671,7 +614,6 @@ cloneTraverse = fmap TraverseRef . traverse cloneRef . getTraverseRef
 -- documentation for 'TraverseRef' for more information.
 unsafeThawTraverse :: (Traversable f, Mutable m a) => f a -> m (TraverseRef m f a)
 unsafeThawTraverse = fmap TraverseRef . traverse unsafeThawRef
-{-# INLINE unsafeThawTraverse #-}
 
 -- | Default 'unsafeFreezeRef' for 'TraverseRef'.
 --
@@ -682,7 +624,6 @@ unsafeThawTraverse = fmap TraverseRef . traverse unsafeThawRef
 -- documentation for 'TraverseRef' for more information.
 unsafeFreezeTraverse :: (Traversable f, Mutable m a) => TraverseRef m f a -> m (f a)
 unsafeFreezeTraverse = traverse unsafeFreezeRef . getTraverseRef
-{-# INLINE unsafeFreezeTraverse #-}
 
 -- | A 'Ref' that works by using the 'Mutable' instance of an equivalent
 -- type.  This is useful for newtype wrappers, so you can use the
@@ -718,7 +659,6 @@ instance X.IsoHKD (CoerceRef m s) a where
 -- for 'CoerceRef' for more information.
 thawCoerce :: (Coercible s a, Mutable m a) => s -> m (CoerceRef m s a)
 thawCoerce = fmap CoerceRef . thawRef . coerce
-{-# INLINE thawCoerce #-}
 
 -- | Default 'freezeRef' for 'CoerceRef'.
 --
@@ -729,7 +669,6 @@ thawCoerce = fmap CoerceRef . thawRef . coerce
 -- for 'CoerceRef' for more information.
 freezeCoerce :: (Coercible s a, Mutable m a) => CoerceRef m s a -> m s
 freezeCoerce = fmap coerce . freezeRef . getCoerceRef
-{-# INLINE freezeCoerce #-}
 
 -- | Default 'copyRef' for 'CoerceRef'.
 --
@@ -740,7 +679,6 @@ freezeCoerce = fmap coerce . freezeRef . getCoerceRef
 -- for 'CoerceRef' for more information.
 copyCoerce :: (Coercible s a, Mutable m a) => CoerceRef m s a -> s -> m ()
 copyCoerce (CoerceRef r) = copyRef r . coerce
-{-# INLINE copyCoerce #-}
 
 -- | Default 'moveRef' for 'CoerceRef'.
 --
@@ -751,7 +689,6 @@ copyCoerce (CoerceRef r) = copyRef r . coerce
 -- for 'CoerceRef' for more information.
 moveCoerce :: Mutable m a => CoerceRef m s a -> CoerceRef m s a -> m ()
 moveCoerce (CoerceRef r) (CoerceRef s) = moveRef r s
-{-# INLINE moveCoerce #-}
 
 -- | Default 'cloneRef' for 'CoerceRef'.
 --
@@ -762,7 +699,6 @@ moveCoerce (CoerceRef r) (CoerceRef s) = moveRef r s
 -- for 'CoerceRef' for more information.
 cloneCoerce :: Mutable m a => CoerceRef m s a -> m (CoerceRef m s a)
 cloneCoerce = fmap CoerceRef . cloneRef . getCoerceRef
-{-# INLINE cloneCoerce #-}
 
 -- | Default 'unsafeThawRef' for 'CoerceRef'.
 --
@@ -773,7 +709,6 @@ cloneCoerce = fmap CoerceRef . cloneRef . getCoerceRef
 -- for 'CoerceRef' for more information.
 unsafeThawCoerce :: (Coercible s a, Mutable m a) => s -> m (CoerceRef m s a)
 unsafeThawCoerce = fmap CoerceRef . unsafeThawRef . coerce
-{-# INLINE unsafeThawCoerce #-}
 
 -- | Default 'unsafeFreezeRef' for 'CoerceRef'.
 --
@@ -784,7 +719,6 @@ unsafeThawCoerce = fmap CoerceRef . unsafeThawRef . coerce
 -- for 'CoerceRef' for more information.
 unsafeFreezeCoerce :: (Coercible s a, Mutable m a) => CoerceRef m s a -> m s
 unsafeFreezeCoerce = fmap coerce . unsafeFreezeRef . getCoerceRef
-{-# INLINE unsafeFreezeCoerce #-}
 
 -- | A "'Ref'" that can be used to give a default 'Mutable' instance that
 -- is immutable.  Nothing is allocated ever, all attempts to modify it will
@@ -797,9 +731,7 @@ newtype ImmutableRef a = ImmutableRef { getImmutableRef :: a }
 instance X.IsoHKD ImmutableRef a where
     type HKD ImmutableRef a = a
     unHKD = ImmutableRef
-    {-# INLINE unHKD #-}
     toHKD = getImmutableRef
-    {-# INLINE toHKD #-}
 
 -- | Default 'thawRef' for 'ImmutableRef'.
 --
@@ -810,7 +742,6 @@ instance X.IsoHKD ImmutableRef a where
 -- for 'ImmutableRef' for more information.
 thawImmutable :: Applicative m => a -> m (ImmutableRef a)
 thawImmutable = pure . ImmutableRef
-{-# INLINE thawImmutable #-}
 
 -- | Default 'freezeRef' for 'ImmutableRef'.  This will always return the
 -- originally thawed value, ignoring all copies and writes.
@@ -822,7 +753,6 @@ thawImmutable = pure . ImmutableRef
 -- for 'ImmutableRef' for more information.
 freezeImmutable :: Applicative m => ImmutableRef a -> m a
 freezeImmutable = pure . getImmutableRef
-{-# INLINE freezeImmutable #-}
 
 -- | Default 'copyRef' for 'ImmutableRef'.  This is a no-op and does
 -- nothing, since freezing will always return the originally thawed value.
@@ -834,7 +764,6 @@ freezeImmutable = pure . getImmutableRef
 -- for 'ImmutableRef' for more information.
 copyImmutable :: Applicative m => ImmutableRef a -> a -> m ()
 copyImmutable _ _ = pure ()
-{-# INLINE copyImmutable #-}
 
 -- | Default 'moveRef' for 'ImmutableRef'.  This is a no-op and does
 -- nothing, since freezing will always return the originally thawed value.
@@ -846,7 +775,6 @@ copyImmutable _ _ = pure ()
 -- for 'ImmutableRef' for more information.
 moveImmutable :: Applicative m => ImmutableRef a -> ImmutableRef a -> m ()
 moveImmutable _ _ = pure ()
-{-# INLINE moveImmutable #-}
 
 -- | Default 'cloneRef' for 'ImmutableRef'.  'freezeRef' on this value will
 -- return the originally thawed value.
@@ -858,7 +786,6 @@ moveImmutable _ _ = pure ()
 -- for 'ImmutableRef' for more information.
 cloneImmutable :: Applicative m => ImmutableRef a -> m (ImmutableRef a)
 cloneImmutable = pure
-{-# INLINE cloneImmutable #-}
 
 
 
@@ -880,91 +807,56 @@ instance Mutable m c => GMutable m (K1 i c) where
     type GRef_ m (K1 i c) = K1 i (Ref m c)
 
     gThawRef_               = fmap K1 . thawRef . unK1
-    {-# INLINE gThawRef_ #-}
     gFreezeRef_             = fmap K1 . freezeRef . unK1
-    {-# INLINE gFreezeRef_ #-}
     gCopyRef_ (K1 v) (K1 x) = copyRef v x
-    {-# INLINE gCopyRef_ #-}
     gMoveRef_ (K1 v) (K1 u) = moveRef v u
-    {-# INLINE gMoveRef_ #-}
     gCloneRef_              = fmap K1 . cloneRef . unK1
-    {-# INLINE gCloneRef_ #-}
     gUnsafeThawRef_         = fmap K1 . unsafeThawRef . unK1
-    {-# INLINE gUnsafeThawRef_ #-}
     gUnsafeFreezeRef_       = fmap K1 . unsafeFreezeRef . unK1
-    {-# INLINE gUnsafeFreezeRef_ #-}
 
 instance Monad m => GMutable m U1 where
     type GRef_ m U1 = U1
 
     gThawRef_   _       = pure U1
-    {-# INLINE gThawRef_ #-}
     gFreezeRef_ _       = pure U1
-    {-# INLINE gFreezeRef_ #-}
     gCopyRef_ _ _       = pure ()
-    {-# INLINE gCopyRef_ #-}
     gMoveRef_ _ _       = pure ()
-    {-# INLINE gMoveRef_ #-}
     gCloneRef_  _       = pure U1
-    {-# INLINE gCloneRef_  #-}
     gUnsafeThawRef_   _ = pure U1
-    {-# INLINE gUnsafeThawRef_ #-}
     gUnsafeFreezeRef_ _ = pure U1
-    {-# INLINE gUnsafeFreezeRef_ #-}
 
 instance Monad m => GMutable m V1 where
     type GRef_ m V1 = V1
 
     gThawRef_         = \case {}
-    {-# INLINE gThawRef_ #-}
     gFreezeRef_       = \case {}
-    {-# INLINE gFreezeRef_ #-}
     gCopyRef_         = \case {}
-    {-# INLINE gCopyRef_ #-}
     gMoveRef_         = \case {}
-    {-# INLINE gMoveRef_ #-}
     gCloneRef_        = \case {}
-    {-# INLINE gCloneRef_ #-}
     gUnsafeThawRef_   = \case {}
-    {-# INLINE gUnsafeThawRef_ #-}
     gUnsafeFreezeRef_ = \case {}
-    {-# INLINE gUnsafeFreezeRef_ #-}
 
 instance (GMutable m f, GMutable m g) => GMutable m (f :*: g) where
     type GRef_ m (f :*: g) = GRef_ m f :*: GRef_ m g
 
     gThawRef_ (x :*: y)             = (:*:) <$> gThawRef_ x <*> gThawRef_ y
-    {-# INLINE gThawRef_ #-}
     gFreezeRef_ (v :*: u)           = (:*:) <$> gFreezeRef_ v <*> gFreezeRef_ u
-    {-# INLINE gFreezeRef_ #-}
     gCopyRef_ (v :*: u) (x :*: y)   = gCopyRef_ v x *> gCopyRef_ u y
-    {-# INLINE gCopyRef_ #-}
     gMoveRef_ (v :*: u) (v' :*: u') = gMoveRef_ v v' *> gMoveRef_ u u'
-    {-# INLINE gMoveRef_ #-}
     gCloneRef_ (v :*: u)            = (:*:) <$> gCloneRef_ v <*> gCloneRef_ u
-    {-# INLINE gCloneRef_ #-}
     gUnsafeThawRef_ (x :*: y)       = (:*:) <$> gUnsafeThawRef_ x <*> gUnsafeThawRef_ y
-    {-# INLINE gUnsafeThawRef_ #-}
     gUnsafeFreezeRef_ (v :*: u)     = (:*:) <$> gUnsafeFreezeRef_ v <*> gUnsafeFreezeRef_ u
-    {-# INLINE gUnsafeFreezeRef_ #-}
 
 instance GMutable m f => GMutable m (M1 i c f) where
     type GRef_ m (M1 i c f) = M1 i c (GRef_ m f)
 
     gThawRef_               = fmap M1 . gThawRef_ . unM1
-    {-# INLINE gThawRef_ #-}
     gFreezeRef_             = fmap M1 . gFreezeRef_ . unM1
-    {-# INLINE gFreezeRef_ #-}
     gCopyRef_ (M1 v) (M1 x) = gCopyRef_ v x
-    {-# INLINE gCopyRef_ #-}
     gMoveRef_ (M1 v) (M1 u) = gMoveRef_ v u
-    {-# INLINE gMoveRef_ #-}
     gCloneRef_ (M1 v)       = M1 <$> gCloneRef_ v
-    {-# INLINE gCloneRef_ #-}
     gUnsafeThawRef_         = fmap M1 . gUnsafeThawRef_ . unM1
-    {-# INLINE gUnsafeThawRef_ #-}
     gUnsafeFreezeRef_       = fmap M1 . gUnsafeFreezeRef_ . unM1
-    {-# INLINE gUnsafeFreezeRef_ #-}
 
 instance (GMutable m f, GMutable m g, PrimMonad m) => GMutable m (f :+: g) where
     type GRef_ m (f :+: g) = MutVar (PrimState m) :.: (GRef_ m f :+: GRef_ m g)
@@ -972,11 +864,9 @@ instance (GMutable m f, GMutable m g, PrimMonad m) => GMutable m (f :+: g) where
     gThawRef_ = \case
       L1 x -> fmap Comp1 . newMutVar . L1 =<< gThawRef_ x
       R1 x -> fmap Comp1 . newMutVar . R1 =<< gThawRef_ x
-    {-# INLINE gThawRef_ #-}
     gFreezeRef_ (Comp1 r) = readMutVar r >>= \case
       L1 v -> L1 <$> gFreezeRef_ v
       R1 u -> R1 <$> gFreezeRef_ u
-    {-# INLINE gFreezeRef_ #-}
     gCopyRef_ (Comp1 r) xy = readMutVar r >>= \case
       L1 v -> case xy of
         L1 x -> gCopyRef_ v x
@@ -984,7 +874,6 @@ instance (GMutable m f, GMutable m g, PrimMonad m) => GMutable m (f :+: g) where
       R1 u -> case xy of
         L1 x -> writeMutVar r . L1 =<< gThawRef_ x
         R1 y -> gCopyRef_ u y
-    {-# INLINE gCopyRef_ #-}
     gMoveRef_ (Comp1 u) (Comp1 v) = readMutVar v >>= \case
       L1 vl -> readMutVar u >>= \case
         L1 ul -> gMoveRef_ ul vl
@@ -992,19 +881,15 @@ instance (GMutable m f, GMutable m g, PrimMonad m) => GMutable m (f :+: g) where
       R1 vr -> readMutVar u >>= \case
         L1 _  -> writeMutVar u . R1 =<< gCloneRef_ vr
         R1 ur -> gMoveRef_ ur vr
-    {-# INLINE gMoveRef_ #-}
     gCloneRef_ (Comp1 v) = readMutVar v >>= \case
       L1 u -> fmap Comp1 . newMutVar . L1 =<< gCloneRef_ u
       R1 u -> fmap Comp1 . newMutVar . R1 =<< gCloneRef_ u
-    {-# INLINE gCloneRef_ #-}
     gUnsafeThawRef_ = \case
       L1 x -> fmap Comp1 . newMutVar . L1 =<< gUnsafeThawRef_ x
       R1 x -> fmap Comp1 . newMutVar . R1 =<< gUnsafeThawRef_ x
-    {-# INLINE gUnsafeThawRef_ #-}
     gUnsafeFreezeRef_ (Comp1 r) = readMutVar r >>= \case
       L1 v -> L1 <$> gUnsafeFreezeRef_ v
       R1 u -> R1 <$> gUnsafeFreezeRef_ u
-    {-# INLINE gUnsafeFreezeRef_ #-}
 
 
 -- | A 'Ref' for instances of 'GMutable', which are the "GHC.Generics"
@@ -1038,87 +923,52 @@ unsafeFreezeGMutableRef = gUnsafeFreezeRef_ . getGMutableRef
 instance Mutable m c => Mutable m (K1 i c a) where
     type Ref m (K1 i c a) = GMutableRef m (K1 i c) a
     thawRef         = thawGMutableRef
-    {-# INLINE thawRef #-}
     freezeRef       = freezeGMutableRef
-    {-# INLINE freezeRef #-}
     copyRef         = copyGMutableRef
-    {-# INLINE copyRef #-}
     moveRef         = moveGMutableRef
-    {-# INLINE moveRef #-}
     cloneRef        = cloneGMutableRef
-    {-# INLINE cloneRef #-}
     unsafeThawRef   = unsafeThawGMutableRef
-    {-# INLINE unsafeThawRef #-}
     unsafeFreezeRef = unsafeFreezeGMutableRef
-    {-# INLINE unsafeFreezeRef #-}
 
 instance Monad m => Mutable m (U1 a) where
     type Ref m (U1 a) = GMutableRef m U1 a
     thawRef         = thawGMutableRef
-    {-# INLINE thawRef #-}
     freezeRef       = freezeGMutableRef
-    {-# INLINE freezeRef #-}
     copyRef         = copyGMutableRef
-    {-# INLINE copyRef #-}
     moveRef         = moveGMutableRef
-    {-# INLINE moveRef #-}
     cloneRef        = cloneGMutableRef
-    {-# INLINE cloneRef #-}
     unsafeThawRef   = unsafeThawGMutableRef
-    {-# INLINE unsafeThawRef #-}
     unsafeFreezeRef = unsafeFreezeGMutableRef
-    {-# INLINE unsafeFreezeRef #-}
 
 instance Monad m => Mutable m (V1 a) where
     type Ref m (V1 a) = GMutableRef m V1 a
     thawRef         = thawGMutableRef
-    {-# INLINE thawRef #-}
     freezeRef       = freezeGMutableRef
-    {-# INLINE freezeRef #-}
     copyRef         = copyGMutableRef
-    {-# INLINE copyRef #-}
     moveRef         = moveGMutableRef
-    {-# INLINE moveRef #-}
     cloneRef        = cloneGMutableRef
-    {-# INLINE cloneRef #-}
     unsafeThawRef   = unsafeThawGMutableRef
-    {-# INLINE unsafeThawRef #-}
     unsafeFreezeRef = unsafeFreezeGMutableRef
-    {-# INLINE unsafeFreezeRef #-}
 
 instance (GMutable m f, GMutable m g) => Mutable m ((f :*: g) a) where
     type Ref m ((f :*: g) a) = GMutableRef m (f :*: g) a
     thawRef         = thawGMutableRef
-    {-# INLINE thawRef #-}
     freezeRef       = freezeGMutableRef
-    {-# INLINE freezeRef #-}
     copyRef         = copyGMutableRef
-    {-# INLINE copyRef #-}
     moveRef         = moveGMutableRef
-    {-# INLINE moveRef #-}
     cloneRef        = cloneGMutableRef
-    {-# INLINE cloneRef #-}
     unsafeThawRef   = unsafeThawGMutableRef
-    {-# INLINE unsafeThawRef #-}
     unsafeFreezeRef = unsafeFreezeGMutableRef
-    {-# INLINE unsafeFreezeRef #-}
 
 instance (GMutable m f, GMutable m g, PrimMonad m) => Mutable m ((f :+: g) a) where
     type Ref m ((f :+: g) a) = GMutableRef m (f :+: g) a
     thawRef         = thawGMutableRef
-    {-# INLINE thawRef #-}
     freezeRef       = freezeGMutableRef
-    {-# INLINE freezeRef #-}
     copyRef         = copyGMutableRef
-    {-# INLINE copyRef #-}
     moveRef         = moveGMutableRef
-    {-# INLINE moveRef #-}
     cloneRef        = cloneGMutableRef
-    {-# INLINE cloneRef #-}
     unsafeThawRef   = unsafeThawGMutableRef
-    {-# INLINE unsafeThawRef #-}
     unsafeFreezeRef = unsafeFreezeGMutableRef
-    {-# INLINE unsafeFreezeRef #-}
 
 
 -- | Automatically generate a piecewise mutable reference for any 'Generic'
@@ -1174,7 +1024,6 @@ gThawRef
     => a
     -> m (GRef m a)
 gThawRef = fmap GRef . gThawRef_ . from
-{-# INLINE gThawRef #-}
 
 -- | Default 'freezeRef' for 'GRef'.
 --
@@ -1188,7 +1037,6 @@ gFreezeRef
     => GRef m a
     -> m a
 gFreezeRef = fmap to . gFreezeRef_ . unGRef
-{-# INLINE gFreezeRef #-}
 
 -- | Default 'copyRef' for 'GRef'.
 --
@@ -1203,7 +1051,6 @@ gCopyRef
     -> a
     -> m ()
 gCopyRef (GRef v) x = gCopyRef_ v (from x)
-{-# INLINE gCopyRef #-}
 
 -- | Default 'moveRef' for 'GRef'.
 --
@@ -1218,7 +1065,6 @@ gMoveRef
     -> GRef m a
     -> m ()
 gMoveRef (GRef v) (GRef u) = gMoveRef_ v u
-{-# INLINE gMoveRef #-}
 
 -- | Default 'cloneRef' for 'GRef'.
 --
@@ -1232,7 +1078,6 @@ gCloneRef
     => GRef m a
     -> m (GRef m a)
 gCloneRef (GRef v) = GRef <$> gCloneRef_ v
-{-# INLINE gCloneRef #-}
 
 -- | Default 'unsafeThawRef' for 'GRef'.
 --
@@ -1246,7 +1091,6 @@ gUnsafeThawRef
     => a
     -> m (GRef m a)
 gUnsafeThawRef = fmap GRef . gUnsafeThawRef_ . from
-{-# INLINE gUnsafeThawRef #-}
 
 -- | Default 'unsafeFreezeRef' for 'GRef'.
 --
@@ -1260,7 +1104,6 @@ gUnsafeFreezeRef
     => GRef m a
     -> m a
 gUnsafeFreezeRef = fmap to . gUnsafeFreezeRef_ . unGRef
-{-# INLINE gUnsafeFreezeRef #-}
 
 
 -- | Default 'thawRef' for the higher-kinded data pattern, a la
@@ -1281,7 +1124,6 @@ thawHKD
     => z Identity
     -> m (z (RefFor m))
 thawHKD = fmap to . gThawRef_ . from
-{-# INLINE thawHKD #-}
 
 -- | Default 'freezeRef' for the higher-kinded data pattern, a la
 -- <https://reasonablypolymorphic.com/blog/higher-kinded-data/>.
@@ -1301,7 +1143,6 @@ freezeHKD
     => z (RefFor m)
     -> m (z Identity)
 freezeHKD = fmap to . gFreezeRef_ . from
-{-# INLINE freezeHKD #-}
 
 -- | Default 'copyRef' for the higher-kinded data pattern, a la
 -- <https://reasonablypolymorphic.com/blog/higher-kinded-data/>.
@@ -1322,7 +1163,6 @@ copyHKD
     -> z Identity
     -> m ()
 copyHKD r x = gCopyRef_ (from r) (from x)
-{-# INLINE copyHKD #-}
 
 -- | Default 'moveRef' for the higher-kinded data pattern, a la
 -- <https://reasonablypolymorphic.com/blog/higher-kinded-data/>.
@@ -1342,7 +1182,6 @@ moveHKD
     -> z (RefFor m)
     -> m ()
 moveHKD r x = gMoveRef_ (from r) (from x)
-{-# INLINE moveHKD #-}
 
 -- | Default 'cloneRef' for the higher-kinded data pattern, a la
 -- <https://reasonablypolymorphic.com/blog/higher-kinded-data/>.
@@ -1361,7 +1200,6 @@ cloneHKD
     => z (RefFor m)
     -> m (z (RefFor m))
 cloneHKD = fmap to . gCloneRef_ . from
-{-# INLINE cloneHKD #-}
 
 -- | Default 'unsafeThawRef' for the higher-kinded data pattern, a la
 -- <https://reasonablypolymorphic.com/blog/higher-kinded-data/>.
@@ -1381,7 +1219,6 @@ unsafeThawHKD
     => z Identity
     -> m (z (RefFor m))
 unsafeThawHKD = fmap to . gUnsafeThawRef_ . from
-{-# INLINE unsafeThawHKD #-}
 
 -- | Default 'unsafeFreezeRef' for the higher-kinded data pattern, a la
 -- <https://reasonablypolymorphic.com/blog/higher-kinded-data/>.
@@ -1401,4 +1238,3 @@ unsafeFreezeHKD
     => z (RefFor m)
     -> m (z Identity)
 unsafeFreezeHKD = fmap to . gUnsafeFreezeRef_ . from
-{-# INLINE unsafeFreezeHKD #-}

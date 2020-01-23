@@ -216,7 +216,6 @@ vfParts = hkdMutParts @(V4F a)
 
 partRep :: Mutable m a => (forall b. Mutable m b => MutPart m (V4 b) b) -> MutPart m (V16 a) a
 partRep f = f . f . f . f . coerceRef
-{-# INLINE partRep #-}
 
 modPartHKD :: forall m a. Mutable m a => MutPart m (V16F a) a
 modPartHKD = _vf4X vfParts

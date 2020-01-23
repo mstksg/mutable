@@ -75,7 +75,6 @@ updateRef v f = do
     (x, y) <- f <$> freezeRef v
     copyRef v x
     return y
-{-# INLINE updateRef #-}
 
 -- | 'updateRef', but forces the updated value before storing it back in the
 -- reference.
@@ -84,7 +83,6 @@ updateRef' v f = do
     (x, y) <- f <$> freezeRef v
     x `seq` copyRef v x
     return y
-{-# INLINE updateRef' #-}
 
 -- | A default implementation of 'copyRef' using 'thawRef' and 'moveRef'.
 copyRefWhole
@@ -162,9 +160,7 @@ newtype VarMut a = VarMut { getVarMut :: a }
 instance X.IsoHKD VarMut a where
     type HKD VarMut a = a
     unHKD = VarMut
-    {-# INLINE unHKD #-}
     toHKD = getVarMut
-    {-# INLINE toHKD #-}
 
 instance PrimMonad m => Mutable m (VarMut a) where
     type Ref m (VarMut a) = MutVar (PrimState m) (VarMut a)
@@ -185,9 +181,7 @@ newtype TraverseMut f a = TraverseMut { getTraverseMut :: f a }
 instance X.IsoHKD (TraverseMut f) a where
     type HKD (TraverseMut f) a = f a
     unHKD = TraverseMut
-    {-# INLINE unHKD #-}
     toHKD = getTraverseMut
-    {-# INLINE toHKD #-}
 
 instance (Traversable f, Mutable m a) => Mutable m (TraverseMut f a) where
     type Ref m (TraverseMut f a) = TraverseRef m (TraverseMut f) a
@@ -220,9 +214,7 @@ newtype CoerceMut s a = CoerceMut { getCoerceMut :: s }
 instance X.IsoHKD (CoerceMut s) a where
     type HKD (CoerceMut s) a = s
     unHKD = CoerceMut
-    {-# INLINE unHKD #-}
     toHKD = getCoerceMut
-    {-# INLINE toHKD #-}
 
 instance (Mutable m a, Coercible s a) => Mutable m (CoerceMut s a) where
     type Ref m (CoerceMut s a) = CoerceRef m (CoerceMut s a) a
@@ -270,9 +262,7 @@ newtype Immutable a = Immutable { getImmutable :: a }
 instance X.IsoHKD Immutable a where
     type HKD Immutable a = a
     unHKD = Immutable
-    {-# INLINE unHKD #-}
     toHKD = getImmutable
-    {-# INLINE toHKD #-}
 
 
 instance Monad m => Mutable m (Immutable a) where
@@ -287,35 +277,27 @@ instance (Monad n, Mutable m a, Reifies s (ReMutableTrans m n)) => Mutable n (Re
     thawRef (ReMutable x) = runRMT rmt $ ReMutable <$> thawRef @m @a x
       where
         rmt = reflect (Proxy @s)
-    {-# INLINE thawRef #-}
     freezeRef (ReMutable v) = runRMT rmt $ ReMutable <$> freezeRef @m @a v
       where
         rmt = reflect (Proxy @s)
-    {-# INLINE freezeRef #-}
     copyRef (ReMutable x) (ReMutable v) = runRMT rmt $ copyRef @m @a x v
       where
         rmt = reflect (Proxy @s)
-    {-# INLINE copyRef #-}
     moveRef (ReMutable x) (ReMutable v) = runRMT rmt $ moveRef @m @a x v
       where
         rmt = reflect (Proxy @s)
-    {-# INLINE moveRef #-}
     cloneRef (ReMutable x) = runRMT rmt $ ReMutable <$> cloneRef @m @a x
       where
         rmt = reflect (Proxy @s)
-    {-# INLINE cloneRef #-}
     unsafeThawRef (ReMutable x) = runRMT rmt $ ReMutable <$> unsafeThawRef @m @a x
       where
         rmt = reflect (Proxy @s)
-    {-# INLINE unsafeThawRef #-}
     unsafeFreezeRef (ReMutable v) = runRMT rmt $ ReMutable <$> unsafeFreezeRef @m @a v
       where
         rmt = reflect (Proxy @s)
-    {-# INLINE unsafeFreezeRef #-}
 
 unsafeReMutable :: forall s m n a. Mutable n (ReMutable s m a) :- Mutable n a
 unsafeReMutable = unsafeCoerceConstraint
-{-# INLINE unsafeReMutable #-}
 
 -- | If you can provice a natural transformation from @m@ to @n@, you
 -- should be able to use a value as if it had @'Mutable' n a@ if you have
@@ -326,7 +308,6 @@ reMutable
     -> (Mutable n a => r)
     -> r
 reMutable f x = x \\ reMutableConstraint @m @n @a f
-{-# INLINE reMutable #-}
 
 -- | If you can provice a natural transformation from @m@ to @n@, then
 -- @'Mutable' m a@ should also imply @'Mutable' n a@.

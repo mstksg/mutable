@@ -53,6 +53,7 @@ module Data.Mutable.Instances (
   , ImmutableRef(..), thawImmutable, freezeImmutable, copyImmutable
   -- * Instances for Generics combinators themselves
   , GMutableRef(..)
+  , MutSumF(..)
   ) where
 
 import           Control.Applicative
@@ -224,7 +225,7 @@ unconsListRef
     :: PrimMonad m
     => Ref m [a]
     -> m (ListRefCell m a)
-unconsListRef (GRef (M1 (Comp1 x))) = readMutVar x <&> \case
+unconsListRef (GRef (M1 (MutSumF x))) = readMutVar x <&> \case
     L1 _ -> MutNil
     R1 (M1 (M1 (K1 y) :*: M1 (K1 z))) -> MutCons y z
 
@@ -233,7 +234,7 @@ consListRef
     :: PrimMonad m
     => ListRefCell m a
     -> m (Ref m [a])
-consListRef lrc = GRef . M1 . Comp1 <$> newMutVar go
+consListRef lrc = GRef . M1 . MutSumF <$> newMutVar go
   where
     go = case lrc of
       MutNil       -> L1 . M1 $ U1

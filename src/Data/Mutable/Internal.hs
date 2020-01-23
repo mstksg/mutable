@@ -43,6 +43,7 @@ module Data.Mutable.Internal (
   , ImmutableRef(..), thawImmutable, freezeImmutable, copyImmutable
   -- ** Instances for Generics combinators themselves
   , GMutableRef(..)
+  , MutSumF(..)
   ) where
 
 import           Control.Monad.Primitive
@@ -858,36 +859,41 @@ instance GMutable m f => GMutable m (M1 i c f) where
     gUnsafeThawRef_         = fmap M1 . gUnsafeThawRef_ . unM1
     gUnsafeFreezeRef_       = fmap M1 . gUnsafeFreezeRef_ . unM1
 
+-- | Wraps ':+:' in a mutable reference.  Used internally to represent
+-- generic sum references.
+newtype MutSumF m f g a = MutSumF { getMutSumF :: MutVar (PrimState m) ((f :+: g) a) }
+
 instance (GMutable m f, GMutable m g, PrimMonad m) => GMutable m (f :+: g) where
-    type GRef_ m (f :+: g) = MutVar (PrimState m) :.: (GRef_ m f :+: GRef_ m g)
+    type GRef_ m (f :+: g) = MutSumF m (GRef_ m f) (GRef_ m g)
+    -- MutVar (PrimState m) :.: (GRef_ m f :+: GRef_ m g)
 
     gThawRef_ = \case
-      L1 x -> fmap Comp1 . newMutVar . L1 =<< gThawRef_ x
-      R1 x -> fmap Comp1 . newMutVar . R1 =<< gThawRef_ x
-    gFreezeRef_ (Comp1 r) = readMutVar r >>= \case
+      L1 x -> fmap MutSumF . newMutVar . L1 =<< gThawRef_ x
+      R1 x -> fmap MutSumF . newMutVar . R1 =<< gThawRef_ x
+    gFreezeRef_ (MutSumF r) = readMutVar r >>= \case
       L1 v -> L1 <$> gFreezeRef_ v
       R1 u -> R1 <$> gFreezeRef_ u
-    gCopyRef_ (Comp1 r) xy = readMutVar r >>= \case
+    gCopyRef_ (MutSumF r) xy = readMutVar r >>= \case
       L1 v -> case xy of
         L1 x -> gCopyRef_ v x
         R1 y -> writeMutVar r . R1 =<< gThawRef_ y
       R1 u -> case xy of
         L1 x -> writeMutVar r . L1 =<< gThawRef_ x
         R1 y -> gCopyRef_ u y
-    gMoveRef_ (Comp1 u) (Comp1 v) = readMutVar v >>= \case
+    gMoveRef_ (MutSumF u) (MutSumF v) = readMutVar v >>= \case
       L1 vl -> readMutVar u >>= \case
         L1 ul -> gMoveRef_ ul vl
         R1 _  -> writeMutVar u . L1 =<< gCloneRef_ vl
       R1 vr -> readMutVar u >>= \case
         L1 _  -> writeMutVar u . R1 =<< gCloneRef_ vr
         R1 ur -> gMoveRef_ ur vr
-    gCloneRef_ (Comp1 v) = readMutVar v >>= \case
-      L1 u -> fmap Comp1 . newMutVar . L1 =<< gCloneRef_ u
-      R1 u -> fmap Comp1 . newMutVar . R1 =<< gCloneRef_ u
+    gCloneRef_ (MutSumF v) = readMutVar v >>= \case
+      L1 u -> fmap MutSumF . newMutVar . L1 =<< gCloneRef_ u
+      R1 u -> fmap MutSumF . newMutVar . R1 =<< gCloneRef_ u
     gUnsafeThawRef_ = \case
-      L1 x -> fmap Comp1 . newMutVar . L1 =<< gUnsafeThawRef_ x
-      R1 x -> fmap Comp1 . newMutVar . R1 =<< gUnsafeThawRef_ x
-    gUnsafeFreezeRef_ (Comp1 r) = readMutVar r >>= \case
+      L1 x -> fmap MutSumF . newMutVar . L1 =<< gUnsafeThawRef_ x
+      R1 x -> fmap MutSumF . newMutVar . R1 =<< gUnsafeThawRef_ x
+    gUnsafeFreezeRef_ (MutSumF r) = readMutVar r >>= \case
       L1 v -> L1 <$> gUnsafeFreezeRef_ v
       R1 u -> R1 <$> gUnsafeFreezeRef_ u
 

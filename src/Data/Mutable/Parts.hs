@@ -52,23 +52,25 @@ module Data.Mutable.Parts (
 
 import           Control.Monad.Primitive
 import           Data.Coerce
-import           Data.GenericLens.Internal              (HList(..))
+import           Data.GenericLens.Internal               (HList(..))
 import           Data.Kind
 import           Data.Mutable.Class
 import           Data.Mutable.Instances
 import           Data.Primitive.MutVar
 import           Data.Proxy
-import           Data.Vinyl hiding                      (HList)
+import           Data.Type.Bool
+import           Data.Vinyl hiding                       (HList)
 import           Data.Vinyl.Functor
 import           GHC.Generics
 import           GHC.TypeLits
-import qualified Control.Category                       as C
-import qualified Data.GenericLens.Internal              as GL
-import qualified Data.Generics.Internal.Profunctor.Lens as GLP
-import qualified Data.Generics.Product.Fields           as GL
-import qualified Data.Generics.Product.Positions        as GL
-import qualified Data.Vinyl.TypeLevel                   as V
-import qualified Data.Vinyl.XRec                        as X
+import qualified Control.Category                        as C
+import qualified Data.GenericLens.Internal               as GL
+import qualified Data.Generics.Internal.Profunctor.Lens  as GLP
+import qualified Data.Generics.Internal.Profunctor.Prism as GLP
+import qualified Data.Generics.Product.Fields            as GL
+import qualified Data.Generics.Product.Positions         as GL
+import qualified Data.Vinyl.TypeLevel                    as V
+import qualified Data.Vinyl.XRec                         as X
 
 
 -- | A @'MutPart' m s a@ is a way to "zoom into" an @a@, as a part of
@@ -561,7 +563,7 @@ instance
       )
       => ListMut m s as where
     listMut = MutPart $ hListToRef (rpure Proxy)
-                      . GLP.view (GL.glist @(GRef_ m (Rep s)) @(GRef_ m (Rep s)) @(MapRef m as) @(MapRef m as))
+                      . GLP.view GL.glist
                       . unGRef
 
 
@@ -599,6 +601,100 @@ withListMut
     -> m b
 withListMut = withMutPart listMut
 
+class (GMutable m f, Mutable m (HList as), Ref m (HList as) ~ HListRef m as) => GMutBranchConstructor (ctor :: Symbol) m f as | ctor f -> as where
+    gmbcClone :: GRef_ m f x -> m (Maybe (HListRef m as))
+    gmbcMove  :: GRef_ m f x -> HListRef m as -> m ()
+
+instance
+      ( GMutable m f
+      , Mutable m (HList as)
+      , Ref m (HList as) ~ HListRef m as
+      , GL.GIsList (GRef_ m f) (GRef_ m f) (MapRef m as) (MapRef m as)
+      , GL.GIsList f f as as
+      , RecApplicative as
+      )
+      => GMutBranchConstructor ctor m (M1 C ('MetaCons ctor fixity fields) f) as where
+    gmbcClone = pure
+              . Just
+              . hListToRef (rpure Proxy)
+              . GLP.view GL.glist
+              . unM1
+    gmbcMove = moveRef . hListToRef (rpure Proxy) . GLP.view GL.glist . unM1
+
+instance GMutBranchConstructor ctor m f as => GMutBranchConstructor ctor m (M1 D meta f) as where
+    gmbcClone = gmbcClone @ctor . unM1
+    gmbcMove  = gmbcMove  @ctor . unM1
+
+instance
+      ( PrimMonad m
+      , Mutable m (HList as)
+      , GMutBranchSum ctor (GL.HasCtorP ctor l) m l r as
+      )
+      => GMutBranchConstructor ctor m (l :+: r) as where
+    gmbcClone = gmbsClone @ctor @(GL.HasCtorP ctor l)
+    gmbcMove  = gmbsMove @ctor @(GL.HasCtorP ctor l)
+
+class (GMutable m l, GMutable m r, Mutable m (HList as), Ref m (HList as) ~ HListRef m as) => GMutBranchSum (ctor :: Symbol) (contains :: Bool) m l r as | ctor l r -> as where
+    gmbsClone :: MutSumF m (GRef_ m l) (GRef_ m r) x -> m (Maybe (HListRef m as))
+    gmbsMove  :: MutSumF m (GRef_ m l) (GRef_ m r) x -> HListRef m as -> m ()
+
+instance
+      ( PrimMonad m
+      , GMutable m r
+      , GMutBranchConstructor ctor m l as
+      , GL.GIsList (GRef_ m l) (GRef_ m l) (MapRef m as) (MapRef m as)
+      , GL.GIsList l l as as
+      )
+      => GMutBranchSum ctor 'True m l r as where
+    gmbsClone (MutSumF r) = readMutVar r >>= \case
+      L1 x -> gmbcClone @ctor x
+      R1 _ -> pure Nothing
+    gmbsMove (MutSumF r) a = readMutVar r >>= \case
+      L1 x  -> gmbcMove @ctor x a
+      R1 _  -> writeMutVar r . L1 . GLP.view GL.glistR . hRefToList $ a
+
+instance
+      ( PrimMonad m
+      , GMutable m l
+      , GMutBranchConstructor ctor m r as
+      , GL.GIsList (GRef_ m r) (GRef_ m r) (MapRef m as) (MapRef m as)
+      , GL.GIsList r r as as
+      )
+      => GMutBranchSum ctor 'False m l r as where
+    gmbsClone (MutSumF r) = readMutVar r >>= \case
+      L1 _ -> pure Nothing
+      R1 x -> gmbcClone @ctor x
+    gmbsMove (MutSumF r) a = readMutVar r >>= \case
+      L1 _  -> writeMutVar r . R1 . GLP.view GL.glistR . hRefToList $ a
+      R1 x  -> gmbcMove @ctor x a
+
+hRefToList :: HListRef m as -> HList (MapRef m as)
+hRefToList = \case
+    NilRef -> Nil
+    x :!> xs -> x :> hRefToList xs
+
+type family HasCtorPRef (ctor :: Symbol) f :: Bool where
+  HasCtorPRef ctor (C1 ('MetaCons ctor _ _) _)
+    = 'True
+  HasCtorPRef ctor (f :+: g)
+    = HasCtorPRef ctor f || HasCtorPRef ctor g
+  HasCtorPRef ctor (MutSumF m f g)
+    = HasCtorPRef ctor f || HasCtorPRef ctor g
+  HasCtorPRef ctor (D1 m f)
+    = HasCtorPRef ctor f
+  HasCtorPRef ctor _
+    = 'False
+
+constrMutBranch
+    :: forall ctor m s as.
+     ( Ref m s ~ GRef m s
+     , GMutBranchConstructor ctor m (Rep s) as
+     )
+    => MutBranch m s (HList as)
+constrMutBranch = MutBranch
+    { cloneMutBranch = gmbcClone @ctor . unGRef
+    , moveMutBranch  = gmbcMove  @ctor . unGRef
+    }
 
 
 
@@ -615,14 +711,14 @@ data MutBranch m s a = MutBranch
 consMB :: (PrimMonad m, Mutable m a) => MutBranch m [a] (a, [a])
 consMB = MutBranch
     { cloneMutBranch = \case
-        GRef (M1 (Comp1 r)) -> readMutVar r >>= \case
+        GRef (M1 (MutSumF r)) -> readMutVar r >>= \case
           L1 _ -> pure Nothing
           R1 (M1 (M1 (K1 x) :*: M1 (K1 xs))) -> do
             y  <- cloneRef x
             ys <- cloneRef xs
             pure $ Just (y, ys)
     , moveMutBranch  = \case
-        GRef (M1 (Comp1 r)) -> \(x, xs) -> readMutVar r >>= \case
+        GRef (M1 (MutSumF r)) -> \(x, xs) -> readMutVar r >>= \case
           L1 _ -> writeMutVar r $ R1 (M1 (M1 (K1 x) :*: M1 (K1 xs)))
           R1 (M1 (M1 (K1 y) :*: M1 (K1 ys))) -> do
             moveRef y  x
@@ -665,4 +761,3 @@ type family TraverseProd (c :: G -> G -> G) (a :: (G, Nat)) (r :: G) :: (G, Nat)
 
 type family Fst (p :: (a, b)) :: a where
   Fst '(a, b) = a
-

@@ -8,16 +8,25 @@
 
 [docs]: https://mutable.jle.im
 
-Automatic *heterogeneous* back-propagation.
-
-Associate and generate "piecewise-mutable" versions for your composite data
-types.  Think of it like a "generalized `MVector` for all ADTs".
+Take back the power of **mutable objects** with all the **safety** and explicit
+state of Haskell. Associate and generate "piecewise-mutable" versions for your
+composite data types in a composable and automatic way.  Think of it like a
+"generalized `MVector` for all ADTs".
 
 Useful for a situation where you have a record with many fields (or many nested
 records) that you want to use for efficient mutable in-place algorithms.  This
 library lets you do efficient "piecewise" mutations (operations that only edit
 one field), and also efficient entire-datatype copies/updates, as well, in many
 cases.
+
+Making piecewise updates on your giant composite data types (like artificial
+neural networks or game states in your game loop) got you down?  Tired of
+requiring a full deep copy every time you make a small change, and want to be
+able to build mutable versions of your types automatically in composable ways?
+This is the package for you.
+
+Check out the [documentation home page][docs] to start using this library, or
+read below for motivation and high-level descriptions.
 
 Motivation
 ----------

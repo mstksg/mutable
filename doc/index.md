@@ -25,15 +25,16 @@ import qualified Data.Vector         as V
 import qualified Data.Vector.Mutable as MV
 ```
 
-Making piecewise updates on your giant composite data types (like artificial
-neural networks or game states in your game loop) got you down?  Tired of
-requiring a full deep copy every time you make a small change, and want to be
-able to build mutable versions of your types automatically in composable ways?
-
 Take back the power of **mutable objects** with all the **safety** and explicit
 state of Haskell. Associate and generate "piecewise-mutable" versions for your
 composite data types in a composable and automatic way.  Think of it like a
 "generalized `MVector` for all ADTs".
+
+Making piecewise updates on your giant composite data types (like artificial
+neural networks or game states in your game loop) got you down?  Tired of
+requiring a full deep copy every time you make a small change, and want to be
+able to build mutable versions of your types automatically in composable ways?
+This is the package for you.
 
 ```haskell top
 data MyType = MT

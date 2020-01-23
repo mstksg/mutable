@@ -28,7 +28,8 @@ import qualified Data.Vector.Mutable as MV
 Take back the power of **mutable objects** with all the **safety** and explicit
 state of Haskell. Associate and generate "piecewise-mutable" versions for your
 composite data types in a composable and automatic way.  Think of it like a
-"generalized `MVector` for all ADTs".
+"generalized `MVector` for all ADTs".  It also leverages GHC Generics to make
+working with piecewise mutability as simple as possible.
 
 Making piecewise updates on your giant composite data types (like artificial
 neural networks or game states in your game loop) got you down?  Tired of

@@ -71,7 +71,16 @@ import qualified Data.Generics.Internal.Profunctor.Lens as GLP
 -- If 'Data.Mutable.Parts.MutPart' is for product types, then 'MutBranch'
 -- is for sum types.
 --
--- The simplest way to make these is by using 'constrMB':
+-- In this case, "branch" means "potential option".  For example, the
+-- branches of 'Either' are 'Left' and 'Right'.
+--
+-- The simplest way to make these is by using 'constrMB'.  For instance, to
+-- get the two branches of an 'Either':
+--
+-- @
+-- constrMB #_Left   :: MutBranch m (Either a b) a
+-- constrMB #_Right  :: MutBranch m (Either a b) b
+-- @
 --
 -- @
 -- ghci> r <- 'thawRef' (Left 10)
@@ -107,32 +116,35 @@ data MutBranch m s a = MutBranch
       --
       -- @
       -- ghci> r <- thawRef (Left 10)
-      -- ghci> s <- cloneMutBranch (constrMB #_Left)
+      -- ghci> s <- cloneBranch (constrMB #_Left)
       -- ghci> case s of Just s' -> freezeRef s'
       -- 10
       -- @
       --
       -- @
       -- ghci> r <- thawRef (Right True)
-      -- ghci> s <- cloneMutBranch (constrMB #_Left)
+      -- ghci> s <- cloneBranch (constrMB #_Left)
       -- ghci> case s of Nothing -> "it was Right"
       -- "it was Right"
       -- @
-      cloneMutBranch :: Ref m s -> m (Maybe (Ref m a))
+      cloneBranch :: Ref m s -> m (Maybe (Ref m a))
       -- | With a 'MutBranch', overwrite an @s@ as an @a@, on that branch.
       --
       -- @
       -- ghci> r <- thawRef (Left 10)
       -- ghci> s <- thawRef 100
-      -- ghci> moveMutBranch (constrMB #_Left) r s
+      -- ghci> moveBranch (constrMB #_Left) r s
       -- ghci> freezeRef r
       -- Left 100
       -- ghci> t <- thawRef True
-      -- ghci> moveMutBranch (constrMB #_Right) r t
+      -- ghci> moveBranch (constrMB #_Right) r t
       -- ghci> freezeRef r
       -- Right True
       -- @
-    , moveMutBranch  :: Ref m s -> Ref m a -> m ()
+      --
+      -- This function can be implemented in terms of 'embedBranch', but
+      -- can be more performant if implemented directly.
+    , moveBranch  :: Ref m s -> Ref m a -> m ()
       -- | Embed an @a@ ref as a part of a larger @s@ ref.  Note that this
       -- /does not copy or clone/: any mutations to the @a@ ref will be
       -- reflected in the @s@ ref, as long as the @s@ ref maintains the
@@ -140,7 +152,7 @@ data MutBranch m s a = MutBranch
       --
       -- @
       -- ghci> r <- thawRef 100
-      -- ghci> s <- embedMutBranch (constMB #_Left) r
+      -- ghci> s <- embedBranch (constMB #_Left) r
       -- ghci> freezeRef s
       -- Left 100
       -- ghci> modifyRef r (+ 1)
@@ -166,23 +178,23 @@ data MutBranch m s a = MutBranch
       -- ghci> freezeRef r
       -- 0
       -- @
-    , embedMutBranch :: Ref m a -> m (Ref m s)
+    , embedBranch :: Ref m a -> m (Ref m s)
     }
 
 -- | Compose two 'MutBranch's, to drill down on what is being focused.
 compMB :: Monad m => MutBranch m a b -> MutBranch m b c -> MutBranch m a c
 compMB mb1 mb2 = MutBranch
-    { cloneMutBranch = cloneMutBranch mb1 >=> \case
+    { cloneBranch = cloneBranch mb1 >=> \case
         Nothing -> pure Nothing
-        Just s  -> cloneMutBranch mb2 s
-    , moveMutBranch  = \r x -> do
-        s <- embedMutBranch mb2 x
-        moveMutBranch mb1 r s
-    , embedMutBranch = embedMutBranch mb1 <=< embedMutBranch mb2
+        Just s  -> cloneBranch mb2 s
+    , moveBranch  = \r x -> do
+        s <- embedBranch mb2 x
+        moveBranch mb1 r s
+    , embedBranch = embedBranch mb1 <=< embedBranch mb2
     }
 
 -- | An identity 'MutBranch', treating the item itself as a whole branch.
--- 'cloneMutBranch' will always "match".
+-- 'cloneBranch' will always "match".
 idMB :: Mutable m a => MutBranch m a a
 idMB = MutBranch (fmap Just . cloneRef) moveRef pure
 
@@ -198,7 +210,7 @@ thawBranch
     => MutBranch m s a
     -> a
     -> m (Ref m s)
-thawBranch mb = embedMutBranch mb <=< thawRef
+thawBranch mb = embedBranch mb <=< thawRef
 
 -- | With a 'MutBranch', read out a specific @a@ branch of an @s@, if it exists.
 --
@@ -214,7 +226,7 @@ freezeBranch
     => MutBranch m s a    -- ^ How to check if is @s@ is an @a@
     -> Ref m s            -- ^ Structure to read out of
     -> m (Maybe a)
-freezeBranch mb = mapM freezeRef <=< cloneMutBranch mb
+freezeBranch mb = mapM freezeRef <=< cloneBranch mb
 
 -- | With a 'MutBranch', /set/ @s@ to have the branch @a@.
 --
@@ -233,7 +245,7 @@ copyBranch
     -> Ref m s              -- ^ Structure to write into
     -> a                    -- ^ Value to set @s@ to be
     -> m ()
-copyBranch mb r = moveMutBranch mb r <=< thawRef
+copyBranch mb r = moveBranch mb r <=< thawRef
 
 -- | A non-copying version of 'freezeBranch' that can be more efficient
 -- for types where the mutable representation is the same as the immutable
@@ -247,7 +259,7 @@ unsafeFreezeBranch
     => MutBranch m s a    -- ^ How to check if is @s@ is an @a@
     -> Ref m s            -- ^ Structure to read out of
     -> m (Maybe a)
-unsafeFreezeBranch mb = mapM unsafeFreezeRef <=< cloneMutBranch mb
+unsafeFreezeBranch mb = mapM unsafeFreezeRef <=< cloneBranch mb
 
 -- | A non-copying version of 'thawBranch' that can be more efficient for
 -- types where the mutable representation is the same as the immutable one
@@ -260,7 +272,7 @@ unsafeThawBranch
     => MutBranch m s a
     -> a
     -> m (Ref m s)
-unsafeThawBranch mb = embedMutBranch mb <=< unsafeThawRef
+unsafeThawBranch mb = embedBranch mb <=< unsafeThawRef
 
 
 -- | With a 'MutBranch', if an @s@ is on the @a@ branch, perform an action
@@ -288,9 +300,9 @@ withBranch
     -> Ref m s            -- ^ Structure to read out of and write into
     -> (Ref m a -> m b)   -- ^ Action to perform on the @a@ branch of @s@
     -> m (Maybe b)
-withBranch mb r f = cloneMutBranch mb r >>= \case
+withBranch mb r f = cloneBranch mb r >>= \case
     Nothing -> pure Nothing
-    Just s  -> (Just <$> f s) <* moveMutBranch mb r s
+    Just s  -> (Just <$> f s) <* moveBranch mb r s
 
 -- | 'withBranch', but discarding the returned value.
 withBranch_
@@ -441,11 +453,7 @@ instance
       , Ref m a ~ b
       )
       => GMutBranchConstructor ctor m (M1 C ('MetaCons ctor fixity fields) f) a where
-    gmbcClone _ = pure
-                . Just
-                . GL.listToTuple
-                . GLP.view GL.glist
-                . unM1
+    gmbcClone _ = pure . Just . GL.listToTuple . GLP.view GL.glist . unM1
     gmbcMove _  = moveRef . GL.listToTuple . GLP.view GL.glist . unM1
     gmbcEmbed _ = pure . M1 . GLP.view GL.glistR . GL.tupleToList
 
@@ -538,9 +546,9 @@ constrMB
     => CLabel ctor
     -> MutBranch m s a
 constrMB l = MutBranch
-    { cloneMutBranch = gmbcClone l . unGRef
-    , moveMutBranch  = gmbcMove  l . unGRef
-    , embedMutBranch = fmap GRef . gmbcEmbed l
+    { cloneBranch = gmbcClone l . unGRef
+    , moveBranch  = gmbcMove  l . unGRef
+    , embedBranch = fmap GRef . gmbcEmbed l
     }
 
 -- | 'MutBranch' focusing on the nil case of a list

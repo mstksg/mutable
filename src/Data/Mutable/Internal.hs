@@ -792,7 +792,6 @@ cloneImmutable = pure
 
 -- | Class for automatic generation of 'Ref' for 'Generic' instances.  See
 -- 'GRef' for more information.
--- class (Monad m, forall a. Eq (GRef_ m f a)) => GMutable m f where
 class Monad m => GMutable m f where
     type GRef_ m f = (u :: k -> Type) | u -> f
 
@@ -1004,9 +1003,8 @@ instance (GMutable m f, GMutable m g, PrimMonad m) => Mutable m ((f :+: g) a) wh
 -- type.  For a sum type (with multiple constructors), an extra layer of
 -- indirection is added to account for the dynamically changable shape.
 --
--- See 'Data.Mutable.MutPart.fieldMut'/'Data.Mutable.MutPart.posMut' for
--- nice ways to inspect and mutate the internals of this type (as
--- demonstrated above).
+-- See "Data.Mutable.Parts" and "Data.Mutable.Branches" for nice ways to
+-- inspect and mutate the internals of this type (as demonstrated above).  
 --
 -- If the facilities in those modules are not adequate, you can also
 -- manually crack open 'GRef' and work with the internals.  Getting the

@@ -167,7 +167,9 @@ mutable versions
 We can see four conclusions:
 
 1.  For a large ADT, updating a single field (or multiple fields, interleaved)
-    is going to be faster with *mutable*.
+    is going to be faster with *mutable*.  This speedup is between x4 and x5,
+    suggesting it is a speedup arising from the fact that the top-level type
+    has four fields.
 2.  For a large ADT, updating the whole ADT (so just replacing the entire
     thing, no actual copies) is faster just as a pure value by a large factor
     (which is a big testament to GHC).

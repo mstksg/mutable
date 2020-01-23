@@ -99,6 +99,7 @@ into" a mutable `a`, if you have a mutable `s`), which can be used with
 functions like `modifyPart` and `freezePart`:
 
 ```haskell
+-- | Data type to "focus in" on the 'mtDouble' field in a 'MyType'
 fieldMut #mtDouble
     :: MutPart m MyType Double
 
@@ -110,6 +111,7 @@ modifyPart (fieldMut #mtDouble)
 ```
 
 ```haskell
+-- | Data type to "focus in" on the first item in a 'MyType'
 posMut @1
     :: MutPart m MyType Int
 
@@ -120,6 +122,6 @@ freezePart (posMut @1)
 ```
 
 [Read on](/02-mutable-and-ref.html) for more information on how the library
-works, or jump right into the library with [Haddock Documentation][docs]**!
+works, or jump right into the library with **[Haddock Documentation][docs]**!
 
 [docs]: https://hackage.haskell.org/package/mutable

@@ -140,10 +140,12 @@ withMutPart mp x f = f (getMutPart mp x)
 -- | With a 'MutPart', read out a specific part of a 'Ref'.
 freezePart :: Mutable m a => MutPart m s a -> Ref m s -> m a
 freezePart mp = freezeRef . getMutPart mp
+{-# INLINE freezePart #-}
 
 -- | With a 'MutPart', overwrite into a specific part of a 'Ref'.
 copyPart :: Mutable m a => MutPart m s a -> Ref m s -> a -> m ()
 copyPart mp = copyRef . getMutPart mp
+{-# INLINE copyPart #-}
 
 -- | With a 'MutPart', copy a 'Ref' containing a subvalue into a specific
 -- part of a larger 'Ref'.
@@ -170,6 +172,7 @@ movePartInto
     -> Ref m a          -- ^ smaller type (source)
     -> m ()
 movePartInto mp = moveRef . getMutPart mp
+{-# INLINE movePartInto #-}
 
 -- | With a 'MutPart', copy a specific part of a larger 'Ref' into a 'Ref'
 -- of the smaller subvalue value.
@@ -196,6 +199,7 @@ movePartOver
     -> Ref m s          -- ^ bigger type (source)
     -> m ()
 movePartOver mp r = moveRef r . getMutPart mp
+{-# INLINE movePartOver #-}
 
 -- | With a 'MutPart', copy a specific part of a large 'Ref' into that
 -- same part in another large 'Ref'.
@@ -222,6 +226,7 @@ movePartWithin
     -> Ref m s              -- ^ source
     -> m ()
 movePartWithin mp r v = moveRef (getMutPart mp r) (getMutPart mp v)
+{-# INLINE movePartWithin #-}
 
 -- | Clone out a subvalue of a larger 'Ref'.
 clonePart
@@ -230,6 +235,7 @@ clonePart
     -> Ref m s
     -> m (Ref m a)
 clonePart mp = cloneRef . getMutPart mp
+{-# INLINE clonePart #-}
 
 -- | A non-copying version of 'unsafeFreezeRef' that can be more efficient for
 -- types where the mutable representation is the same as the immutable
@@ -240,6 +246,7 @@ clonePart mp = cloneRef . getMutPart mp
 -- magically.
 unsafeFreezePart :: Mutable m a => MutPart m s a -> Ref m s -> m a
 unsafeFreezePart mp = unsafeFreezeRef . getMutPart mp
+{-# INLINE unsafeFreezePart #-}
 
 
 
@@ -247,21 +254,25 @@ unsafeFreezePart mp = unsafeFreezeRef . getMutPart mp
 -- function.
 modifyPart :: Mutable m a => MutPart m s a -> Ref m s -> (a -> a) -> m ()
 modifyPart mp = modifyRef . getMutPart mp
+{-# INLINE modifyPart #-}
 
 -- | 'modifyPart', but forces the result before storing it back in the
 -- reference.
 modifyPart' :: Mutable m a => MutPart m s a -> Ref m s -> (a -> a) -> m ()
 modifyPart' mp = modifyRef' . getMutPart mp
+{-# INLINE modifyPart' #-}
 
 -- | 'updateRef', under a 'MutPart' to only modify a specific part of
 -- a 'Ref'.
 updatePart :: Mutable m a => MutPart m s a -> Ref m s -> (a -> (a, b)) -> m b
 updatePart mp = updateRef . getMutPart mp
+{-# INLINE updatePart #-}
 
 -- | 'updatePart', but forces the result before storing it back in the
 -- reference.
 updatePart' :: Mutable m a => MutPart m s a -> Ref m s -> (a -> (a, b)) -> m b
 updatePart' mp = updateRef' . getMutPart mp
+{-# INLINE updatePart' #-}
 
 -- | A 'MutPart' for a field in a vinyl 'Data.Vinyl.Rec', automatically
 -- generated as the first field with a matching type.  This is polymorphic
@@ -292,6 +303,7 @@ withCoerceRef
     -> (Ref m a -> m r)
     -> m r
 withCoerceRef x f = f (coerce x)
+{-# INLINE withCoerceRef #-}
 
 -- | Typeclass used to implement 'hkdMutParts'.  See documentation of
 -- 'hkdMutParts' for more information.
@@ -361,6 +373,7 @@ hkdMutParts
      )
     => z (MutPart m (z Identity))
 hkdMutParts = to $ hkdMutParts_ @m @z from
+{-# INLINE hkdMutParts #-}
 
 -- | Create a 'MutPart' for a field name.  Should work for any type with
 -- one constructor whose mutable reference is 'GRef'.  See 'fieldMut' for
@@ -426,6 +439,7 @@ withField
     -> (Ref m a -> m b)     -- ^ What to do with the mutable field
     -> m b
 withField l = withMutPart (fieldMut l)
+{-# INLINE withField #-}
 
 -- | A helpful wrapper around @'getMutPart' ('fieldMut' #blah)@.  Directly
 -- use a 'fieldMut' to access a mutable field.
@@ -435,6 +449,7 @@ mutField
     -> Ref m s              -- ^ Larger record reference
     -> Ref m a              -- ^ Internal mutable field
 mutField = getMutPart . fieldMut @_ @m
+{-# INLINE mutField #-}
 
 -- | Create a 'MutPart' for a position in a sum type.  Should work for any
 -- type with one constructor whose mutable reference is 'GRef'.  See
@@ -491,6 +506,7 @@ withPos
     -> (Ref m a -> m b)     -- ^ What to do with the mutable field
     -> m b
 withPos = withMutPart (posMut @i)
+{-# INLINE withPos #-}
 
 -- | A helpful wrapper around @'getMutPart' ('posMut' \@n)@.  Directly
 -- use a 'posMut' to access a mutable field.
@@ -499,6 +515,7 @@ mutPos
     => Ref m s              -- ^ Larger record reference
     -> Ref m a              -- ^ Internal mutable field
 mutPos = getMutPart (posMut @i @m)
+{-# INLINE mutPos #-}
 
 
 -- stuff from generic-lens that wasn't exported

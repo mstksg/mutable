@@ -121,7 +121,7 @@ mutLoop f n x0 = runST $ do
               go (i + 1)
           | otherwise = pure ()
     go 0
-    freezeRef r
+    unsafeFreezeRef r
 
 modifyPartMut :: (forall s. Mutable (ST s) a) => (forall s. MutPart (ST s) a Double) -> Int -> a -> a
 modifyPartMut f = mutLoop $ \r -> modifyPart' f r (+1)
@@ -216,6 +216,7 @@ vfParts = hkdMutParts @(V4F a)
 
 partRep :: Mutable m a => (forall b. Mutable m b => MutPart m (V4 b) b) -> MutPart m (V16 a) a
 partRep f = f . f . f . f . coerceRef
+{-# INLINE partRep #-}
 
 modPartHKD :: forall m a. Mutable m a => MutPart m (V16F a) a
 modPartHKD = _vf4X vfParts

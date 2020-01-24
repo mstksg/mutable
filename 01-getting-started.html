@@ -533,6 +533,32 @@ freezePart (posMut @1)
     :: Ref m MyPart
     -&gt; m Int
 </code></pre>
+<h2>Sum Types</h2>
+<p>We can get <code>GRef</code> for sum types too. As shown earlier, we get a mutable linked
+list type for free, and a nice &quot;pop&quot; function if we utilize <code>constrMB</code>:</p>
+<pre class="haskell"><code>data List a = Nil | Cons a (List a)
+  deriving (Show, Generic)
+infixr 5 `Cons`
+
+instance (Mutable m a, PrimMonad m) =&gt; Mutable m (List a) where
+    type Ref m (List a) = GRef m (List a)
+
+consBranch
+    :: (PrimMonad m, Mutable m a)
+    =&gt; MutBranch m (List a) (a, List a)
+consBranch = constrMB #_Cons
+
+popStack
+    :: (PrimMonad m, Mutable m a)
+    =&gt; Ref m (List a)
+    -&gt; m (Maybe a)
+popStack xs = do
+    c &lt;- projectBranch consBranch xs
+    forM c $ \(y, ys) -&gt; do
+      o &lt;- freezeRef y
+      moveRef xs ys
+      pure o
+</code></pre>
 <p><a href="/02-mutable-and-ref.html">Read on</a> for more information on how the library
 works, or jump right into the library with <strong><a href="https://hackage.haskell.org/package/mutable">Haddock Documentation</a></strong>!</p>
 </div></div></div></div></div></section><div class="tintin-doc-footer clear-fix"><div class="row next-prev"><div class="col-md-4 offset-md-4"><a href="index.html">&lt; Previous: Home</a></div><div class="col-md-4 ml-auto"><a href="02-mutable-and-ref.html">Next: Mutable and Ref &gt;</a></div></div><footer><div class="container"><div class="row"><div class="col"><p class="author">Developed by <span>Justin Le</span></p><p class="site-generated-message">Site generated with <a href="https://theam.github.io/tintin" class="tintin-logo"><img src="https://s3-eu-west-1.amazonaws.com/worldwideapps/assets/logo.svg" class="filter-gray"></a><span>&mdash; &copy; 2019 </span><a href="https://www.theagilemonkeys.com">The Agile Monkeys</a></p></div></div></div></footer></div></div><script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script><script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/haskell.min.js"></script><script src="https://cdn.rawgit.com/icons8/bower-webicon/v0.10.7/jquery-webicon.min.js"></script><script>hljs.initHighlightingOnLoad()</script><script>$(function () {$("#menu-toggle").click(function(e) {e.preventDefault();$("#wrapper").toggleClass("toggled");$("#menu-toggle img").toggleClass("rotateIn rotateOut");})});</script><script src="https://cdn.jsdelivr.net/npm/katex@0.10.0-alpha/dist/katex.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.9.0/contrib/auto-render.min.js"></script><script>renderMathInElement(document.body);</script></body></html>

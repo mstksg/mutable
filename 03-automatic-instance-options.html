@@ -526,42 +526,27 @@ of mutable values, which can all be updated independently.</p>
 <code>FieldMut</code> and <code>PosMut</code>. See <a href="/01-getting-started.html">Getting Started</a> for a
 summary on how to use these.</p>
 <h3>Sum Types</h3>
-<p>While slightly less useful, <code>GRef</code> also works for sum types, as well. For sum
-types, an extra layer of indirection is added: at the top level is a <code>MutVar</code>
-containing a reference to the contents of a constructor. For example:</p>
+<p><code>GRef</code> also works for sum types, as well. For sum types, an extra layer of
+indirection is added: at the top level is a <code>MutVar</code> containing a reference to
+the contents of a constructor. For example:</p>
 <pre class="haskell"><code>data IntOrBool = IBInt  Int
                | IBBool Bool
-</code></pre>
-<p>If you had</p>
-<pre class="haskell"><code>instance PrimMonad m =&gt; Mutable m IntOrBool where
-    type Ref m IntOrBool = GRef m IntOrBool
-</code></pre>
-<p>this is essentially equivalent to:</p>
-<pre class="haskell"><code>newtype IntOrBoolRef s = IBR
-    { getIBR :: MutVar s (Either (MutVar s Int) (MutVar s Bool))
-    }
+    deriving Generic
 
 instance PrimMonad m =&gt; Mutable m IntOrBool where
-    type Ref m IntOrBool = IntOrBoolRef (PrimState m)
+    type Ref m IntOrBool = GRef m IntOrBool
+</code></pre>
+<p>then we get to &quot;access&quot; each potential branch with <code>constrMB</code>:</p>
+<pre class="haskell"><code>ibInt :: PrimMonad m =&gt; MutBranch m IntOrBool Int
+ibInt = constrMB #_IBInt
 
-    thawRef (IBInt  i) = fmap IBR . newMutVar . Left  =&lt;&lt; newMutVar i
-    thawRef (IBBool b) = fmap IBR . newMutVar . Right =&lt;&lt; newMutVar b
-
-    freezeRef (IBR r) = readMutVar r &gt;&gt;= \case
-        Left  i -&gt; IBInt  &lt;$&gt; readMutVar i
-        Right b -&gt; IBBool &lt;$&gt; readMutVar b
-
-    copyRef (IBR r) x = do
-        z &lt;- readMutVar r
-        case (z, x) of
-          (Left  i, IBInt  j) -&gt; writeMutVar i j
-          (Right b, IBBool c) -&gt; writeMutVar b c
-          (_      , IBInt  j) -&gt; writeMutVar r . Left  =&lt;&lt; newMutVar j
-          (_      , IBBool c) -&gt; writeMutVar r . Right =&lt;&lt; newMutVar c
+ibBool :: PrimMonad m =&gt; MutBranch m IntOrBool Bool
+ibBool = constrMB #_IBBool
 </code></pre>
 <p>The combinators in the <em><a href="https://hackage.haskell.org/package/mutable/docs/Data-Mutable-Branches.html">Data.Mutable.Branches</a></em> module are intended for usage
 with mutable sum types like this. See the <a href="/06-mutable-branches.html">mutable
-branches</a> module for more information.</p>
+branches</a> module for more information, and an actual
+useful example --- mutable linked lists.</p>
 <h2>Newtyped Instances</h2>
 <p>If you have a newtype, you can give it a <code>Mutable</code> instance based on the
 underlying type by using <code>CoerceRef</code></p>

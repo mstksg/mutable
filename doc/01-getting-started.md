@@ -10,6 +10,7 @@ Getting Started
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedLabels      #-}
+{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
 
 import           Control.Monad
@@ -126,6 +127,38 @@ posMut @1
 freezePart (posMut @1)
     :: Ref m MyPart
     -> m Int
+```
+
+
+Sum Types
+---------
+
+We can get `GRef` for sum types too.  As shown earlier, we get a mutable linked
+list type for free, and a nice "pop" function if we utilize `constrMB`:
+
+```haskell top
+data List a = Nil | Cons a (List a)
+  deriving (Show, Generic)
+infixr 5 `Cons`
+
+instance (Mutable m a, PrimMonad m) => Mutable m (List a) where
+    type Ref m (List a) = GRef m (List a)
+
+consBranch
+    :: (PrimMonad m, Mutable m a)
+    => MutBranch m (List a) (a, List a)
+consBranch = constrMB #_Cons
+
+popStack
+    :: (PrimMonad m, Mutable m a)
+    => Ref m (List a)
+    -> m (Maybe a)
+popStack xs = do
+    c <- projectBranch consBranch xs
+    forM c $ \(y, ys) -> do
+      o <- freezeRef y
+      moveRef xs ys
+      pure o
 ```
 
 [Read on](/02-mutable-and-ref.html) for more information on how the library

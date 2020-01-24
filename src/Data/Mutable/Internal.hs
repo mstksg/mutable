@@ -173,7 +173,12 @@ import qualified Data.Vinyl.XRec           as X
 --
 -- See <https://mutable.jle.im/02-mutable-and-ref.html> for more
 -- information on this typeclass and how to define instances
--- automatically.
+-- automatically, and also
+--
+-- *  <https://mutable.jle.im/05-mutable-parts.html> for more information
+--    on dealing with record types
+-- *  <https://mutable.jle.im/06-mutable-branches> for more information
+--    on dealing with sum types
 class Monad m => Mutable m a where
     -- | Links the type @a@ to the type of its canonical "mutable version".
     --

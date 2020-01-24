@@ -140,51 +140,33 @@ summary on how to use these.
 
 ### Sum Types
 
-While slightly less useful, `GRef` also works for sum types, as well.  For sum
-types, an extra layer of indirection is added: at the top level is a `MutVar`
-containing a reference to the contents of a constructor.  For example:
+`GRef` also works for sum types, as well.  For sum types, an extra layer of
+indirection is added: at the top level is a `MutVar` containing a reference to
+the contents of a constructor.  For example:
 
 ```haskell top
 data IntOrBool = IBInt  Int
                | IBBool Bool
-```
+    deriving Generic
 
-If you had
-
-```haskell
 instance PrimMonad m => Mutable m IntOrBool where
     type Ref m IntOrBool = GRef m IntOrBool
 ```
 
-this is essentially equivalent to:
+then we get to "access" each potential branch with `constrMB`:
 
-```haskell
-newtype IntOrBoolRef s = IBR
-    { getIBR :: MutVar s (Either (MutVar s Int) (MutVar s Bool))
-    }
+```haskell top
+ibInt :: PrimMonad m => MutBranch m IntOrBool Int
+ibInt = constrMB #_IBInt
 
-instance PrimMonad m => Mutable m IntOrBool where
-    type Ref m IntOrBool = IntOrBoolRef (PrimState m)
-
-    thawRef (IBInt  i) = fmap IBR . newMutVar . Left  =<< newMutVar i
-    thawRef (IBBool b) = fmap IBR . newMutVar . Right =<< newMutVar b
-
-    freezeRef (IBR r) = readMutVar r >>= \case
-        Left  i -> IBInt  <$> readMutVar i
-        Right b -> IBBool <$> readMutVar b
-
-    copyRef (IBR r) x = do
-        z <- readMutVar r
-        case (z, x) of
-          (Left  i, IBInt  j) -> writeMutVar i j
-          (Right b, IBBool c) -> writeMutVar b c
-          (_      , IBInt  j) -> writeMutVar r . Left  =<< newMutVar j
-          (_      , IBBool c) -> writeMutVar r . Right =<< newMutVar c
+ibBool :: PrimMonad m => MutBranch m IntOrBool Bool
+ibBool = constrMB #_IBBool
 ```
 
 The combinators in the *[Data.Mutable.Branches][DMB]* module are intended for usage
 with mutable sum types like this.  See the [mutable
-branches](/06-mutable-branches.html) module for more information.
+branches](/06-mutable-branches.html) module for more information, and an actual
+useful example --- mutable linked lists.
 
 [DMB]: https://hackage.haskell.org/package/mutable/docs/Data-Mutable-Branches.html
 

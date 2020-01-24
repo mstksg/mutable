@@ -159,6 +159,52 @@ This is a type of composition and interleaving that cannot be achieved by
 simply breaking down `TwoVec` and running functions that work purely on each of
 the two vectors individually.
 
+Mutable Sum Types
+-----------------
+
+There is also support for mutable sum types, as well.  Here is the automatic
+definition of a *[mutable linked list][ll]*:
+
+[ll]: https://en.wikipedia.org/wiki/Linked_list
+
+```haskell
+data List a = Nil | Cons a (List a)
+  deriving (Show, Generic)
+infixr 5 `Cons`
+
+instance (Mutable m a, PrimMonad m) => Mutable m (List a) where
+    type Ref m (List a) = GRef m (List a)
+```
+
+```haskell
+instance Show a => AskInliterate (List a)
+```
+
+
+We can write a function to "pop" out the top value and shift the rest of the
+list up:
+
+```haskell
+popStack
+    :: (PrimMonad m, Mutable m a)
+    => Ref m (List a)
+    -> m (Maybe a)
+popStack xs = do
+    c <- projectBranch (constrMB #_Cons) xs
+    forM c $ \(y, ys) -> do
+      o <- freezeRef y
+      moveRef xs ys
+      pure o
+```
+
+```haskell
+ghci> runST $ do
+    r <- thawRef $ 1 `Cons` 2 `Cons` 3 `Cons` Nil
+    y <- popStack r
+    (y,) <$> freezeRef r
+-- => (Just 1, 2 `Cons` 3 `Cons` Nil)
+````
+
 Show me the numbers
 -------------------
 

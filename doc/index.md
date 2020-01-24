@@ -13,6 +13,7 @@ Beautiful Mutable Values
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedLabels      #-}
+{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
 
 import           Control.Monad
@@ -102,6 +103,48 @@ like artificial neural networks.  In the end, you're able to have an Artificial
 Neural Network (which can have huuuuge vectors) and being able to do piecewise
 updates on them (automatically) without having to copy over the entire network
 every training step.
+
+There is also support for mutable sum types, as well.  Here is the automatic
+definition of a *[mutable linked list][ll]*:
+
+[ll]: https://en.wikipedia.org/wiki/Linked_list
+
+```haskell top
+data List a = Nil | Cons a (List a)
+  deriving (Show, Generic)
+infixr 5 `Cons`
+
+instance (Mutable m a, PrimMonad m) => Mutable m (List a) where
+    type Ref m (List a) = GRef m (List a)
+```
+
+```haskell top hide
+instance Show a => AskInliterate (List a)
+```
+
+
+We can write a function to "pop" out the top value and shift the rest of the
+list up:
+
+```haskell top
+popStack
+    :: (PrimMonad m, Mutable m a)
+    => Ref m (List a)
+    -> m (Maybe a)
+popStack xs = do
+    c <- projectBranch (constrMB #_Cons) xs
+    forM c $ \(y, ys) -> do
+      o <- freezeRef y
+      moveRef xs ys
+      pure o
+```
+
+```haskell eval
+runST $ do
+    r <- thawRef $ 1 `Cons` 2 `Cons` 3 `Cons` Nil
+    y <- popStack r
+    (y,) <$> freezeRef r
+````
 
 Check out **[the getting started page](/01-getting-started.html)**, or the **[Haddock
 Documentation][docs]** to jump right in!

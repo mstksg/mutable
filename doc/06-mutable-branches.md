@@ -126,13 +126,12 @@ popStack
     :: (PrimMonad m, Mutable m a)
     => Ref m (List a)
     -> m (Maybe a)
-popStack r = do
-    c <- projectBranch consBranch r
-    case c of
-      Nothing      -> pure Nothing
-      Just (x, xs) -> do
-        moveRef r xs
-        Just <$> freezeRef x
+popStack xs = do
+    c <- projectBranch (constrMB #_Cons) xs
+    forM c $ \(y, ys) -> do
+      o <- freezeRef y
+      moveRef xs ys
+      pure o
 ```
 
 And here is a function to concatenate a second linked list to the end of a

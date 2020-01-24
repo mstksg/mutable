@@ -32,8 +32,10 @@ library lets you do efficient "piecewise" mutations (operations that only edit
 one field), and also efficient entire-datatype copies/updates, as well, in many
 cases.
 
-Check out the [documentation home page][docs] to start using this library, or
+Check out the [documentation home page][docs], [haddock reference][haddock], or
 read below for motivation and high-level descriptions.
+
+[haddock]: https://hackage.haskell.org/package/mutable
 
 Motivation
 ----------

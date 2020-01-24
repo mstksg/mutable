@@ -336,7 +336,7 @@ instance Monad m => Mutable m () where
 -- | A 'Ref' of a tuple is a tuple of 'Ref's, for easy accessing.
 --
 -- @
--- Ref m (Int, 'V.Vector' Double) = ('MutVar' s Int, 'MV.MVector' s Double)
+-- Ref m (Int, 'V.Vector' Double) = ('Data.Primitive.MutVar.MutVar' s Int, 'MV.MVector' s Double)
 -- @
 instance (Monad m, Mutable m a, Mutable m b) => Mutable m (a, b) where
     type Ref m (a, b) = (Ref m a, Ref m b)

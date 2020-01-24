@@ -87,7 +87,7 @@ import qualified Data.Vinyl.XRec           as X
 --     appropriately utilize that fact.
 --
 -- To modify the specific parts of mutable values, it can be useful to use
--- the functions in "Data.Mutable.MutPart".
+-- the functions in "Data.Mutable.Parts".
 --
 -- There are facilities to automatically piecewise mutable versions for
 -- user-defined instances of 'Generic'.
@@ -114,7 +114,7 @@ import qualified Data.Vinyl.XRec           as X
 --
 -- And @'GRef' m TwoVectors@ is now a piecewise-mutable reference storing each
 -- part in a way that can be modified separately (for example, with tools
--- from "Data.Mutable.MutPart").  It does this by internally allocating two
+-- from "Data.Mutable.Parts").  It does this by internally allocating two
 -- 'MV.MVector's.  If the two vectors are large, this can be much more
 -- efficient to modify (if you are modifying /several times/) than by just
 -- doing alterations on @TwoVector@s.  It is also much better for large
@@ -992,9 +992,9 @@ instance (GMutable m f, GMutable m g, PrimMonad m) => Mutable m ((f :+: g) a) wh
 -- ghci> r <- 'thawRef' (MyType 3 4.5)
 -- ghci> 'freezeRef' r
 -- MyType 3 4.5
--- ghci> 'Data.Mutable.MutPart.freezePart' ('Data.Mutable.MutPart.fieldMut' #mtInt) r
+-- ghci> 'Data.Mutable.Parts.freezePart' ('Data.Mutable.Parts.fieldMut' #mtInt) r
 -- 3
--- ghci> 'Data.Mutable.MutPart.copyPart' (fieldMut #mtDouble) 1.23
+-- ghci> 'Data.Mutable.Parts.copyPart' (fieldMut #mtDouble) 1.23
 -- ghci> freezeRef r
 -- MyType 3 1.23
 -- @

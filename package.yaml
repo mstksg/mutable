@@ -4,7 +4,7 @@ github:              mstksg/mutable
 license:             BSD3
 author:              Justin Le
 maintainer:          justin@jle.im
-copyright:           (c) Justin Le 2019
+copyright:           (c) Justin Le 2020
 tested-with:         GHC >= 8.6 && < 8.10
 
 extra-source-files:

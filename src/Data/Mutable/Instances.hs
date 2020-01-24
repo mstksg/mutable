@@ -24,9 +24,7 @@
 -- Provides 'Ref' instances for various data types, as well as automatic
 -- derivation of instances.  See "Data.Mutable" for more information.
 module Data.Mutable.Instances (
-    ListRefCell(..)
-  , unconsListRef, consListRef
-  , RecRef(..)
+    RecRef(..)
   , HListRef(..)
   -- * Generic
   , GRef(..)
@@ -60,7 +58,6 @@ module Data.Mutable.Instances (
 import           Control.Applicative
 import           Control.Monad.Primitive
 import           Data.Complex
-import           Data.Functor
 import           Data.Functor.Compose
 import           Data.Functor.Identity
 import           Data.Functor.Product
@@ -71,7 +68,6 @@ import           Data.Mutable.Internal
 import           Data.Ord
 import           Data.Primitive.Array
 import           Data.Primitive.ByteArray
-import           Data.Primitive.MutVar
 import           Data.Primitive.PrimArray
 import           Data.Primitive.SmallArray
 import           Data.Primitive.Types
@@ -81,7 +77,6 @@ import           Data.Void
 import           Data.Word
 import           Foreign.C.Types
 import           Foreign.Storable
-import           GHC.Generics
 import           Numeric.Natural
 import qualified Data.Monoid                               as M
 import qualified Data.Vector                               as V
@@ -176,33 +171,9 @@ instance (Mutable m (f a), Mutable m (g a), PrimMonad m) => Mutable m (Sum f g a
 instance (Mutable m (f (g a))) => Mutable m (Compose f g a) where
     type Ref m (Compose f g a) = CoerceRef m (Compose f g a) (f (g a))
 
--- | Single linked list cell
-data ListRefCell m a = MutNil
-                     | MutCons (Ref m a) (Ref m [a])
-
--- | Uncons mutable linked list into a 'ListRefCell'.
-unconsListRef
-    :: PrimMonad m
-    => Ref m [a]
-    -> m (ListRefCell m a)
-unconsListRef (GRef (M1 (MutSumF x))) = readMutVar x <&> \case
-    L1 _ -> MutNil
-    R1 (M1 (M1 (K1 y) :*: M1 (K1 z))) -> MutCons y z
-
--- | Cons the contents of a 'ListRefCell' into a mutable linked list.
-consListRef
-    :: PrimMonad m
-    => ListRefCell m a
-    -> m (Ref m [a])
-consListRef lrc = GRef . M1 . MutSumF <$> newMutVar go
-  where
-    go = case lrc of
-      MutNil       -> L1 . M1 $ U1
-      MutCons x xs -> R1 . M1 $ M1 (K1 x) :*: M1 (K1 xs)
-
 -- | Mutable linked list with mutable references in each cell.  See
--- 'unconsListRef' and 'consListRef' for ways to directly work with this
--- type as a mutable linked list.
+-- 'Data.Mutable.MutBranch' documentation for an example of using this as
+-- a mutable linked list.l
 instance (PrimMonad m, Mutable m a) => Mutable m [a] where
     type Ref m [a] = GRef m [a]
 

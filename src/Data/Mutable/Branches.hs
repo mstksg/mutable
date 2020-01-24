@@ -553,6 +553,8 @@ instance (ctor_ ~ AppendSymbol "_" ctor) => IsLabel ctor_ (CLabel ctor) where
 
 
 -- | Typeclass powering 'constrMB' using GHC Generics.
+--
+-- Heavily inspired by "Data.Generics.Sum.Constructors".
 class (GMutable m f, Mutable m a) => GMutBranchConstructor (ctor :: Symbol) m f a | ctor f -> a where
     gmbcProj  :: CLabel ctor -> GRef_ m f x -> m (Maybe (Ref m a))
     gmbcEmbed :: CLabel ctor -> Ref m a -> m (GRef_ m f x)

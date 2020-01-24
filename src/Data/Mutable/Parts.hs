@@ -13,7 +13,7 @@
 {-# LANGUAGE UndecidableInstances   #-}
 
 -- |
--- Module      : Data.Mutable.MutPart
+-- Module      : Data.Mutable.Parts
 -- Copyright   : (c) Justin Le 2020
 -- License     : BSD3
 --
@@ -405,6 +405,8 @@ hkdMutParts = to $ hkdMutParts_ @m @z from
 -- | Create a 'MutPart' for a field name.  Should work for any type with
 -- one constructor whose mutable reference is 'GRef'.  See 'fieldMut' for
 -- usage directions.
+--
+-- Mostly leverages the power of "Data.Generics.Product.Fields".
 class (Mutable m s, Mutable m a) => FieldMut (fld :: Symbol) m s a | fld s -> a where
     -- | Create a 'MutPart' for a field name.  Should work for any type with
     -- one constructor whose mutable reference is 'GRef'.
@@ -479,6 +481,8 @@ mutField = getMutPart . fieldMut @_ @m
 -- | Create a 'MutPart' for a position in a product type.  Should work for any
 -- type with one constructor whose mutable reference is 'GRef'.  See
 -- 'posMut' for usage directions.
+--
+-- Mostly leverages the power of "Data.Generics.Product.Positions".
 class (Mutable m s, Mutable m a) => PosMut (i :: Nat) m s a | i s -> a where
     -- | Create a 'MutPart' for a position in a product type.  Should work for any
     -- type with one constructor whose mutable reference is 'GRef'.
@@ -544,6 +548,8 @@ mutPos = getMutPart (posMut @i @m)
 -- for every field in that product type. Should work for any type with one
 -- constructor whose mutable reference is 'GRef'.  See 'tupleMut' for usage
 -- directions.
+--
+-- Mostly leverages the power of "Data.Generics.Product.HList".
 class (Mutable m s, Mutable m a) => TupleMut m s a | s -> a where
     -- | Create a 'MutPart' splitting out a product type into a tuple of refs
     -- for every field in that product type. Should work for any type with one
@@ -559,7 +565,7 @@ class (Mutable m s, Mutable m a) => TupleMut m s a | s -> a where
     --     type Ref m MyType = 'GRef' m MyType
     -- @
     --
-    -- Now there is an instance of @'TupleMut' m 'MyType' (Int, Double)@.
+    -- Now there is an instance of @'TupleMut' m MyType (Int, Double)@.
     --
     -- @
     -- ghci> r <- 'thawRef' (MyType 3 4.5)
@@ -594,8 +600,8 @@ instance
                        . unGRef
 
 -- | A helpful wrapper over @'withPart' 'tupleMut'@.  Directly operate on
--- the items in the 'HList'.  See 'tupleMut' for more details on when this
--- should work.
+-- the items in the data type, getting the references as a tuple.  See
+-- 'tupleMut' for more details on when this should work.
 --
 -- @
 -- data MyType = MyType Int Double

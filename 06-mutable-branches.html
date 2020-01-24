@@ -513,13 +513,12 @@ list up.</p>
     :: (PrimMonad m, Mutable m a)
     =&gt; Ref m (List a)
     -&gt; m (Maybe a)
-popStack r = do
-    c &lt;- projectBranch consBranch r
-    case c of
-      Nothing      -&gt; pure Nothing
-      Just (x, xs) -&gt; do
-        moveRef r xs
-        Just &lt;$&gt; freezeRef x
+popStack xs = do
+    c &lt;- projectBranch (constrMB #_Cons) xs
+    forM c $ \(y, ys) -&gt; do
+      o &lt;- freezeRef y
+      moveRef xs ys
+      pure o
 </code></pre>
 <p>And here is a function to concatenate a second linked list to the end of a
 first one.</p>

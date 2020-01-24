@@ -508,6 +508,34 @@ like artificial neural networks. In the end, you&#39;re able to have an Artifici
 Neural Network (which can have huuuuge vectors) and being able to do piecewise
 updates on them (automatically) without having to copy over the entire network
 every training step.</p>
+<p>There is also support for mutable sum types, as well. Here is the automatic
+definition of a <em><a href="https://en.wikipedia.org/wiki/Linked_list">mutable linked list</a></em>:</p>
+<pre class="haskell"><code>data List a = Nil | Cons a (List a)
+  deriving (Show, Generic)
+infixr 5 `Cons`
+
+instance (Mutable m a, PrimMonad m) =&gt; Mutable m (List a) where
+    type Ref m (List a) = GRef m (List a)
+</code></pre>
+<p>We can write a function to &quot;pop&quot; out the top value and shift the rest of the
+list up:</p>
+<pre class="haskell"><code>popStack
+    :: (PrimMonad m, Mutable m a)
+    =&gt; Ref m (List a)
+    -&gt; m (Maybe a)
+popStack xs = do
+    c &lt;- projectBranch (constrMB #_Cons) xs
+    forM c $ \(y, ys) -&gt; do
+      o &lt;- freezeRef y
+      moveRef xs ys
+      pure o
+</code></pre>
+<pre class="haskell"><code>runST $ do
+    r <- thawRef $ 1 `Cons` 2 `Cons` 3 `Cons` Nil
+    y <- popStack r
+    (y,) <$> freezeRef r => 
+(Just 1,Cons 2 (Cons 3 Nil))
+</code></pre>
 <p>Check out <strong><a href="/01-getting-started.html">the getting started page</a></strong>, or the <strong><a href="https://hackage.haskell.org/package/mutable">Haddock
 Documentation</a></strong> to jump right in!</p>
 </div></div></div></section><div class="row next-prev"><div class="col-md-4 ml-auto"><a href="01-getting-started.html">Next: Getting Started &gt;</a></div></div><footer><div class="container"><div class="row"><div class="col"><p class="author">Developed by <span>Justin Le</span></p><p class="site-generated-message">Site generated with <a href="https://theam.github.io/tintin" class="tintin-logo"><img src="https://s3-eu-west-1.amazonaws.com/worldwideapps/assets/logo.svg" class="filter-gray"></a><span>&mdash; &copy; 2019 </span><a href="https://www.theagilemonkeys.com">The Agile Monkeys</a></p></div></div></div></footer><script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script><script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/haskell.min.js"></script><script src="https://cdn.rawgit.com/icons8/bower-webicon/v0.10.7/jquery-webicon.min.js"></script><script>hljs.initHighlightingOnLoad()</script><script>$(function () {$("#menu-toggle").click(function(e) {e.preventDefault();$("#wrapper").toggleClass("toggled");$("#menu-toggle img").toggleClass("rotateIn rotateOut");})});</script><script src="https://cdn.jsdelivr.net/npm/katex@0.10.0-alpha/dist/katex.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.9.0/contrib/auto-render.min.js"></script><script>renderMathInElement(document.body);</script></body></html>

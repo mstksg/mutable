@@ -80,8 +80,7 @@ many programs face.  A more common situation might be that you have two
 functions that each modify different items in a vector in sequence, and you
 want to run them many times interleaved, or one after the other.)
 
-Composite Datatype
-------------------
+### Composite Datatype
 
 That all works for `MVector`, but let's say you have a simple composite data
 type that is two vectors:
@@ -176,11 +175,6 @@ instance (Mutable m a, PrimMonad m) => Mutable m (List a) where
     type Ref m (List a) = GRef m (List a)
 ```
 
-```haskell
-instance Show a => AskInliterate (List a)
-```
-
-
 We can write a function to "pop" out the top value and shift the rest of the
 list up:
 
@@ -203,7 +197,7 @@ ghci> runST $ do
     y <- popStack r
     (y,) <$> freezeRef r
 -- => (Just 1, 2 `Cons` 3 `Cons` Nil)
-````
+```
 
 Show me the numbers
 -------------------

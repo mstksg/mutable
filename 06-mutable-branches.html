@@ -514,7 +514,7 @@ list up.</p>
     =&gt; Ref m (List a)
     -&gt; m (Maybe a)
 popStack xs = do
-    c &lt;- projectBranch (constrMB #_Cons) xs
+    c &lt;- projectBranch consBranch xs
     forM c $ \(y, ys) -&gt; do
       o &lt;- freezeRef y
       moveRef xs ys

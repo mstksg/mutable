@@ -193,14 +193,14 @@ data MutBranch m s a = MutBranch
       --
       -- @
       -- ghci> r <- thawRef (Left 10)
-      -- ghci> s <- cloneBranch (constrMB #_Left)
+      -- ghci> s <- projectBranch (constrMB #_Left) r
       -- ghci> case s of Just s' -> freezeRef s'
       -- 10
       -- @
       --
       -- @
       -- ghci> r <- thawRef (Right True)
-      -- ghci> s <- cloneBranch (constrMB #_Left)
+      -- ghci> s <- projectBranch (constrMB #_Left) r
       -- ghci> case s of Nothing -> "it was Right"
       -- "it was Right"
       -- @

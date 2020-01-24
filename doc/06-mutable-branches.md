@@ -127,7 +127,7 @@ popStack
     => Ref m (List a)
     -> m (Maybe a)
 popStack xs = do
-    c <- projectBranch (constrMB #_Cons) xs
+    c <- projectBranch consBranch xs
     forM c $ \(y, ys) -> do
       o <- freezeRef y
       moveRef xs ys

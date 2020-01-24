@@ -4,9 +4,13 @@
 [![mutable on Hackage](https://img.shields.io/hackage/v/mutable.svg?maxAge=86400)](https://hackage.haskell.org/package/mutable)
 [![Build Status](https://travis-ci.org/mstksg/mutable.svg?branch=master)](https://travis-ci.org/mstksg/mutable)
 
-[**Documentation and Walkthrough**][docs]
+**[Documentation and Walkthrough][docs]**
 
 [docs]: https://mutable.jle.im
+
+**[Introductory Blog Post][blog]**
+
+[blog]: https://blog.jle.im/entry/introducing-the-mutable-library.html
 
 Beautiful Mutable Values
 ------------------------
@@ -32,8 +36,9 @@ library lets you do efficient "piecewise" mutations (operations that only edit
 one field), and also efficient entire-datatype copies/updates, as well, in many
 cases.
 
-Check out the [documentation home page][docs], [haddock reference][haddock], or
-read below for motivation and high-level descriptions.
+Check out the [documentation home page][docs], [haddock reference][haddock],
+[introductory blog post on insights and lessons learned][blog], or read below
+for motivation and high-level descriptions.
 
 [haddock]: https://hackage.haskell.org/package/mutable
 

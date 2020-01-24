@@ -147,6 +147,9 @@ runST $ do
 ````
 
 Check out **[the getting started page](/01-getting-started.html)**, or the **[Haddock
-Documentation][docs]** to jump right in!
+Documentation][docs]** to jump right in!  You can also read [my introductory
+blog post][blog] about the motivations for this library and things I learned
+while developing it.
 
 [docs]: https://hackage.haskell.org/package/mutable
+[blog]: https://blog.jle.im/entry/introducing-the-mutable-library.html

@@ -58,20 +58,23 @@ module Data.Mutable.Parts (
   ) where
 
 import           Data.Coerce
+import           Data.Generics.Product.Internal.HList
 import           Data.Kind
 import           Data.Mutable.Class
 import           Data.Mutable.Instances
-import           Data.Vinyl hiding                      (HList)
+import           Data.Vinyl hiding                        (HList)
 import           Data.Vinyl.Functor
 import           GHC.Generics
 import           GHC.TypeLits
-import qualified Control.Category                       as C
-import qualified Data.GenericLens.Internal              as GL
-import qualified Data.Generics.Internal.Profunctor.Lens as GLP
-import qualified Data.Generics.Product.Fields           as GL
-import qualified Data.Generics.Product.Positions        as GL
-import qualified Data.Vinyl.TypeLevel                   as V
-import qualified Data.Vinyl.XRec                        as X
+import qualified Control.Category                         as C
+import qualified Data.GenericLens.Internal                as GL
+import qualified Data.Generics.Internal.Profunctor.Lens   as GLP
+import qualified Data.Generics.Product.Fields             as GL
+import qualified Data.Generics.Product.Internal.GLens     as GL
+import qualified Data.Generics.Product.Internal.Positions as GL
+import qualified Data.Generics.Product.Positions          as GL
+import qualified Data.Vinyl.TypeLevel                     as V
+import qualified Data.Vinyl.XRec                          as X
 
 
 -- | A @'MutPart' m s a@ is a way to "zoom into" an @a@, as a part of
@@ -588,15 +591,15 @@ instance
       ( Mutable m s
       , Mutable m a
       , Ref m s ~ GRef m s
-      , GL.GIsList (GRef_ m (Rep s)) (GRef_ m (Rep s)) (MapRef m as) (MapRef m as)
-      , GL.GIsList (Rep s) (Rep s) as as
-      , GL.ListTuple a as
-      , GL.ListTuple b (MapRef m as)
+      , GIsList (GRef_ m (Rep s)) (GRef_ m (Rep s)) (MapRef m as) (MapRef m as)
+      , GIsList (Rep s) (Rep s) as as
+      , ListTuple a a as as
+      , ListTuple b b (MapRef m as) (MapRef m as)
       , Ref m a ~ b
       )
       => TupleMut m s a where
-    tupleMut = MutPart $ GL.listToTuple
-                       . GLP.view GL.glist
+    tupleMut = MutPart $ listToTuple @b @b @(MapRef m as) @(MapRef m as)
+                       . GLP.view glist
                        . unGRef
 
 -- | A helpful wrapper over @'withPart' 'tupleMut'@.  Directly operate on

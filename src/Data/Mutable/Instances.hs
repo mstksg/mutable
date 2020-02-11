@@ -62,7 +62,7 @@ import           Data.Functor.Compose
 import           Data.Functor.Identity
 import           Data.Functor.Product
 import           Data.Functor.Sum
-import           Data.GenericLens.Internal                 (HList(..))
+import           Data.Generics.Product.Internal.HList      (HList(..))
 import           Data.Kind
 import           Data.Mutable.Internal
 import           Data.Ord

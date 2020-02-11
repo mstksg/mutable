@@ -58,6 +58,7 @@ module Data.Mutable.Branches (
 
 import           Control.Monad
 import           Control.Monad.Primitive
+import           Data.Generics.Product.Internal.HList
 import           Data.Maybe
 import           Data.Mutable.Class
 import           Data.Mutable.Instances
@@ -138,7 +139,7 @@ import qualified Data.Generics.Internal.Profunctor.Lens as GLP
 -- @
 -- nilBranch :: MutBranch m (List a) ()
 -- nilBranch = constrMB #_Nil
--- 
+--
 -- consBranch :: MutBranch m (List a) (a, List a)
 -- consBranch = constrMB #_Cons
 -- @
@@ -562,15 +563,18 @@ class (GMutable m f, Mutable m a) => GMutBranchConstructor (ctor :: Symbol) m f 
 instance
       ( GMutable m f
       , Mutable m a
-      , GL.GIsList (GRef_ m f) (GRef_ m f) (MapRef m as) (MapRef m as)
-      , GL.GIsList f f as as
-      , GL.ListTuple a as
-      , GL.ListTuple b (MapRef m as)
+      , GIsList (GRef_ m f) (GRef_ m f) (MapRef m as) (MapRef m as)
+      , GIsList f f as as
+      , ListTuple a a as as
+      , ListTuple b b (MapRef m as) (MapRef m as)
       , Ref m a ~ b
       )
       => GMutBranchConstructor ctor m (M1 C ('MetaCons ctor fixity fields) f) a where
-    gmbcProj _  = pure . Just . GL.listToTuple . GLP.view GL.glist . unM1
-    gmbcEmbed _ = pure . M1 . GLP.view GL.glistR . GL.tupleToList
+    gmbcProj _  = pure . Just
+                . listToTuple @b @b @(MapRef m as) @(MapRef m as)
+                . GLP.view glist . unM1
+    gmbcEmbed _ = pure . M1 . GLP.view (GL.fromIso glist)
+                . tupleToList @b @_ @(MapRef m as)
 
 instance GMutBranchConstructor ctor m f a => GMutBranchConstructor ctor m (M1 D meta f) a where
     gmbcProj  lb = gmbcProj lb . unM1
@@ -593,33 +597,35 @@ instance
       ( PrimMonad m
       , GMutable m r
       , GMutBranchConstructor ctor m l a
-      , GL.GIsList (GRef_ m l) (GRef_ m l) (MapRef m as) (MapRef m as)
-      , GL.GIsList l l as as
-      , GL.ListTuple a as
-      , GL.ListTuple b (MapRef m as)
+      , GIsList (GRef_ m l) (GRef_ m l) (MapRef m as) (MapRef m as)
+      , GIsList l l as as
+      , ListTuple a a as as
+      , ListTuple b b (MapRef m as) (MapRef m as)
       , Ref m a ~ b
       )
       => GMutBranchSum ctor 'True m l r a where
     gmbsProj lb (MutSumF r) = readMutVar r >>= \case
       L1 x -> gmbcProj lb x
       R1 _ -> pure Nothing
-    gmbsEmbed _ = fmap MutSumF . newMutVar . L1 . GLP.view GL.glistR . GL.tupleToList
+    gmbsEmbed _ = fmap MutSumF . newMutVar . L1 . GLP.view (GL.fromIso glist)
+                . tupleToList @b @_ @(MapRef m as)
 
 instance
       ( PrimMonad m
       , GMutable m l
       , GMutBranchConstructor ctor m r a
-      , GL.GIsList (GRef_ m r) (GRef_ m r) (MapRef m as) (MapRef m as)
-      , GL.GIsList r r as as
-      , GL.ListTuple a as
-      , GL.ListTuple b (MapRef m as)
+      , GIsList (GRef_ m r) (GRef_ m r) (MapRef m as) (MapRef m as)
+      , GIsList r r as as
+      , ListTuple a a as as
+      , ListTuple b b (MapRef m as) (MapRef m as)
       , Ref m a ~ b
       )
       => GMutBranchSum ctor 'False m l r a where
     gmbsProj lb (MutSumF r) = readMutVar r >>= \case
       L1 _ -> pure Nothing
       R1 x -> gmbcProj lb x
-    gmbsEmbed _ = fmap MutSumF . newMutVar . R1 . GLP.view GL.glistR . GL.tupleToList
+    gmbsEmbed _ = fmap MutSumF . newMutVar . R1 . GLP.view (GL.fromIso glist)
+                . tupleToList @b @_ @(MapRef m as)
 
 -- | Create a 'MutBranch' for any data type with a 'Generic' instance by
 -- specifying the constructor name using OverloadedLabels

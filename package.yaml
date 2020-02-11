@@ -1,5 +1,5 @@
 name:                mutable
-version:             0.1.0.0
+version:             0.1.0.1
 github:              mstksg/mutable
 license:             BSD3
 author:              Justin Le
@@ -44,7 +44,8 @@ library:
   dependencies:
   - base >= 4.11 && < 5
   - constraints
-  - generic-lens >= 1.1
+  - generic-lens-core >= 2.0
+  - generic-lens >= 2.0
   - primitive >= 0.6.4
   - reflection
   - transformers

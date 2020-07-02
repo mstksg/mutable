@@ -187,7 +187,7 @@ import qualified Data.Generics.Internal.Profunctor.Lens as GLP
 --       Nothing      -> moveRef l1 l2
 --       Just (_, xs) -> concatLists xs l2
 -- @
-data MutBranch m s a = MutBranch
+data MutBranch s b a = MutBranch
     { -- | With a 'MutBranch', attempt to get the mutable contents of
       -- a branch of a mutable
       -- @s@, if possible.
@@ -205,7 +205,7 @@ data MutBranch m s a = MutBranch
       -- ghci> case s of Nothing -> "it was Right"
       -- "it was Right"
       -- @
-      projectBranch :: Ref m s -> m (Maybe (Ref m a))
+      projectBranch :: forall m. (PrimMonad m, PrimState m ~ s) => Ref s b -> m (Maybe (Ref s a))
       -- | Embed an @a@ ref as a part of a larger @s@ ref.  Note that this
       -- /does not copy or clone/: any mutations to the @a@ ref will be
       -- reflected in the @s@ ref, as long as the @s@ ref maintains the
@@ -239,11 +239,11 @@ data MutBranch m s a = MutBranch
       -- ghci> freezeRef r
       -- 0
       -- @
-    , embedBranch :: Ref m a -> m (Ref m s)
+    , embedBranch :: forall m. (PrimMonad m, PrimState m ~ s) => Ref s a -> m (Ref s b)
     }
 
 -- | Compose two 'MutBranch's, to drill down on what is being focused.
-compMB :: Monad m => MutBranch m a b -> MutBranch m b c -> MutBranch m a c
+compMB :: MutBranch s a b -> MutBranch s b c -> MutBranch s a c
 compMB mb1 mb2 = MutBranch
     { projectBranch = projectBranch mb1 >=> \case
         Nothing -> pure Nothing
@@ -253,7 +253,7 @@ compMB mb1 mb2 = MutBranch
 
 -- | An identity 'MutBranch', treating the item itself as a whole branch.
 -- 'cloneBranch' will always "match".
-idMB :: Applicative m => MutBranch m a a
+idMB :: MutBranch m a a
 idMB = MutBranch (pure . Just) pure
 
 -- | With a 'MutBranch', thaw an @a@ into a mutable @s@ on that branch.
@@ -264,10 +264,10 @@ idMB = MutBranch (pure . Just) pure
 -- Left 10
 -- @
 thawBranch
-    :: Mutable m a
-    => MutBranch m s a
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutBranch s b a
     -> a
-    -> m (Ref m s)
+    -> m (Ref s b)
 thawBranch mb = embedBranch mb <=< thawRef
 
 -- | With a 'MutBranch', read out a specific @a@ branch of an @s@, if it exists.
@@ -280,25 +280,25 @@ thawBranch mb = embedBranch mb <=< thawRef
 -- Nothing
 -- @
 freezeBranch
-    :: Mutable m a
-    => MutBranch m s a    -- ^ How to check if is @s@ is an @a@
-    -> Ref m s            -- ^ Structure to read out of
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutBranch s b a    -- ^ How to check if is @s@ is an @a@
+    -> Ref s b            -- ^ Structure to read out of
     -> m (Maybe a)
 freezeBranch mb = mapM freezeRef <=< projectBranch mb
 
 -- | Check if an @s@ is currently a certain branch @a@.
 hasBranch
-    :: Mutable m a
-    => MutBranch m s a
-    -> Ref m s
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutBranch s b a
+    -> Ref s b
     -> m Bool
 hasBranch mb = fmap isJust . projectBranch mb
 
 -- | Check if an @s@ is /not/ currently a certain branch @a@.
 hasn'tBranch
-    :: Mutable m a
-    => MutBranch m s a
-    -> Ref m s
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutBranch s b a
+    -> Ref s b
     -> m Bool
 hasn'tBranch mb = fmap isNothing . projectBranch mb
 
@@ -314,9 +314,9 @@ hasn'tBranch mb = fmap isNothing . projectBranch mb
 -- Right True
 -- @
 copyBranch
-    :: (Mutable m s, Mutable m a)
-    => MutBranch m s a      -- ^ How to check if @s@ is an @a@
-    -> Ref m s              -- ^ Structure to write into
+    :: (Mutable s b, Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutBranch s b a      -- ^ How to check if @s@ is an @a@
+    -> Ref s b              -- ^ Structure to write into
     -> a                    -- ^ Value to set @s@ to be
     -> m ()
 copyBranch mb r = moveBranch mb r <=< thawRef
@@ -335,10 +335,10 @@ copyBranch mb r = moveBranch mb r <=< thawRef
 -- Right True
 -- @
 moveBranch
-    :: Mutable m s
-    => MutBranch m s a
-    -> Ref m s
-    -> Ref m a
+    :: (Mutable s b, PrimMonad m, PrimState m ~ s)
+    => MutBranch s b a
+    -> Ref s b
+    -> Ref s a
     -> m ()
 moveBranch mb r = moveRef r <=< embedBranch mb
 
@@ -359,10 +359,10 @@ moveBranch mb r = moveRef r <=< embedBranch mb
 -- "it was Right"
 -- @
 cloneBranch
-    :: Mutable m a
-    => MutBranch m s a      -- ^ How to check if @s@ is an @a@
-    -> Ref m s              -- ^ Structure to read out of
-    -> m (Maybe (Ref m a))
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutBranch s b a      -- ^ How to check if @s@ is an @a@
+    -> Ref s b              -- ^ Structure to read out of
+    -> m (Maybe (Ref s a))
 cloneBranch mb = mapM cloneRef <=< projectBranch mb
 
 -- | A non-copying version of 'freezeBranch' that can be more efficient
@@ -373,9 +373,9 @@ cloneBranch mb = mapM cloneRef <=< projectBranch mb
 -- reference, since it can potentially directly mutate the frozen value
 -- magically.
 unsafeFreezeBranch
-    :: Mutable m a
-    => MutBranch m s a    -- ^ How to check if is @s@ is an @a@
-    -> Ref m s            -- ^ Structure to read out of
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutBranch s b a    -- ^ How to check if is @s@ is an @a@
+    -> Ref s b            -- ^ Structure to read out of
     -> m (Maybe a)
 unsafeFreezeBranch mb = mapM unsafeFreezeRef <=< projectBranch mb
 
@@ -386,10 +386,10 @@ unsafeFreezeBranch mb = mapM unsafeFreezeRef <=< projectBranch mb
 -- This is safe as long as you never again use the original pure value,
 -- since it can potentially directly mutate it.
 unsafeThawBranch
-    :: Mutable m a
-    => MutBranch m s a
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutBranch s b a
     -> a
-    -> m (Ref m s)
+    -> m (Ref s b)
 unsafeThawBranch mb = embedBranch mb <=< unsafeThawRef
 
 
@@ -413,19 +413,19 @@ unsafeThawBranch mb = embedBranch mb <=< unsafeThawRef
 -- Nothing
 -- @
 withBranch
-    :: Mutable m a
-    => MutBranch m s a    -- ^ How to check if is @s@ is an @a@
-    -> Ref m s            -- ^ Structure to read out of and write into
-    -> (Ref m a -> m b)   -- ^ Action to perform on the @a@ branch of @s@
-    -> m (Maybe b)
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutBranch s b a    -- ^ How to check if is @s@ is an @a@
+    -> Ref s b            -- ^ Structure to read out of and write into
+    -> (Ref s a -> m r)   -- ^ Action to perform on the @a@ branch of @s@
+    -> m (Maybe r)
 withBranch mb r f = mapM f =<< projectBranch mb r
 
 -- | 'withBranch', but discarding the returned value.
 withBranch_
-    :: Mutable m a
-    => MutBranch m s a    -- ^ How to check if is @s@ is an @a@
-    -> Ref m s            -- ^ Structure to read out of and write into
-    -> (Ref m a -> m b)   -- ^ Action to perform on the @a@ branch of @s@
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutBranch s b a    -- ^ How to check if is @s@ is an @a@
+    -> Ref s b            -- ^ Structure to read out of and write into
+    -> (Ref s a -> m r)   -- ^ Action to perform on the @a@ branch of @s@
     -> m ()
 withBranch_ mb r = void . withBranch mb r
 
@@ -446,9 +446,9 @@ withBranch_ mb r = void . withBranch mb r
 -- Nothing
 -- @
 modifyBranch
-    :: Mutable m a
-    => MutBranch m s a      -- ^ How to check if @s@ is an @a@
-    -> Ref m s            -- ^ Structure to read out of and write into
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutBranch s b a      -- ^ How to check if @s@ is an @a@
+    -> Ref s b            -- ^ Structure to read out of and write into
     -> (a -> a)             -- ^ Pure function modifying @a@
     -> m ()
 modifyBranch mb r f = withBranch_ mb r (`modifyRef` f)
@@ -456,9 +456,9 @@ modifyBranch mb r f = withBranch_ mb r (`modifyRef` f)
 -- | 'modifyBranch', but forces the result before storing it back in the
 -- reference.
 modifyBranch'
-    :: Mutable m a
-    => MutBranch m s a      -- ^ How to check if @s@ is an @a@
-    -> Ref m s            -- ^ Structure to read out of and write into
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutBranch s b a      -- ^ How to check if @s@ is an @a@
+    -> Ref s b            -- ^ Structure to read out of and write into
     -> (a -> a)             -- ^ Pure function modifying @a@
     -> m ()
 modifyBranch' mb r f = withBranch_ mb r (`modifyRef'` f)
@@ -466,9 +466,9 @@ modifyBranch' mb r f = withBranch_ mb r (`modifyRef'` f)
 -- | 'modifyBranch' but for a monadic function.  Uses 'copyRef' into the
 -- reference after the action is completed.
 modifyBranchM
-    :: Mutable m a
-    => MutBranch m s a      -- ^ How to check if @s@ is an @a@
-    -> Ref m s            -- ^ Structure to read out of and write into
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutBranch s b a      -- ^ How to check if @s@ is an @a@
+    -> Ref s b            -- ^ Structure to read out of and write into
     -> (a -> m a)             -- ^ Monadic function modifying @a@
     -> m ()
 modifyBranchM mb r f = withBranch_ mb r (`modifyRefM` f)
@@ -476,9 +476,9 @@ modifyBranchM mb r f = withBranch_ mb r (`modifyRefM` f)
 -- | 'modifyBranchM', but forces the result before storing it back in the
 -- reference.
 modifyBranchM'
-    :: Mutable m a
-    => MutBranch m s a      -- ^ How to check if @s@ is an @a@
-    -> Ref m s            -- ^ Structure to read out of and write into
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutBranch s b a      -- ^ How to check if @s@ is an @a@
+    -> Ref s b            -- ^ Structure to read out of and write into
     -> (a -> m a)             -- ^ Monadic function modifying @a@
     -> m ()
 modifyBranchM' mb r f = withBranch_ mb r (`modifyRefM'` f)
@@ -503,41 +503,41 @@ modifyBranchM' mb r f = withBranch_ mb r (`modifyRefM'` f)
 -- Nothing
 -- @
 updateBranch
-    :: Mutable m a
-    => MutBranch m s a      -- ^ How to check if @s@ is an @a@
-    -> Ref m s            -- ^ Structure to read out of and write into
-    -> (a -> (a, b))
-    -> m (Maybe b)
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutBranch s b a      -- ^ How to check if @s@ is an @a@
+    -> Ref s b            -- ^ Structure to read out of and write into
+    -> (a -> (a, r))
+    -> m (Maybe r)
 updateBranch mb r f = withBranch mb r (`updateRef` f)
 
 -- | 'updateBranch', but forces the result before storing it back in the
 -- reference.
 updateBranch'
-    :: Mutable m a
-    => MutBranch m s a      -- ^ How to check if @s@ is an @a@
-    -> Ref m s            -- ^ Structure to read out of and write into
-    -> (a -> (a, b))
-    -> m (Maybe b)
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutBranch s b a      -- ^ How to check if @s@ is an @a@
+    -> Ref s b            -- ^ Structure to read out of and write into
+    -> (a -> (a, r))
+    -> m (Maybe r)
 updateBranch' mb r f = withBranch mb r (`updateRef'` f)
 
 -- | 'updateBranch' but for a monadic function.  Uses 'copyRef' into the
 -- reference after the action is completed.
 updateBranchM
-    :: Mutable m a
-    => MutBranch m s a      -- ^ How to check if @s@ is an @a@
-    -> Ref m s            -- ^ Structure to read out of and write into
-    -> (a -> m (a, b))
-    -> m (Maybe b)
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutBranch s b a      -- ^ How to check if @s@ is an @a@
+    -> Ref s b            -- ^ Structure to read out of and write into
+    -> (a -> m (a, r))
+    -> m (Maybe r)
 updateBranchM mb r f = withBranch mb r (`updateRefM` f)
 
 -- | 'updateBranchM', but forces the result before storing it back in the
 -- reference.
 updateBranchM'
-    :: Mutable m a
-    => MutBranch m s a      -- ^ How to check if @s@ is an @a@
-    -> Ref m s            -- ^ Structure to read out of and write into
-    -> (a -> m (a, b))
-    -> m (Maybe b)
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutBranch s b a      -- ^ How to check if @s@ is an @a@
+    -> Ref s b            -- ^ Structure to read out of and write into
+    -> (a -> m (a, r))
+    -> m (Maybe r)
 updateBranchM' mb r f = withBranch mb r (`updateRefM'` f)
 
 
@@ -556,9 +556,9 @@ instance (ctor_ ~ AppendSymbol "_" ctor) => IsLabel ctor_ (CLabel ctor) where
 -- | Typeclass powering 'constrMB' using GHC Generics.
 --
 -- Heavily inspired by "Data.Generics.Sum.Constructors".
-class (GMutable m f, Mutable m a) => GMutBranchConstructor (ctor :: Symbol) m f a | ctor f -> a where
-    gmbcProj  :: CLabel ctor -> GRef_ m f x -> m (Maybe (Ref m a))
-    gmbcEmbed :: CLabel ctor -> Ref m a -> m (GRef_ m f x)
+class (GMutable s f, Mutable s a) => GMutBranchConstructor (ctor :: Symbol) s f a | ctor f -> a where
+    gmbcProj  :: (PrimMonad m, PrimState m ~ s) => CLabel ctor -> GRef_ s f x -> m (Maybe (Ref s a))
+    gmbcEmbed :: (PrimMonad m, PrimState m ~ s) => CLabel ctor -> Ref s a -> m (GRef_ s f x)
 
 instance
       ( GMutable m f
@@ -581,51 +581,59 @@ instance GMutBranchConstructor ctor m f a => GMutBranchConstructor ctor m (M1 D 
     gmbcEmbed lb = fmap M1 . gmbcEmbed lb
 
 instance
-      ( PrimMonad m
-      , Mutable m a
-      , GMutBranchSum ctor (GL.HasCtorP ctor l) m l r a
+      ( Mutable s a
+      , GMutBranchSum ctor (GL.HasCtorP ctor l) s l r a
       )
-      => GMutBranchConstructor ctor m (l :+: r) a where
+      => GMutBranchConstructor ctor s (l :+: r) a where
     gmbcProj  = gmbsProj @ctor @(GL.HasCtorP ctor l)
     gmbcEmbed = gmbsEmbed @ctor @(GL.HasCtorP ctor l)
 
-class (GMutable m l, GMutable m r, Mutable m a) => GMutBranchSum (ctor :: Symbol) (contains :: Bool) m l r a | ctor l r -> a where
-    gmbsProj  :: CLabel ctor -> MutSumF m (GRef_ m l) (GRef_ m r) x -> m (Maybe (Ref m a))
-    gmbsEmbed :: CLabel ctor -> Ref m a -> m (MutSumF m (GRef_ m l) (GRef_ m r) x)
+class ( GMutable s l
+      , GMutable s r
+      , Mutable s a
+      ) => GMutBranchSum (ctor :: Symbol) (contains :: Bool) s l r a | ctor l r -> a where
+    gmbsProj
+        :: (PrimMonad m, PrimState m ~ s)
+        => CLabel ctor
+        -> MutSumF s (GRef_ s l) (GRef_ s r) x
+        -> m (Maybe (Ref s a))
+    gmbsEmbed
+        :: (PrimMonad m, PrimState m ~ s)
+        => CLabel ctor
+        -> Ref s a
+        -> m (MutSumF s (GRef_ s l) (GRef_ s r) x)
 
 instance
-      ( PrimMonad m
-      , GMutable m r
-      , GMutBranchConstructor ctor m l a
-      , GIsList (GRef_ m l) (GRef_ m l) (MapRef m as) (MapRef m as)
+      ( GMutable s r
+      , GMutBranchConstructor ctor s l a
+      , GIsList (GRef_ s l) (GRef_ s l) (MapRef s as) (MapRef s as)
       , GIsList l l as as
       , ListTuple a a as as
-      , ListTuple b b (MapRef m as) (MapRef m as)
-      , Ref m a ~ b
+      , ListTuple b b (MapRef s as) (MapRef s as)
+      , Ref s a ~ b
       )
-      => GMutBranchSum ctor 'True m l r a where
+      => GMutBranchSum ctor 'True s l r a where
     gmbsProj lb (MutSumF r) = readMutVar r >>= \case
       L1 x -> gmbcProj lb x
       R1 _ -> pure Nothing
     gmbsEmbed _ = fmap MutSumF . newMutVar . L1 . GLP.view (GL.fromIso glist)
-                . tupleToList @b @_ @(MapRef m as)
+                . tupleToList @b @_ @(MapRef s as)
 
 instance
-      ( PrimMonad m
-      , GMutable m l
-      , GMutBranchConstructor ctor m r a
-      , GIsList (GRef_ m r) (GRef_ m r) (MapRef m as) (MapRef m as)
+      ( GMutable s l
+      , GMutBranchConstructor ctor s r a
+      , GIsList (GRef_ s r) (GRef_ s r) (MapRef s as) (MapRef s as)
       , GIsList r r as as
       , ListTuple a a as as
-      , ListTuple b b (MapRef m as) (MapRef m as)
-      , Ref m a ~ b
+      , ListTuple b b (MapRef s as) (MapRef s as)
+      , Ref s a ~ b
       )
-      => GMutBranchSum ctor 'False m l r a where
+      => GMutBranchSum ctor 'False s l r a where
     gmbsProj lb (MutSumF r) = readMutVar r >>= \case
       L1 _ -> pure Nothing
       R1 x -> gmbcProj lb x
     gmbsEmbed _ = fmap MutSumF . newMutVar . R1 . GLP.view (GL.fromIso glist)
-                . tupleToList @b @_ @(MapRef m as)
+                . tupleToList @b @_ @(MapRef s as)
 
 -- | Create a 'MutBranch' for any data type with a 'Generic' instance by
 -- specifying the constructor name using OverloadedLabels
@@ -651,37 +659,37 @@ instance
 -- consMB = 'constrMB' ('CLabel' @":")
 -- @
 constrMB
-    :: forall ctor m s a.
-     ( Ref m s ~ GRef m s
-     , GMutBranchConstructor ctor m (Rep s) a
+    :: forall ctor s b a.
+     ( Ref s b ~ GRef s b
+     , GMutBranchConstructor ctor s (Rep b) a
      )
     => CLabel ctor
-    -> MutBranch m s a
+    -> MutBranch s b a
 constrMB l = MutBranch
     { projectBranch = gmbcProj l . unGRef
     , embedBranch   = fmap GRef . gmbcEmbed l
     }
 
 -- | 'MutBranch' focusing on the nil case of a list
-nilMB :: (PrimMonad m, Mutable m a) => MutBranch m [a] ()
+nilMB :: Mutable s a => MutBranch s [a] (Proxy s)
 nilMB = constrMB (CLabel @"[]")
 
 -- | 'MutBranch' focusing on the cons case of a list
-consMB :: (PrimMonad m, Mutable m a) => MutBranch m [a] (a, [a])
+consMB :: Mutable s a => MutBranch s [a] (a, [a])
 consMB = constrMB (CLabel @":")
 
 -- | 'MutBranch' focusing on the 'Nothing' case of a 'Maybe'
-nothingMB :: (PrimMonad m, Mutable m a) => MutBranch m (Maybe a) ()
+nothingMB :: Mutable s a => MutBranch s (Maybe a) (Proxy s)
 nothingMB = constrMB #_Nothing
 
 -- | 'MutBranch' focusing on the 'Just' case of a 'Maybe'
-justMB :: (PrimMonad m, Mutable m a) => MutBranch m (Maybe a) a
+justMB :: Mutable s a => MutBranch s (Maybe a) a
 justMB = constrMB #_Just
 
 -- | 'MutBranch' focusing on the 'Left' case of an 'Either'
-leftMB :: (PrimMonad m, Mutable m a, Mutable m b) => MutBranch m (Either a b) a
+leftMB :: (Mutable s a, Mutable s b) => MutBranch s (Either a b) a
 leftMB = constrMB #_Left
 
 -- | 'MutBranch' focusing on the 'Right' case of an 'Either'
-rightMB :: (PrimMonad m, Mutable m a, Mutable m b) => MutBranch m (Either a b) b
+rightMB :: (Mutable s a, Mutable s b) => MutBranch s (Either a b) b
 rightMB = constrMB #_Right

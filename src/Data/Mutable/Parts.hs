@@ -120,42 +120,42 @@ import qualified Data.Vinyl.XRec                          as X
 -- If you are using the "Higher-kinded data" pattern, then there's an easy
 -- way to generate a 'MutPart' for every single field, if you have
 -- a product type --- see 'hkdMutParts' for more information.
-newtype MutPart m s a = MutPart { getMutPart :: Ref m s -> Ref m a }
+newtype MutPart s b a = MutPart { getMutPart :: Ref s b -> Ref s a }
 
 -- | Compose two 'MutPart's one after the other.
 --
 -- Note this is also available (albeit flipped in arguments) through the
 -- 'C.Category' instance.
-compMP :: MutPart m a b -> MutPart m b c -> MutPart m a c
+compMP :: MutPart s a b -> MutPart s b c -> MutPart s a c
 compMP (MutPart f) (MutPart g) = MutPart (g . f)
 infixr 9 `compMP`
 
 -- | The identity 'MutPart': simply focus into the same type itself.
 --
 -- Note this is also available through the 'C.Category' instance.
-idMP :: MutPart m a a
+idMP :: MutPart s a a
 idMP = MutPart id
 
-instance C.Category (MutPart m) where
+instance C.Category (MutPart s) where
     id = idMP
     (.) = flip compMP
 
-instance X.IsoHKD (MutPart m s) a
+instance X.IsoHKD (MutPart s b) a
 
 -- | 'MutPart' into the first field of a tuple reference.
-mutFst :: MutPart m (a, b) a
+mutFst :: MutPart s (a, b) a
 mutFst = MutPart fst
 
 -- | 'MutPart' into the second field of a tuple reference.
-mutSnd :: MutPart m (a, b) b
+mutSnd :: MutPart s (a, b) b
 mutSnd = MutPart snd
 
 -- | Using a 'MutPart', perform a function on a @'Ref' m s@ as if you had
 -- a @'Ref' m a@.
 withPart
-    :: MutPart m s a        -- ^ How to zoom into an @a@ from an @s@
-    -> Ref m s              -- ^ The larger reference of @s@
-    -> (Ref m a -> m r)     -- ^ What do do with the smaller sub-reference of @a@
+    :: MutPart s b a        -- ^ How to zoom into an @a@ from an @s@
+    -> Ref s b              -- ^ The larger reference of @s@
+    -> (Ref s a -> m r)     -- ^ What do do with the smaller sub-reference of @a@
     -> m r
 withPart mp x f = f (getMutPart mp x)
 
@@ -486,7 +486,7 @@ mutField = getMutPart . fieldMut @_ @m
 -- 'posMut' for usage directions.
 --
 -- Mostly leverages the power of "Data.Generics.Product.Positions".
-class (Mutable m s, Mutable m a) => PosMut (i :: Nat) m s a | i s -> a where
+class (Mutable s b, Mutable s a) => PosMut (i :: Nat) s b a | i b -> a where
     -- | Create a 'MutPart' for a position in a product type.  Should work for any
     -- type with one constructor whose mutable reference is 'GRef'.
     --
@@ -516,15 +516,15 @@ class (Mutable m s, Mutable m a) => PosMut (i :: Nat) m s a | i s -> a where
     posMut :: MutPart m s a
 
 instance
-      ( Mutable m s
-      , Mutable m a
-      , Ref m s ~ GRef m s
-      , gref ~ Fst (Traverse (GRef_ m (GL.CRep s)) 1)
-      , Coercible (GRef_ m (Rep s) ()) (gref ())
+      ( Mutable s b
+      , Mutable s a
+      , Ref s b ~ GRef s b
+      , gref ~ Fst (Traverse (GRef_ s (GL.CRep b)) 1)
+      , Coercible (GRef_ s (Rep b) ()) (gref ())
       , GL.GLens' (HasTotalPositionPSym i) gref (Ref m a)
-      , GL.HasPosition' i s a
+      , GL.HasPosition' i b a
       )
-      => PosMut i m s a where
+      => PosMut i s b a where
     posMut = MutPart $ GLP.view (GL.glens @(HasTotalPositionPSym i) @gref) . coerce @_ @(gref ()) . unGRef
 
 data HasTotalPositionPSym :: Nat -> GL.TyFun (Type -> Type) (Maybe Type)
@@ -553,7 +553,7 @@ mutPos = getMutPart (posMut @i @m)
 -- directions.
 --
 -- Mostly leverages the power of "Data.Generics.Product.HList".
-class (Mutable m s, Mutable m a) => TupleMut m s a | s -> a where
+class (Mutable s b, Mutable s a) => TupleMut s b a | b -> a where
     -- | Create a 'MutPart' splitting out a product type into a tuple of refs
     -- for every field in that product type. Should work for any type with one
     -- constructor whose mutable reference is 'GRef'.
@@ -585,20 +585,20 @@ class (Mutable m s, Mutable m a) => TupleMut m s a | s -> a where
     -- Performance-wise, this appears to be faster than 'fieldMut' and
     -- 'posMut' when using a single reference, but slower if using all
     -- references.
-    tupleMut :: MutPart m s a
+    tupleMut :: MutPart s b a
 
 instance
-      ( Mutable m s
-      , Mutable m a
-      , Ref m s ~ GRef m s
-      , GIsList (GRef_ m (Rep s)) (GRef_ m (Rep s)) (MapRef m as) (MapRef m as)
-      , GIsList (Rep s) (Rep s) as as
+      ( Mutable s b
+      , Mutable s a
+      , Ref s b ~ GRef s b
+      , GIsList (GRef_ s (Rep b)) (GRef_ s (Rep b)) (MapRef s as) (MapRef s as)
+      , GIsList (Rep b) (Rep b) as as
       , ListTuple a a as as
-      , ListTuple b b (MapRef m as) (MapRef m as)
-      , Ref m a ~ b
+      , ListTuple c c (MapRef s as) (MapRef s as)
+      , Ref s a ~ c
       )
-      => TupleMut m s a where
-    tupleMut = MutPart $ listToTuple @b @b @(MapRef m as) @(MapRef m as)
+      => TupleMut s b a where
+    tupleMut = MutPart $ listToTuple @c @c @(MapRef s as) @(MapRef s as)
                        . GLP.view glist
                        . unGRef
 
@@ -623,9 +623,9 @@ instance
 -- MyType (-3) 9
 -- @
 withTuple
-    :: TupleMut m s a
-    => Ref m s              -- ^ Larger record reference
-    -> (Ref m a -> m r)     -- ^ What to do with each mutable field.  The
+    :: TupleMut s b a
+    => Ref s b              -- ^ Larger record reference
+    -> (Ref s a -> m r)     -- ^ What to do with each mutable field.  The
                             -- @'Ref' m a@ will be a tuple of every field's ref.
     -> m r
 withTuple = withPart tupleMut

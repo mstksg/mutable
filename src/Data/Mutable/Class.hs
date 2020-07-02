@@ -41,7 +41,7 @@ module Data.Mutable.Class (
   , TraverseMut(..)
   , Immutable(..)
   -- * Changing underlying monad
-  , reMutable, reMutableConstraint
+  -- , reMutable, reMutableConstraint
   -- * Util
   , MapRef
   ) where
@@ -62,32 +62,52 @@ import qualified Data.Vinyl.XRec         as X
 
 -- | Apply a pure function on an immutable value onto a value stored in
 -- a mutable reference.
-modifyRef  :: Mutable m a => Ref m a -> (a -> a) -> m ()
+modifyRef
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => Ref s a
+    -> (a -> a)
+    -> m ()
 modifyRef v f = copyRef v . f =<< freezeRef v
 {-# INLINE modifyRef #-}
 
 -- | 'modifyRef', but forces the result before storing it back in the
 -- reference.
-modifyRef' :: Mutable m a => Ref m a -> (a -> a) -> m ()
+modifyRef'
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => Ref s a
+    -> (a -> a)
+    -> m ()
 modifyRef' v f = (copyRef v $!) . f =<< freezeRef v
 {-# INLINE modifyRef' #-}
 
 -- | Apply a monadic function on an immutable value onto a value stored in
 -- a mutable reference.  Uses 'copyRef' into the reference after the
 -- action is completed.
-modifyRefM  :: Mutable m a => Ref m a -> (a -> m a) -> m ()
+modifyRefM
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => Ref s a
+    -> (a -> m a)
+    -> m ()
 modifyRefM v f = copyRef v =<< f =<< freezeRef v
 {-# INLINE modifyRefM #-}
 
 -- | 'modifyRefM', but forces the result before storing it back in the
 -- reference.
-modifyRefM' :: Mutable m a => Ref m a -> (a -> m a) -> m ()
+modifyRefM'
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => Ref s a
+    -> (a -> m a)
+    -> m ()
 modifyRefM' v f = (copyRef v $!) =<< f =<< freezeRef v
 {-# INLINE modifyRefM' #-}
 
 -- | Apply a pure function on an immutable value onto a value stored in
 -- a mutable reference, returning a result value from that function.
-updateRef  :: Mutable m a => Ref m a -> (a -> (a, b)) -> m b
+updateRef
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => Ref s a
+    -> (a -> (a, b))
+    -> m b
 updateRef v f = do
     (x, y) <- f <$> freezeRef v
     copyRef v x
@@ -95,7 +115,11 @@ updateRef v f = do
 
 -- | 'updateRef', but forces the updated value before storing it back in the
 -- reference.
-updateRef' :: Mutable m a => Ref m a -> (a -> (a, b)) -> m b
+updateRef'
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => Ref s a
+    -> (a -> (a, b))
+    -> m b
 updateRef' v f = do
     (x, y) <- f <$> freezeRef v
     x `seq` copyRef v x
@@ -104,7 +128,11 @@ updateRef' v f = do
 -- | Apply a monadic function on an immutable value onto a value stored in
 -- a mutable reference, returning a result value from that function.  Uses
 -- 'copyRef' into the reference after the action is completed.
-updateRefM  :: Mutable m a => Ref m a -> (a -> m (a, b)) -> m b
+updateRefM
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => Ref s a
+    -> (a -> m (a, b))
+    -> m b
 updateRefM v f = do
     (x, y) <- f =<< freezeRef v
     copyRef v x
@@ -112,7 +140,11 @@ updateRefM v f = do
 
 -- | 'updateRefM', but forces the updated value before storing it back in the
 -- reference.
-updateRefM' :: Mutable m a => Ref m a -> (a -> m (a, b)) -> m b
+updateRefM'
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => Ref s a
+    -> (a -> m (a, b))
+    -> m b
 updateRefM' v f = do
     (x, y) <- f =<< freezeRef v
     x `seq` copyRef v x
@@ -120,8 +152,8 @@ updateRefM' v f = do
 
 -- | A default implementation of 'copyRef' using 'thawRef' and 'moveRef'.
 copyRefWhole
-    :: Mutable m a
-    => Ref m a          -- ^ destination to overwrite
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => Ref s a          -- ^ destination to overwrite
     -> a                -- ^ pure value
     -> m ()
 copyRefWhole r v = moveRef r =<< thawRef v
@@ -131,9 +163,9 @@ copyRefWhole r v = moveRef r =<< thawRef v
 -- pure type, using 'freezeRef' and 'copyRef'.  It freezes the entire source
 -- and then re-copies it into the destination.
 moveRefWhole
-    :: Mutable m a
-    => Ref m a          -- ^ destination
-    -> Ref m a          -- ^ source
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => Ref s a          -- ^ destination
+    -> Ref s a          -- ^ source
     -> m ()
 moveRefWhole r v = copyRef r =<< freezeRef v
 {-# INLINE moveRefWhole #-}
@@ -142,9 +174,9 @@ moveRefWhole r v = copyRef r =<< freezeRef v
 -- pure type, using 'freezeRef' and 'thawRef'.  It freezes the entire
 -- source and then re-copies it into the destination.
 cloneRefWhole
-    :: Mutable m a
-    => Ref m a
-    -> m (Ref m a)
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => Ref s a
+    -> m (Ref s a)
 cloneRefWhole = thawRef <=< freezeRef
 {-# INLINE cloneRefWhole #-}
 
@@ -196,8 +228,8 @@ instance X.IsoHKD VarMut a where
     unHKD = VarMut
     toHKD = getVarMut
 
-instance PrimMonad m => Mutable m (VarMut a) where
-    type Ref m (VarMut a) = MutVar (PrimState m) (VarMut a)
+instance Mutable s (VarMut a) where
+    type Ref s (VarMut a) = MutVar s (VarMut a)
 
 
 -- | Similar to 'VarMut', this allows you to overwrite the normal 'Mutable'
@@ -290,67 +322,67 @@ instance (Mutable m a, Coercible s a) => Mutable m (CoerceMut s a) where
 --
 -- which has that behavior.  The 'Int' and the 'V.Vector' will be mutable
 -- within @'Ref' m MyType@, but not the 'String'.
-newtype Immutable a = Immutable { getImmutable :: a }
+newtype Immutable s a = Immutable { getImmutable :: a }
 
 -- | Use an @'Immutable' a@ as if it were an @a@
-instance X.IsoHKD Immutable a where
-    type HKD Immutable a = a
+instance X.IsoHKD (Immutable s) a where
+    type HKD (Immutable s) a = a
     unHKD = Immutable
     toHKD = getImmutable
 
 
-instance Monad m => Mutable m (Immutable a) where
-    type Ref m (Immutable a) = ImmutableRef (Immutable a)
+instance Mutable s (Immutable s a) where
+    type Ref s (Immutable s a) = ImmutableRef (Immutable s a)
 
 
-newtype ReMutable (s :: Type) m a = ReMutable a
-newtype ReMutableTrans m n = RMT { runRMT :: forall x. m x -> n x }
+-- newtype ReMutable (s :: Type) m a = ReMutable a
+-- newtype ReMutableTrans m n = RMT { runRMT :: forall x. m x -> n x }
 
-instance (Monad n, Mutable m a, Reifies s (ReMutableTrans m n)) => Mutable n (ReMutable s m a) where
-    type Ref n (ReMutable s m a) = ReMutable s m (Ref m a)
-    thawRef (ReMutable x) = runRMT rmt $ ReMutable <$> thawRef @m @a x
-      where
-        rmt = reflect (Proxy @s)
-    freezeRef (ReMutable v) = runRMT rmt $ ReMutable <$> freezeRef @m @a v
-      where
-        rmt = reflect (Proxy @s)
-    copyRef (ReMutable x) (ReMutable v) = runRMT rmt $ copyRef @m @a x v
-      where
-        rmt = reflect (Proxy @s)
-    moveRef (ReMutable x) (ReMutable v) = runRMT rmt $ moveRef @m @a x v
-      where
-        rmt = reflect (Proxy @s)
-    cloneRef (ReMutable x) = runRMT rmt $ ReMutable <$> cloneRef @m @a x
-      where
-        rmt = reflect (Proxy @s)
-    unsafeThawRef (ReMutable x) = runRMT rmt $ ReMutable <$> unsafeThawRef @m @a x
-      where
-        rmt = reflect (Proxy @s)
-    unsafeFreezeRef (ReMutable v) = runRMT rmt $ ReMutable <$> unsafeFreezeRef @m @a v
-      where
-        rmt = reflect (Proxy @s)
+-- instance (Monad n, Mutable m a, Reifies s (ReMutableTrans m n)) => Mutable n (ReMutable s m a) where
+--     type Ref n (ReMutable s m a) = ReMutable s m (Ref m a)
+--     thawRef (ReMutable x) = runRMT rmt $ ReMutable <$> thawRef @m @a x
+--       where
+--         rmt = reflect (Proxy @s)
+--     freezeRef (ReMutable v) = runRMT rmt $ ReMutable <$> freezeRef @m @a v
+--       where
+--         rmt = reflect (Proxy @s)
+--     copyRef (ReMutable x) (ReMutable v) = runRMT rmt $ copyRef @m @a x v
+--       where
+--         rmt = reflect (Proxy @s)
+--     moveRef (ReMutable x) (ReMutable v) = runRMT rmt $ moveRef @m @a x v
+--       where
+--         rmt = reflect (Proxy @s)
+--     cloneRef (ReMutable x) = runRMT rmt $ ReMutable <$> cloneRef @m @a x
+--       where
+--         rmt = reflect (Proxy @s)
+--     unsafeThawRef (ReMutable x) = runRMT rmt $ ReMutable <$> unsafeThawRef @m @a x
+--       where
+--         rmt = reflect (Proxy @s)
+--     unsafeFreezeRef (ReMutable v) = runRMT rmt $ ReMutable <$> unsafeFreezeRef @m @a v
+--       where
+--         rmt = reflect (Proxy @s)
 
-unsafeReMutable :: forall s m n a. Mutable n (ReMutable s m a) :- Mutable n a
-unsafeReMutable = unsafeCoerceConstraint
+-- unsafeReMutable :: forall s m n a. Mutable n (ReMutable s m a) :- Mutable n a
+-- unsafeReMutable = unsafeCoerceConstraint
 
--- | If you can provice a natural transformation from @m@ to @n@, you
--- should be able to use a value as if it had @'Mutable' n a@ if you have
--- @'Mutable' m a@.
-reMutable
-    :: forall m n a r. (Mutable m a, Monad n)
-    => (forall x. m x -> n x)
-    -> (Mutable n a => r)
-    -> r
-reMutable f x = x \\ reMutableConstraint @m @n @a f
+-- -- | If you can provice a natural transformation from @m@ to @n@, you
+-- -- should be able to use a value as if it had @'Mutable' n a@ if you have
+-- -- @'Mutable' m a@.
+-- reMutable
+--     :: forall m n a r. (Mutable m a, Monad n)
+--     => (forall x. m x -> n x)
+--     -> (Mutable n a => r)
+--     -> r
+-- reMutable f x = x \\ reMutableConstraint @m @n @a f
 
--- | If you can provice a natural transformation from @m@ to @n@, then
--- @'Mutable' m a@ should also imply @'Mutable' n a@.
-reMutableConstraint
-    :: forall m n a. (Mutable m a, Monad n)
-    => (forall x. m x -> n x)
-    -> Mutable m a :- Mutable n a
-reMutableConstraint f = reify (RMT f) $ \(Proxy :: Proxy s) ->
-    case unsafeReMutable @s @m @n @a of
-      Sub Data.Constraint.Dict -> Sub Data.Constraint.Dict
+-- -- | If you can provice a natural transformation from @m@ to @n@, then
+-- -- @'Mutable' m a@ should also imply @'Mutable' n a@.
+-- reMutableConstraint
+--     :: forall m n a. (Mutable m a, Monad n)
+--     => (forall x. m x -> n x)
+--     -> Mutable m a :- Mutable n a
+-- reMutableConstraint f = reify (RMT f) $ \(Proxy :: Proxy s) ->
+--     case unsafeReMutable @s @m @n @a of
+--       Sub Data.Constraint.Dict -> Sub Data.Constraint.Dict
 
 

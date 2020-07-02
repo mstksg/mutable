@@ -1,4 +1,6 @@
 {-# LANGUAGE BangPatterns          #-}
+{-# LANGUAGE DeriveFoldable        #-}
+{-# LANGUAGE DeriveTraversable     #-}
 {-# LANGUAGE EmptyCase             #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
@@ -26,6 +28,7 @@
 module Data.Mutable.Instances (
     RecRef(..)
   , HListRef(..)
+  , UnitRef(..)
   -- * Generic
   , GRef(..)
   , gThawRef, gFreezeRef
@@ -93,93 +96,93 @@ import qualified Data.Vinyl.ARec                           as V
 import qualified Data.Vinyl.Functor                        as V
 import qualified Data.Vinyl.TypeLevel                      as V
 
-instance PrimMonad m => Mutable m Int
-instance PrimMonad m => Mutable m Integer
-instance PrimMonad m => Mutable m Natural
-instance PrimMonad m => Mutable m (Ratio a)
-instance PrimMonad m => Mutable m Float
-instance PrimMonad m => Mutable m Double
-instance PrimMonad m => Mutable m (Complex a)
-instance PrimMonad m => Mutable m Bool
-instance PrimMonad m => Mutable m Char
+instance Mutable s Int
+instance Mutable s Integer
+instance Mutable s Natural
+instance Mutable s (Ratio a)
+instance Mutable s Float
+instance Mutable s Double
+instance Mutable s (Complex a)
+instance Mutable s Bool
+instance Mutable s Char
 
-instance PrimMonad m => Mutable m Word
-instance PrimMonad m => Mutable m Word8
-instance PrimMonad m => Mutable m Word16
-instance PrimMonad m => Mutable m Word64
+instance Mutable s Word
+instance Mutable s Word8
+instance Mutable s Word16
+instance Mutable s Word64
 
-instance PrimMonad m => Mutable m CChar
-instance PrimMonad m => Mutable m CSChar
-instance PrimMonad m => Mutable m CUChar
-instance PrimMonad m => Mutable m CShort
-instance PrimMonad m => Mutable m CUShort
-instance PrimMonad m => Mutable m CInt
-instance PrimMonad m => Mutable m CUInt
-instance PrimMonad m => Mutable m CLong
-instance PrimMonad m => Mutable m CULong
-instance PrimMonad m => Mutable m CPtrdiff
-instance PrimMonad m => Mutable m CSize
-instance PrimMonad m => Mutable m CWchar
-instance PrimMonad m => Mutable m CSigAtomic
-instance PrimMonad m => Mutable m CLLong
-instance PrimMonad m => Mutable m CULLong
-instance PrimMonad m => Mutable m CBool
-instance PrimMonad m => Mutable m CIntPtr
-instance PrimMonad m => Mutable m CUIntPtr
-instance PrimMonad m => Mutable m CIntMax
-instance PrimMonad m => Mutable m CUIntMax
-instance PrimMonad m => Mutable m CClock
-instance PrimMonad m => Mutable m CTime
-instance PrimMonad m => Mutable m CUSeconds
-instance PrimMonad m => Mutable m CSUSeconds
-instance PrimMonad m => Mutable m CFloat
-instance PrimMonad m => Mutable m CDouble
+instance Mutable s CChar
+instance Mutable s CSChar
+instance Mutable s CUChar
+instance Mutable s CShort
+instance Mutable s CUShort
+instance Mutable s CInt
+instance Mutable s CUInt
+instance Mutable s CLong
+instance Mutable s CULong
+instance Mutable s CPtrdiff
+instance Mutable s CSize
+instance Mutable s CWchar
+instance Mutable s CSigAtomic
+instance Mutable s CLLong
+instance Mutable s CULLong
+instance Mutable s CBool
+instance Mutable s CIntPtr
+instance Mutable s CUIntPtr
+instance Mutable s CIntMax
+instance Mutable s CUIntMax
+instance Mutable s CClock
+instance Mutable s CTime
+instance Mutable s CUSeconds
+instance Mutable s CSUSeconds
+instance Mutable s CFloat
+instance Mutable s CDouble
 
-instance Mutable m a => Mutable m (Identity a) where
-    type Ref m (Identity a) = CoerceRef m (Identity a) a
+instance Mutable s (Identity a) where
+    type Ref s (Identity a) = CoerceRef s (Identity a) a
 
-instance Mutable m a => Mutable m (Const a b) where
-    type Ref m (Const a b) = CoerceRef m (Const a b) a
+instance Mutable s a => Mutable s (Const a b) where
+    type Ref s (Const a b) = CoerceRef s (Const a b) a
 
-instance Mutable m a => Mutable m (V.Const a b) where
-    type Ref m (V.Const a b) = CoerceRef m (V.Const a b) a
+instance Mutable s a => Mutable s (V.Const a b) where
+    type Ref s (V.Const a b) = CoerceRef s (V.Const a b) a
 
-instance Mutable m a => Mutable m (M.Product a) where
-    type Ref m (M.Product a) = CoerceRef m (M.Product a) a
+instance Mutable s a => Mutable s (M.Product a) where
+    type Ref s (M.Product a) = CoerceRef s (M.Product a) a
 
-instance Mutable m a => Mutable m (M.Sum a) where
-    type Ref m (M.Sum a) = CoerceRef m (M.Sum a) a
+instance Mutable s a => Mutable s (M.Sum a) where
+    type Ref s (M.Sum a) = CoerceRef s (M.Sum a) a
 
-instance Mutable m a => Mutable m (Down a) where
-    type Ref m (Down a) = CoerceRef m (Down a) a
+instance Mutable s a => Mutable s (Down a) where
+    type Ref s (Down a) = CoerceRef s (Down a) a
 
-instance Mutable m a => Mutable m (M.Dual a) where
-    type Ref m (M.Dual a) = CoerceRef m (M.Dual a) a
+instance Mutable s a => Mutable s (M.Dual a) where
+    type Ref s (M.Dual a) = CoerceRef s (M.Dual a) a
 
-instance (Mutable m a, PrimMonad m) => Mutable m (Maybe a) where
-    type Ref m (Maybe a) = GRef m (Maybe a)
+instance Mutable s a => Mutable s (Maybe a) where
+    type Ref s (Maybe a) = GRef s (Maybe a)
 
-instance (Mutable m a, Mutable m b, PrimMonad m) => Mutable m (Either a b) where
-    type Ref m (Either a b) = GRef m (Either a b)
+instance (Mutable s a, Mutable s b) => Mutable s (Either a b) where
+    type Ref s (Either a b) = GRef s (Either a b)
 
-instance (Mutable m (f a), Mutable m (g a)) => Mutable m (Product f g a) where
-    type Ref m (Product f g a) = GRef m (Product f g a)
+instance (Mutable s (f a), Mutable s (g a)) => Mutable s (Product f g a) where
+    type Ref s (Product f g a) = GRef s (Product f g a)
 
-instance (Mutable m (f a), Mutable m (g a), PrimMonad m) => Mutable m (Sum f g a) where
-    type Ref m (Sum f g a) = GRef m (Sum f g a)
+instance (Mutable s (f a), Mutable s (g a)) => Mutable s (Sum f g a) where
+    type Ref s (Sum f g a) = GRef s (Sum f g a)
 
-instance (Mutable m (f (g a))) => Mutable m (Compose f g a) where
-    type Ref m (Compose f g a) = CoerceRef m (Compose f g a) (f (g a))
+instance (Mutable s (f (g a))) => Mutable s (Compose f g a) where
+    type Ref s (Compose f g a) = CoerceRef s (Compose f g a) (f (g a))
 
 -- | Mutable linked list with mutable references in each cell.  See
 -- 'Data.Mutable.MutBranch' documentation for an example of using this as
 -- a mutable linked list.l
-instance (PrimMonad m, Mutable m a) => Mutable m [a] where
-    type Ref m [a] = GRef m [a]
+instance Mutable s a => Mutable s [a] where
+    type Ref s [a] = GRef s [a]
 
 -- | Meant for usage with higher-kinded data pattern (See 'X.HKD')
-instance Mutable m a => Mutable m (V.Identity a) where
-    type Ref m (V.Identity a) = RefFor m a
+instance Mutable s a => Mutable s (V.Identity a) where
+    type Ref s (V.Identity a) = RefFor s a
     thawRef (V.Identity x) = RefFor <$> thawRef x
     freezeRef (RefFor r) = V.Identity <$> freezeRef r
     copyRef (RefFor r) (V.Identity x) = copyRef r x
@@ -189,8 +192,8 @@ instance Mutable m a => Mutable m (V.Identity a) where
     unsafeFreezeRef (RefFor r) = V.Identity <$> unsafeFreezeRef r
 
 -- | Mutable reference is 'MV.MVector'.
-instance PrimMonad m => Mutable m (V.Vector a) where
-    type Ref m (V.Vector a) = MV.MVector (PrimState m) a
+instance Mutable s (V.Vector a) where
+    type Ref s (V.Vector a) = MV.MVector s a
     thawRef         = VG.thaw
     freezeRef       = VG.freeze
     copyRef         = VG.copy
@@ -200,8 +203,8 @@ instance PrimMonad m => Mutable m (V.Vector a) where
     unsafeFreezeRef = VG.unsafeFreeze
 
 -- | Mutable reference is 'MVS.MVector'.
-instance (PrimMonad m, Storable a) => Mutable m (VS.Vector a) where
-    type Ref m (VS.Vector a) = MVS.MVector (PrimState m) a
+instance Storable a => Mutable s (VS.Vector a) where
+    type Ref s (VS.Vector a) = MVS.MVector s a
     thawRef         = VG.thaw
     freezeRef       = VG.freeze
     copyRef         = VG.copy
@@ -211,8 +214,8 @@ instance (PrimMonad m, Storable a) => Mutable m (VS.Vector a) where
     unsafeFreezeRef = VG.unsafeFreeze
 
 -- | Mutable reference is 'MVU.MVector'.
-instance (PrimMonad m, VU.Unbox a) => Mutable m (VU.Vector a) where
-    type Ref m (VU.Vector a) = MVU.MVector (PrimState m) a
+instance VU.Unbox a => Mutable s (VU.Vector a) where
+    type Ref s (VU.Vector a) = MVU.MVector s a
     thawRef         = VG.thaw
     freezeRef       = VG.freeze
     copyRef         = VG.copy
@@ -222,8 +225,8 @@ instance (PrimMonad m, VU.Unbox a) => Mutable m (VU.Vector a) where
     unsafeFreezeRef = VG.unsafeFreeze
 
 -- | Mutable reference is 'MVP.MVector'.
-instance (PrimMonad m, Prim a) => Mutable m (VP.Vector a) where
-    type Ref m (VP.Vector a) = MVP.MVector (PrimState m) a
+instance Prim a => Mutable s (VP.Vector a) where
+    type Ref s (VP.Vector a) = MVP.MVector s a
     thawRef         = VG.thaw
     freezeRef       = VG.freeze
     copyRef         = VG.copy
@@ -232,8 +235,8 @@ instance (PrimMonad m, Prim a) => Mutable m (VP.Vector a) where
     unsafeThawRef   = VG.unsafeThaw
     unsafeFreezeRef = VG.unsafeFreeze
 
-instance PrimMonad m => Mutable m (Array a) where
-    type Ref m (Array a) = MutableArray (PrimState m) a
+instance Mutable s (Array a) where
+    type Ref s (Array a) = MutableArray s a
 
     thawRef xs = thawArray xs 0 (sizeofArray xs)
     freezeRef rs = freezeArray rs 0 (sizeofMutableArray rs)
@@ -247,8 +250,8 @@ instance PrimMonad m => Mutable m (Array a) where
     unsafeThawRef   = unsafeThawArray
     unsafeFreezeRef = unsafeFreezeArray
 
-instance PrimMonad m => Mutable m (SmallArray a) where
-    type Ref m (SmallArray a) = SmallMutableArray (PrimState m) a
+instance Mutable s (SmallArray a) where
+    type Ref s (SmallArray a) = SmallMutableArray s a
 
     thawRef xs = thawSmallArray xs 0 (sizeofSmallArray xs)
     freezeRef rs = freezeSmallArray rs 0 (sizeofSmallMutableArray rs)
@@ -262,8 +265,8 @@ instance PrimMonad m => Mutable m (SmallArray a) where
     unsafeThawRef   = unsafeThawSmallArray
     unsafeFreezeRef = unsafeFreezeSmallArray
 
-instance PrimMonad m => Mutable m ByteArray where
-    type Ref m ByteArray = MutableByteArray (PrimState m)
+instance Mutable s ByteArray where
+    type Ref s ByteArray = MutableByteArray s
 
     thawRef xs = do
         rs <- newByteArray (sizeofByteArray xs)
@@ -286,8 +289,8 @@ instance PrimMonad m => Mutable m ByteArray where
     unsafeThawRef   = unsafeThawByteArray
     unsafeFreezeRef = unsafeFreezeByteArray
 
-instance (PrimMonad m, Prim a) => Mutable m (PrimArray a) where
-    type Ref m (PrimArray a) = MutablePrimArray (PrimState m) a
+instance Prim a => Mutable s (PrimArray a) where
+    type Ref s (PrimArray a) = MutablePrimArray s a
 
     thawRef xs = do
         rs <- newPrimArray (sizeofPrimArray xs)
@@ -313,33 +316,44 @@ instance (PrimMonad m, Prim a) => Mutable m (PrimArray a) where
 
     
 
-instance Monad m => Mutable m Void where
-    type Ref m Void = Void
-    thawRef         = \case {}
-    freezeRef       = \case {}
-    copyRef         = \case {}
-    moveRef         = \case {}
-    cloneRef        = \case {}
-    unsafeThawRef   = \case {}
-    unsafeFreezeRef = \case {}
+-- instance Mutable s Void where
+--     type Ref s Void = Void
+--     thawRef         = \case {}
+--     freezeRef       = \case {}
+--     copyRef         = \case {}
+--     moveRef         = \case {}
+--     cloneRef        = \case {}
+--     unsafeThawRef   = \case {}
+--     unsafeFreezeRef = \case {}
 
-instance Monad m => Mutable m () where
-    type Ref m () = ()
-    thawRef   _       = pure ()
+data UnitRef s = UnitRef
+  deriving (Show, Read, Eq, Ord, Functor, Traversable, Foldable)
+
+instance Applicative UnitRef where
+    pure _  = UnitRef
+    _ <*> _ = UnitRef
+
+instance Monad UnitRef where
+    return   = pure
+    _ >>= _ = UnitRef
+
+instance Mutable s () where
+    type Ref s () = UnitRef s
+    thawRef   _       = pure UnitRef
     freezeRef _       = pure ()
     copyRef _ _       = pure ()
     moveRef _ _       = pure ()
-    cloneRef _        = pure ()
-    unsafeThawRef _   = pure ()
+    cloneRef _        = pure UnitRef
+    unsafeThawRef _   = pure UnitRef
     unsafeFreezeRef _ = pure ()
 
 -- | A 'Ref' of a tuple is a tuple of 'Ref's, for easy accessing.
 --
 -- @
--- Ref m (Int, 'V.Vector' Double) = ('Data.Primitive.MutVar.MutVar' s Int, 'MV.MVector' s Double)
+-- Ref s (Int, 'V.Vector' Double) = ('Data.Primitive.MutVar.MutVar' s Int, 'MV.MVector' s Double)
 -- @
-instance (Monad m, Mutable m a, Mutable m b) => Mutable m (a, b) where
-    type Ref m (a, b) = (Ref m a, Ref m b)
+instance (Mutable s a, Mutable s b) => Mutable s (a, b) where
+    type Ref s (a, b) = (Ref s a, Ref s b)
     thawRef   (!x, !y) = (,) <$> thawRef x   <*> thawRef y
     freezeRef (u , v ) = (,) <$> freezeRef u <*> freezeRef v
     copyRef   (u , v ) (!x, !y) = copyRef u x *> copyRef v y
@@ -349,8 +363,8 @@ instance (Monad m, Mutable m a, Mutable m b) => Mutable m (a, b) where
     unsafeFreezeRef (u , v ) = (,) <$> unsafeFreezeRef u <*> unsafeFreezeRef v
 
 -- | A 'Ref' of a tuple is a tuple of 'Ref's, for easy accessing.
-instance (Monad m, Mutable m a, Mutable m b, Mutable m c) => Mutable m (a, b, c) where
-    type Ref m (a, b, c) = (Ref m a, Ref m b, Ref m c)
+instance (Mutable s a, Mutable s b, Mutable s c) => Mutable s (a, b, c) where
+    type Ref s (a, b, c) = (Ref s a, Ref s b, Ref s c)
     thawRef   (!x, !y, !z) = (,,) <$> thawRef x   <*> thawRef y   <*> thawRef z
     freezeRef (u , v , w ) = (,,) <$> freezeRef u <*> freezeRef v <*> freezeRef w
     copyRef   (u , v , w ) (!x, !y, !z) = copyRef u x *> copyRef v y *> copyRef w z
@@ -360,8 +374,8 @@ instance (Monad m, Mutable m a, Mutable m b, Mutable m c) => Mutable m (a, b, c)
     unsafeFreezeRef (u , v , w ) = (,,) <$> unsafeFreezeRef u <*> unsafeFreezeRef v <*> unsafeFreezeRef w
 
 -- | A 'Ref' of a tuple is a tuple of 'Ref's, for easy accessing.
-instance (Monad m, Mutable m a, Mutable m b, Mutable m c, Mutable m d) => Mutable m (a, b, c, d) where
-    type Ref m (a, b, c, d) = (Ref m a, Ref m b, Ref m c, Ref m d)
+instance (Mutable s a, Mutable s b, Mutable s c, Mutable s d) => Mutable s (a, b, c, d) where
+    type Ref s (a, b, c, d) = (Ref s a, Ref s b, Ref s c, Ref s d)
     thawRef   (!x, !y, !z, !a) = (,,,) <$> thawRef x   <*> thawRef y   <*> thawRef z   <*> thawRef a
     freezeRef (u , v , w , j ) = (,,,) <$> freezeRef u <*> freezeRef v <*> freezeRef w <*> freezeRef j
     copyRef   (u , v , w , j ) (!x, !y, !z, !a) = copyRef u x *> copyRef v y *> copyRef w z *> copyRef j a
@@ -371,8 +385,8 @@ instance (Monad m, Mutable m a, Mutable m b, Mutable m c, Mutable m d) => Mutabl
     unsafeFreezeRef (u , v , w , j ) = (,,,) <$> unsafeFreezeRef u <*> unsafeFreezeRef v <*> unsafeFreezeRef w <*> unsafeFreezeRef j
 
 -- | A 'Ref' of a tuple is a tuple of 'Ref's, for easy accessing.
-instance (Monad m, Mutable m a, Mutable m b, Mutable m c, Mutable m d, Mutable m e) => Mutable m (a, b, c, d, e) where
-    type Ref m (a, b, c, d, e) = (Ref m a, Ref m b, Ref m c, Ref m d, Ref m e)
+instance (Mutable s a, Mutable s b, Mutable s c, Mutable s d, Mutable s e) => Mutable s (a, b, c, d, e) where
+    type Ref s (a, b, c, d, e) = (Ref s a, Ref s b, Ref s c, Ref s d, Ref s e)
     thawRef   (!x, !y, !z, !a, !b) = (,,,,) <$> thawRef x   <*> thawRef y   <*> thawRef z   <*> thawRef a   <*> thawRef b
     freezeRef (u , v , w , j , k ) = (,,,,) <$> freezeRef u <*> freezeRef v <*> freezeRef w <*> freezeRef j <*> freezeRef k
     copyRef   (u , v , w , j , k ) (!x, !y, !z, !a, !b) = copyRef u x *> copyRef v y *> copyRef w z *> copyRef j a *> copyRef k b
@@ -382,13 +396,13 @@ instance (Monad m, Mutable m a, Mutable m b, Mutable m c, Mutable m d, Mutable m
     unsafeFreezeRef (u , v , w , j , k ) = (,,,,) <$> unsafeFreezeRef u <*> unsafeFreezeRef v <*> unsafeFreezeRef w <*> unsafeFreezeRef j <*> unsafeFreezeRef k
 
 -- | 'Ref' for components in a vinyl 'Rec'.
-newtype RecRef m f a = RecRef { getRecRef :: Ref m (f a) }
+newtype RecRef s f a = RecRef { getRecRef :: Ref s (f a) }
 
-deriving instance Eq (Ref m (f a)) => Eq (RecRef m f a)
-deriving instance Ord (Ref m (f a)) => Ord (RecRef m f a)
+deriving instance Eq (Ref s (f a)) => Eq (RecRef s f a)
+deriving instance Ord (Ref s (f a)) => Ord (RecRef s f a)
 
-instance Monad m => Mutable m (Rec f '[]) where
-    type Ref m (Rec f '[]) = Rec (RecRef m f) '[]
+instance Mutable s (Rec f '[]) where
+    type Ref s (Rec f '[]) = Rec (RecRef s f) '[]
     thawRef   _       = pure RNil
     freezeRef _       = pure RNil
     copyRef _ _       = pure ()
@@ -397,8 +411,11 @@ instance Monad m => Mutable m (Rec f '[]) where
     unsafeThawRef _   = pure RNil
     unsafeFreezeRef _ = pure RNil
 
-instance (Monad m, Mutable m (f a), Mutable m (Rec f as), Ref m (Rec f as) ~ Rec (RecRef m f) as) => Mutable m (Rec f (a ': as)) where
-    type Ref m (Rec f (a ': as)) = Rec (RecRef m f) (a ': as)
+instance ( Mutable s (f a)
+         , Mutable s (Rec f as)
+         , Ref s (Rec f as) ~ Rec (RecRef s f) as
+         ) => Mutable s (Rec f (a ': as)) where
+    type Ref s (Rec f (a ': as)) = Rec (RecRef s f) (a ': as)
     thawRef   = \case
       x :& xs -> (:&) <$> (RecRef <$> thawRef x) <*> thawRef xs
     freezeRef = \case
@@ -418,8 +435,13 @@ instance (Monad m, Mutable m (f a), Mutable m (Rec f as), Ref m (Rec f as) ~ Rec
       RecRef v :& vs -> (:&) <$> unsafeFreezeRef v <*> unsafeFreezeRef vs
 
 
-instance (Monad m, RecApplicative as, V.NatToInt (V.RLength as), RPureConstrained (V.IndexableField as) as, Mutable m (Rec f as), Ref m (Rec f as) ~ Rec (RecRef m f) as) => Mutable m (ARec f as) where
-    type Ref m (ARec f as) = ARec (RecRef m f) as
+instance ( RecApplicative as
+         , V.NatToInt (V.RLength as)
+         , RPureConstrained (V.IndexableField as) as
+         , Mutable s (Rec f as)
+         , Ref s (Rec f as) ~ Rec (RecRef s f) as
+         ) => Mutable s (ARec f as) where
+    type Ref s (ARec f as) = ARec (RecRef s f) as
 
     thawRef         = fmap toARec . thawRef   . fromARec
     freezeRef       = fmap toARec . freezeRef . fromARec
@@ -435,18 +457,18 @@ instance (Monad m, RecApplicative as, V.NatToInt (V.RLength as), RPureConstraine
 -- ghci> :kind! MapRef IO '[Int, V.Vector Double]
 -- '[ MutVar RealWorld Int, MVector RealWorld Double ]
 -- @
-type family MapRef m as where
-    MapRef m '[] = '[]
-    MapRef m (a ': as) = Ref m a ': MapRef m as
+type family MapRef s as where
+    MapRef s '[] = '[]
+    MapRef s (a ': as) = Ref s a ': MapRef s as
 
 -- | The mutable reference of the 'HList' type from generic-lens.
-data HListRef :: (Type -> Type) -> [Type] -> Type where
-    NilRef :: HListRef m '[]
-    (:!>)  :: Ref m a -> HListRef m as -> HListRef m (a ': as)
+data HListRef :: Type -> [Type] -> Type where
+    NilRef :: HListRef s '[]
+    (:!>)  :: Ref s a -> HListRef s as -> HListRef s (a ': as)
 infixr 5 :!>
 
-instance Monad m => Mutable m (HList '[]) where
-    type Ref m (HList '[]) = HListRef m '[]
+instance Mutable s (HList '[]) where
+    type Ref s (HList '[]) = HListRef s '[]
     thawRef   _       = pure NilRef
     freezeRef _       = pure Nil
     copyRef _ _       = pure ()
@@ -455,8 +477,8 @@ instance Monad m => Mutable m (HList '[]) where
     unsafeThawRef _   = pure NilRef
     unsafeFreezeRef _ = pure Nil
 
-instance (Monad m, Mutable m a, Mutable m (HList as), Ref m (HList as) ~ HListRef m as) => Mutable m (HList (a ': as)) where
-    type Ref m (HList (a ': as)) = HListRef m (a ': as)
+instance (Mutable s a, Mutable s (HList as), Ref s (HList as) ~ HListRef s as) => Mutable s (HList (a ': as)) where
+    type Ref s (HList (a ': as)) = HListRef s (a ': as)
     thawRef   = \case
       x :> xs -> (:!>) <$> thawRef x <*> thawRef xs
     freezeRef = \case

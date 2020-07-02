@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes    #-}
 {-# LANGUAGE DefaultSignatures      #-}
 {-# LANGUAGE EmptyCase              #-}
 {-# LANGUAGE FlexibleContexts       #-}
@@ -57,7 +58,9 @@ import           Data.List
 import           Data.Primitive.MutVar
 import           Data.Vinyl.Functor
 import           GHC.Generics
+import           Lens.Micro                (Lens')
 import qualified Data.Vinyl.XRec           as X
+import qualified GHC.Exts as Exts
 
 -- | An instance of @'Mutable' m a@ means that @a@ can be stored
 -- a mutable reference in monad @m@.
@@ -179,7 +182,7 @@ import qualified Data.Vinyl.XRec           as X
 --    on dealing with record types
 -- *  <https://mutable.jle.im/06-mutable-branches> for more information
 --    on dealing with sum types
-class Monad m => Mutable m a where
+class Mutable s a where
     -- | Links the type @a@ to the type of its canonical "mutable version".
     --
     -- For example, for 'V.Vector', the mutable version is 'MV.MVector', so
@@ -257,8 +260,8 @@ class Monad m => Mutable m a where
     -- See <https://mutable.jle.im/02-mutable-and-ref.html> for more
     -- information on this type family and how to define instances
     -- automatically.
-    type Ref m a = (v :: Type) | v -> a
-    type Ref m a = MutVar (PrimState m) a
+    type Ref s a = (v :: Type) | v -> s a
+    type Ref s a = MutVar s a
 
     -- | "Thaw" a pure/persistent value into its mutable version, which can
     -- be manipulated using 'Data.Mutable.modifyRef' or other methods
@@ -276,7 +279,7 @@ class Monad m => Mutable m a where
     -- For non-composite (like 'Int'), this is often called the "new var"
     -- function, like 'Data.IORef.newIORef' / 'Data.STRef.newSTRef'
     -- / 'newMutVar' etc.
-    thawRef   :: a -> m (Ref m a)
+    thawRef   :: (PrimMonad m, PrimState m ~ s) => a -> m (Ref s a)
 
     -- | "Freeze" a mutable value into its pure/persistent version.
     --
@@ -295,7 +298,7 @@ class Monad m => Mutable m a where
     -- For non-composite (like 'Int'), this is often called the "read var"
     -- function, like 'Data.IORef.readIORef' / 'Data.STRef.readSTRef'
     -- / 'readMutVar' etc.
-    freezeRef :: Ref m a -> m a
+    freezeRef :: (PrimMonad m, PrimState m ~ s) => Ref s a -> m a
 
     -- | Overwrite a mutable value by provivding a pure/persistent value.
     -- 'copyRef'
@@ -318,7 +321,8 @@ class Monad m => Mutable m a where
     -- function, like 'Data.IORef.writeIORef' / 'Data.STRef.writeSTRef'
     -- / 'writeMutVar' etc.
     copyRef
-        :: Ref m a      -- ^ destination to overwrite
+        :: (PrimMonad m, PrimState m ~ s)
+        => Ref s a      -- ^ destination to overwrite
         -> a            -- ^ value
         -> m ()
 
@@ -330,8 +334,9 @@ class Monad m => Mutable m a where
     -- because the copying is done piecewise, so the intermediate pure value
     -- is never created.
     moveRef
-        :: Ref m a      -- ^ destination
-        -> Ref m a      -- ^ source
+        :: (PrimMonad m, PrimState m ~ s)
+        => Ref s a      -- ^ destination
+        -> Ref s a      -- ^ source
         -> m ()
 
     -- | Create a deep copy of a mutable reference, allocated to a separate
@@ -341,7 +346,7 @@ class Monad m => Mutable m a where
     -- a 'freezeRef'.  For composite types this can be more effficient
     -- because the cloning is done piecewise, so the intermediate pure value
     -- is never created.
-    cloneRef :: Ref m a -> m (Ref m a)
+    cloneRef :: (PrimMonad m, PrimState m ~ s) => Ref s a -> m (Ref s a)
 
     -- this is nice but you can't write an instance for 'TraverseRef' on
     -- this, so maybe not.
@@ -358,7 +363,7 @@ class Monad m => Mutable m a where
     --
     -- This is safe as long as you never again use the original pure
     -- value, since it can potentially directly mutate it.
-    unsafeThawRef   :: a -> m (Ref m a)
+    unsafeThawRef   :: (PrimMonad m, PrimState m ~ s) => a -> m (Ref s a)
 
     -- | A non-copying version of 'freezeRef' that can be more efficient for
     -- types where the mutable representation is the same as the immutable
@@ -367,21 +372,21 @@ class Monad m => Mutable m a where
     -- This is safe as long as you never again modify the mutable
     -- reference, since it can potentially directly mutate the frozen value
     -- magically.
-    unsafeFreezeRef :: Ref m a -> m a
+    unsafeFreezeRef :: (PrimMonad m, PrimState m ~ s) => Ref s a -> m a
 
-    default thawRef :: DefaultMutable m a (Ref m a) => a -> m (Ref m a)
+    default thawRef :: DefaultMutable s a (Ref s a) => a -> m (Ref s a)
     thawRef   = defaultThawRef
-    default freezeRef :: DefaultMutable m a (Ref m a) => Ref m a -> m a
+    default freezeRef :: DefaultMutable s a (Ref s a) => Ref s a -> m a
     freezeRef = defaultFreezeRef
-    default copyRef :: DefaultMutable m a (Ref m a) => Ref m a -> a -> m ()
+    default copyRef :: DefaultMutable s a (Ref s a) => Ref s a -> a -> m ()
     copyRef   = defaultCopyRef
-    default moveRef :: DefaultMutable m a (Ref m a) => Ref m a -> Ref m a -> m ()
+    default moveRef :: DefaultMutable s a (Ref s a) => Ref s a -> Ref s a -> m ()
     moveRef   = defaultMoveRef
-    default cloneRef :: DefaultMutable m a (Ref m a) => Ref m a -> m (Ref m a)
+    default cloneRef :: DefaultMutable s a (Ref s a) => Ref s a -> m (Ref s a)
     cloneRef  = defaultCloneRef
-    default unsafeThawRef :: DefaultMutable m a (Ref m a) => a -> m (Ref m a)
+    default unsafeThawRef :: DefaultMutable s a (Ref s a) => a -> m (Ref s a)
     unsafeThawRef   = defaultUnsafeThawRef
-    default unsafeFreezeRef :: DefaultMutable m a (Ref m a) => Ref m a -> m a
+    default unsafeFreezeRef :: DefaultMutable s a (Ref s a) => Ref s a -> m a
     unsafeFreezeRef = defaultUnsafeFreezeRef
 
 -- | The default implementations of 'thawRef', 'freezeRef', and 'copyRef'
@@ -413,7 +418,7 @@ class Monad m => Mutable m a where
 --
 -- @
 -- instance Mutable m (MyTypeF Identity)
---     type Ref m (MyTypeF Identity) = MyTypeF (RefFor m)
+--     type Ref m (MyTypeF Identity) = MyTypeF (RefFor s)
 -- @
 --
 -- The case for any newtype wrapper:
@@ -436,16 +441,16 @@ class Monad m => Mutable m a where
 --     type Ref m (MyContainer a) = TraverseRef m MyContainer a
 -- @
 --
-class DefaultMutable m a r | r -> a where
-    defaultThawRef         :: a -> m r
-    defaultFreezeRef       :: r -> m a
-    defaultCopyRef         :: r -> a -> m ()
-    defaultMoveRef         :: r -> r -> m ()
-    defaultCloneRef        :: r -> m r
-    defaultUnsafeThawRef   :: a -> m r
-    defaultUnsafeFreezeRef :: r -> m a
+class DefaultMutable s a r | r -> a where
+    defaultThawRef         :: (PrimMonad m, PrimState m ~ s) => a -> m r
+    defaultFreezeRef       :: (PrimMonad m, PrimState m ~ s) => r -> m a
+    defaultCopyRef         :: (PrimMonad m, PrimState m ~ s) => r -> a -> m ()
+    defaultMoveRef         :: (PrimMonad m, PrimState m ~ s) => r -> r -> m ()
+    defaultCloneRef        :: (PrimMonad m, PrimState m ~ s) => r -> m r
+    defaultUnsafeThawRef   :: (PrimMonad m, PrimState m ~ s) => a -> m r
+    defaultUnsafeFreezeRef :: (PrimMonad m, PrimState m ~ s) => r -> m a
 
-instance (PrimMonad m, s ~ PrimState m) => DefaultMutable m a (MutVar s a) where
+instance DefaultMutable s a (MutVar s a) where
     defaultThawRef         = newMutVar
     defaultFreezeRef       = readMutVar
     defaultCopyRef         = writeMutVar
@@ -454,7 +459,7 @@ instance (PrimMonad m, s ~ PrimState m) => DefaultMutable m a (MutVar s a) where
     defaultUnsafeThawRef   = newMutVar
     defaultUnsafeFreezeRef = readMutVar
 
-instance (Generic a, GMutable m (Rep a)) => DefaultMutable m a (GRef m a) where
+instance (Generic a, GMutable s (Rep a)) => DefaultMutable s a (GRef s a) where
     defaultThawRef         = gThawRef
     defaultFreezeRef       = gFreezeRef
     defaultCopyRef         = gCopyRef
@@ -463,8 +468,8 @@ instance (Generic a, GMutable m (Rep a)) => DefaultMutable m a (GRef m a) where
     defaultUnsafeThawRef   = gUnsafeThawRef
     defaultUnsafeFreezeRef = gUnsafeFreezeRef
 
-instance (Generic (z Identity), Generic (z (RefFor m)), GMutable m (Rep (z Identity)), GRef_ m (Rep (z Identity)) ~ Rep (z (RefFor m)))
-        => DefaultMutable m (z Identity) (z (RefFor m)) where
+instance (Generic (z Identity), Generic (z (RefFor s)), GMutable s (Rep (z Identity)), GRef_ s (Rep (z Identity)) ~ Rep (z (RefFor s)))
+        => DefaultMutable s (z Identity) (z (RefFor s)) where
     defaultThawRef         = thawHKD
     defaultFreezeRef       = freezeHKD
     defaultCopyRef         = copyHKD
@@ -473,7 +478,7 @@ instance (Generic (z Identity), Generic (z (RefFor m)), GMutable m (Rep (z Ident
     defaultUnsafeThawRef   = unsafeThawHKD
     defaultUnsafeFreezeRef = unsafeFreezeHKD
 
-instance (Traversable f, Mutable m a) => DefaultMutable m (f a) (TraverseRef m f a) where
+instance (Traversable f, Mutable s a) => DefaultMutable s (f a) (TraverseRef s f a) where
     defaultThawRef         = thawTraverse
     defaultFreezeRef       = freezeTraverse
     defaultCopyRef         = copyTraverse
@@ -482,7 +487,7 @@ instance (Traversable f, Mutable m a) => DefaultMutable m (f a) (TraverseRef m f
     defaultUnsafeThawRef   = unsafeThawTraverse
     defaultUnsafeFreezeRef = unsafeFreezeTraverse
 
-instance (Coercible s a, Mutable m a) => DefaultMutable m s (CoerceRef m s a) where
+instance (Coercible b a, Mutable s a) => DefaultMutable s b (CoerceRef s b a) where
     defaultThawRef         = thawCoerce
     defaultFreezeRef       = freezeCoerce
     defaultCopyRef         = copyCoerce
@@ -491,7 +496,7 @@ instance (Coercible s a, Mutable m a) => DefaultMutable m s (CoerceRef m s a) wh
     defaultUnsafeThawRef   = unsafeThawCoerce
     defaultUnsafeFreezeRef = unsafeFreezeCoerce
 
-instance Applicative m => DefaultMutable m a (ImmutableRef a) where
+instance DefaultMutable s a (ImmutableRef a) where
     defaultThawRef         = thawImmutable
     defaultFreezeRef       = freezeImmutable
     defaultCopyRef         = copyImmutable
@@ -505,14 +510,14 @@ instance Applicative m => DefaultMutable m a (ImmutableRef a) where
 --
 -- If used with 'X.HKD', you can treat this syntactically identically as
 -- a @'Ref' m a@.
-newtype RefFor m a = RefFor { getRefFor :: Ref m a }
+newtype RefFor s a = RefFor { getRefFor :: Ref s a }
 
-deriving instance Eq (Ref m a) => Eq (RefFor m a)
-deriving instance Ord (Ref m a) => Ord (RefFor m a)
+deriving instance Eq (Ref s a) => Eq (RefFor s a)
+deriving instance Ord (Ref s a) => Ord (RefFor s a)
 
 -- | Use a @'RefFor' m a@ as if it were a @'Ref' m a@.
-instance X.IsoHKD (RefFor m) a where
-    type HKD (RefFor m) a = Ref m a
+instance X.IsoHKD (RefFor s) a where
+    type HKD (RefFor s) a = Ref s a
     unHKD = RefFor
     toHKD = getRefFor
 
@@ -541,11 +546,11 @@ instance X.IsoHKD (RefFor m) a where
 -- [20,21,22,23,24,25,26,27,28,29]
 -- @
 --
-newtype TraverseRef m f a = TraverseRef { getTraverseRef :: f (Ref m a) }
+newtype TraverseRef s f a = TraverseRef { getTraverseRef :: f (Ref s a) }
 
 -- | Use a @'TraverseRef' m f a@ as if it were a @f ('Ref' m a)@
-instance X.IsoHKD (TraverseRef m f) a where
-    type HKD (TraverseRef m f) a = f (Ref m a)
+instance X.IsoHKD (TraverseRef s f) a where
+    type HKD (TraverseRef s f) a = f (Ref s a)
     unHKD = TraverseRef
     toHKD = getTraverseRef
 
@@ -556,7 +561,7 @@ instance X.IsoHKD (TraverseRef m f) a where
 -- 'Ref'.  However, it can be useful if you are using a @'TraverseRef'
 -- m f a@ just as a normal data type, independent of the 'Ref' class.  See
 -- documentation for 'TraverseRef' for more information.
-thawTraverse :: (Traversable f, Mutable m a) => f a -> m (TraverseRef m f a)
+thawTraverse :: (Traversable f, Mutable s a, PrimMonad m, PrimState m ~ s) => f a -> m (TraverseRef s f a)
 thawTraverse = fmap TraverseRef . traverse thawRef
 
 -- | Default 'freezeRef' for 'TraverseRef'.
@@ -566,7 +571,7 @@ thawTraverse = fmap TraverseRef . traverse thawRef
 -- 'Ref'.  However, it can be useful if you are using a @'TraverseRef'
 -- m f a@ just as a normal data type, independent of the 'Ref' class.  See
 -- documentation for 'TraverseRef' for more information.
-freezeTraverse :: (Traversable f, Mutable m a) => TraverseRef m f a -> m (f a)
+freezeTraverse :: (Traversable f, Mutable s a, PrimMonad m, PrimState m ~ s) => TraverseRef s f a -> m (f a)
 freezeTraverse = traverse freezeRef . getTraverseRef
 
 -- | Default 'copyRef' for 'TraverseRef'.
@@ -576,7 +581,7 @@ freezeTraverse = traverse freezeRef . getTraverseRef
 -- 'Ref'.  However, it can be useful if you are using a @'TraverseRef'
 -- m f a@ just as a normal data type, independent of the 'Ref' class.  See
 -- documentation for 'TraverseRef' for more information.
-copyTraverse :: (Traversable f, Mutable m a) => TraverseRef m f a -> f a -> m ()
+copyTraverse :: (Traversable f, Mutable s a, PrimMonad m, PrimState m ~ s) => TraverseRef s f a -> f a -> m ()
 copyTraverse (TraverseRef rs) xs = evalStateT (traverse_ go rs) (toList xs)
   where
     go r = do
@@ -591,9 +596,9 @@ copyTraverse (TraverseRef rs) xs = evalStateT (traverse_ go rs) (toList xs)
 -- m f a@ just as a normal data type, independent of the 'Ref' class.  See
 -- documentation for 'TraverseRef' for more information.
 moveTraverse
-    :: (Traversable f, Mutable m a)
-    => TraverseRef m f a        -- ^ destination
-    -> TraverseRef m f a        -- ^ source
+    :: (Traversable f, Mutable s a, PrimMonad m, PrimState m ~ s)
+    => TraverseRef s f a        -- ^ destination
+    -> TraverseRef s f a        -- ^ source
     -> m ()
 moveTraverse (TraverseRef rs) (TraverseRef vs) = evalStateT (traverse_ go rs) (toList vs)
   where
@@ -608,7 +613,7 @@ moveTraverse (TraverseRef rs) (TraverseRef vs) = evalStateT (traverse_ go rs) (t
 -- 'Ref'.  However, it can be useful if you are using a @'TraverseRef'
 -- m f a@ just as a normal data type, independent of the 'Ref' class.  See
 -- documentation for 'TraverseRef' for more information.
-cloneTraverse :: (Traversable f, Mutable m a) => TraverseRef m f a -> m (TraverseRef m f a)
+cloneTraverse :: (Traversable f, Mutable s a, PrimMonad m, PrimState m ~ s) => TraverseRef s f a -> m (TraverseRef s f a)
 cloneTraverse = fmap TraverseRef . traverse cloneRef . getTraverseRef
 
 -- | Default 'unsafeThawRef' for 'TraverseRef'.
@@ -618,7 +623,7 @@ cloneTraverse = fmap TraverseRef . traverse cloneRef . getTraverseRef
 -- 'Ref'.  However, it can be useful if you are using a @'TraverseRef'
 -- m f a@ just as a normal data type, independent of the 'Ref' class.  See
 -- documentation for 'TraverseRef' for more information.
-unsafeThawTraverse :: (Traversable f, Mutable m a) => f a -> m (TraverseRef m f a)
+unsafeThawTraverse :: (Traversable f, Mutable s a, PrimMonad m, PrimState m ~ s) => f a -> m (TraverseRef s f a)
 unsafeThawTraverse = fmap TraverseRef . traverse unsafeThawRef
 
 -- | Default 'unsafeFreezeRef' for 'TraverseRef'.
@@ -628,7 +633,7 @@ unsafeThawTraverse = fmap TraverseRef . traverse unsafeThawRef
 -- 'Ref'.  However, it can be useful if you are using a @'TraverseRef'
 -- m f a@ just as a normal data type, independent of the 'Ref' class.  See
 -- documentation for 'TraverseRef' for more information.
-unsafeFreezeTraverse :: (Traversable f, Mutable m a) => TraverseRef m f a -> m (f a)
+unsafeFreezeTraverse :: (Traversable f, Mutable s a, PrimMonad m, PrimState m ~ s) => TraverseRef s f a -> m (f a)
 unsafeFreezeTraverse = traverse unsafeFreezeRef . getTraverseRef
 
 -- | A 'Ref' that works by using the 'Mutable' instance of an equivalent
@@ -645,14 +650,14 @@ unsafeFreezeTraverse = traverse unsafeFreezeRef . getTraverseRef
 -- The @Ref m MyVec@ uses the a @'MV.MVector' Double@ under the hood.
 --
 -- It's essentially a special case of 'GRef' for newtypes.
-newtype CoerceRef m s a = CoerceRef { getCoerceRef :: Ref m a }
+newtype CoerceRef s b a = CoerceRef { getCoerceRef :: Ref s a }
 
-deriving instance Eq (Ref m a) => Eq (CoerceRef m s a)
-deriving instance Ord (Ref m a) => Ord (CoerceRef m s a)
+deriving instance Eq (Ref s a) => Eq (CoerceRef s b a)
+deriving instance Ord (Ref s a) => Ord (CoerceRef s b a)
 
--- | Use a @'CoerceRef' m s a@ as if it were a @'Ref' m a@
-instance X.IsoHKD (CoerceRef m s) a where
-    type HKD (CoerceRef m s) a = Ref m a
+-- | Use a @'CoerceRef' s b a@ as if it were a @'Ref' m a@
+instance X.IsoHKD (CoerceRef s b) a where
+    type HKD (CoerceRef s b) a = Ref s a
     unHKD = CoerceRef
     toHKD = getCoerceRef
 
@@ -660,70 +665,70 @@ instance X.IsoHKD (CoerceRef m s) a where
 --
 -- You likely won't ever use this directly, since it is automatically
 -- provided if you have a 'Mutable' instance with 'CoerceRef' as the 'Ref'.
--- However, it can be useful if you are using a @'CoerceRef' m s a@ just as
+-- However, it can be useful if you are using a @'CoerceRef' s b a@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'CoerceRef' for more information.
-thawCoerce :: (Coercible s a, Mutable m a) => s -> m (CoerceRef m s a)
+thawCoerce :: (Coercible b a, Mutable s a, PrimMonad m, PrimState m ~ s) => b -> m (CoerceRef s b a)
 thawCoerce = fmap CoerceRef . thawRef . coerce
 
 -- | Default 'freezeRef' for 'CoerceRef'.
 --
 -- You likely won't ever use this directly, since it is automatically
 -- provided if you have a 'Mutable' instance with 'CoerceRef' as the 'Ref'.
--- However, it can be useful if you are using a @'CoerceRef' m s a@ just as
+-- However, it can be useful if you are using a @'CoerceRef' s b a@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'CoerceRef' for more information.
-freezeCoerce :: (Coercible s a, Mutable m a) => CoerceRef m s a -> m s
+freezeCoerce :: (Coercible b a, Mutable s a, PrimMonad m, PrimState m ~ s) => CoerceRef s b a -> m b
 freezeCoerce = fmap coerce . freezeRef . getCoerceRef
 
 -- | Default 'copyRef' for 'CoerceRef'.
 --
 -- You likely won't ever use this directly, since it is automatically
 -- provided if you have a 'Mutable' instance with 'CoerceRef' as the 'Ref'.
--- However, it can be useful if you are using a @'CoerceRef' m s a@ just as
+-- However, it can be useful if you are using a @'CoerceRef' s b a@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'CoerceRef' for more information.
-copyCoerce :: (Coercible s a, Mutable m a) => CoerceRef m s a -> s -> m ()
+copyCoerce :: (Coercible b a, Mutable s a, PrimMonad m, PrimState m ~ s) => CoerceRef s b a -> b -> m ()
 copyCoerce (CoerceRef r) = copyRef r . coerce
 
 -- | Default 'moveRef' for 'CoerceRef'.
 --
 -- You likely won't ever use this directly, since it is automatically
 -- provided if you have a 'Mutable' instance with 'CoerceRef' as the 'Ref'.
--- However, it can be useful if you are using a @'CoerceRef' m s a@ just as
+-- However, it can be useful if you are using a @'CoerceRef' s b a@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'CoerceRef' for more information.
-moveCoerce :: Mutable m a => CoerceRef m s a -> CoerceRef m s a -> m ()
+moveCoerce :: (Mutable s a, PrimMonad m, PrimState m ~ s) => CoerceRef s b a -> CoerceRef s b a -> m ()
 moveCoerce (CoerceRef r) (CoerceRef s) = moveRef r s
 
 -- | Default 'cloneRef' for 'CoerceRef'.
 --
 -- You likely won't ever use this directly, since it is automatically
 -- provided if you have a 'Mutable' instance with 'CoerceRef' as the 'Ref'.
--- However, it can be useful if you are using a @'CoerceRef' m s a@ just as
+-- However, it can be useful if you are using a @'CoerceRef' s b a@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'CoerceRef' for more information.
-cloneCoerce :: Mutable m a => CoerceRef m s a -> m (CoerceRef m s a)
+cloneCoerce :: (Mutable s a, PrimMonad m, PrimState m ~ s) => CoerceRef s b a -> m (CoerceRef s b a)
 cloneCoerce = fmap CoerceRef . cloneRef . getCoerceRef
 
 -- | Default 'unsafeThawRef' for 'CoerceRef'.
 --
 -- You likely won't ever use this directly, since it is automatically
 -- provided if you have a 'Mutable' instance with 'CoerceRef' as the 'Ref'.
--- However, it can be useful if you are using a @'CoerceRef' m s a@ just as
+-- However, it can be useful if you are using a @'CoerceRef' s b a@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'CoerceRef' for more information.
-unsafeThawCoerce :: (Coercible s a, Mutable m a) => s -> m (CoerceRef m s a)
+unsafeThawCoerce :: (Coercible b a, Mutable s a, PrimMonad m, PrimState m ~ s) => b -> m (CoerceRef s b a)
 unsafeThawCoerce = fmap CoerceRef . unsafeThawRef . coerce
 
 -- | Default 'unsafeFreezeRef' for 'CoerceRef'.
 --
 -- You likely won't ever use this directly, since it is automatically
 -- provided if you have a 'Mutable' instance with 'CoerceRef' as the 'Ref'.
--- However, it can be useful if you are using a @'CoerceRef' m s a@ just as
+-- However, it can be useful if you are using a @'CoerceRef' s b a@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'CoerceRef' for more information.
-unsafeFreezeCoerce :: (Coercible s a, Mutable m a) => CoerceRef m s a -> m s
+unsafeFreezeCoerce :: (Coercible b a, Mutable s a, PrimMonad m, PrimState m ~ s) => CoerceRef s b a -> m b
 unsafeFreezeCoerce = fmap coerce . unsafeFreezeRef . getCoerceRef
 
 -- | A "'Ref'" that can be used to give a default 'Mutable' instance that
@@ -743,7 +748,7 @@ instance X.IsoHKD ImmutableRef a where
 --
 -- You likely won't ever use this directly, since it is automatically
 -- provided if you have a 'Mutable' instance with 'ImmutableRef' as the 'Ref'.
--- However, it can be useful if you are using a @'ImmutableRef' m s a@ just as
+-- However, it can be useful if you are using a @'ImmutableRef' s b a@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'ImmutableRef' for more information.
 thawImmutable :: Applicative m => a -> m (ImmutableRef a)
@@ -754,7 +759,7 @@ thawImmutable = pure . ImmutableRef
 --
 -- You likely won't ever use this directly, since it is automatically
 -- provided if you have a 'Mutable' instance with 'ImmutableRef' as the 'Ref'.
--- However, it can be useful if you are using a @'ImmutableRef' m s a@ just as
+-- However, it can be useful if you are using a @'ImmutableRef' s b a@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'ImmutableRef' for more information.
 freezeImmutable :: Applicative m => ImmutableRef a -> m a
@@ -765,7 +770,7 @@ freezeImmutable = pure . getImmutableRef
 --
 -- You likely won't ever use this directly, since it is automatically
 -- provided if you have a 'Mutable' instance with 'ImmutableRef' as the 'Ref'.
--- However, it can be useful if you are using a @'ImmutableRef' m s a@ just as
+-- However, it can be useful if you are using a @'ImmutableRef' s b a@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'ImmutableRef' for more information.
 copyImmutable :: Applicative m => ImmutableRef a -> a -> m ()
@@ -776,7 +781,7 @@ copyImmutable _ _ = pure ()
 --
 -- You likely won't ever use this directly, since it is automatically
 -- provided if you have a 'Mutable' instance with 'ImmutableRef' as the 'Ref'.
--- However, it can be useful if you are using a @'ImmutableRef' m s a@ just as
+-- However, it can be useful if you are using a @'ImmutableRef' s b a@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'ImmutableRef' for more information.
 moveImmutable :: Applicative m => ImmutableRef a -> ImmutableRef a -> m ()
@@ -787,7 +792,7 @@ moveImmutable _ _ = pure ()
 --
 -- You likely won't ever use this directly, since it is automatically
 -- provided if you have a 'Mutable' instance with 'ImmutableRef' as the 'Ref'.
--- However, it can be useful if you are using a @'ImmutableRef' m s a@ just as
+-- However, it can be useful if you are using a @'ImmutableRef' s b a@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'ImmutableRef' for more information.
 cloneImmutable :: Applicative m => ImmutableRef a -> m (ImmutableRef a)
@@ -797,19 +802,19 @@ cloneImmutable = pure
 
 -- | Class for automatic generation of 'Ref' for 'Generic' instances.  See
 -- 'GRef' for more information.
-class Monad m => GMutable m f where
-    type GRef_ m f = (u :: k -> Type) | u -> f
+class GMutable s (f :: Type -> Type) where
+    type GRef_ s f = (u :: Type -> Type) | u -> f
 
-    gThawRef_         :: f a -> m (GRef_ m f a)
-    gFreezeRef_       :: GRef_ m f a -> m (f a)
-    gCopyRef_         :: GRef_ m f a -> f a -> m ()
-    gMoveRef_         :: GRef_ m f a -> GRef_ m f a -> m ()
-    gCloneRef_        :: GRef_ m f a -> m (GRef_ m f a)
-    gUnsafeThawRef_   :: f a -> m (GRef_ m f a)
-    gUnsafeFreezeRef_ :: GRef_ m f a -> m (f a)
+    gThawRef_         :: (PrimMonad m, PrimState m ~ s) => f a -> m (GRef_ s f a)
+    gFreezeRef_       :: (PrimMonad m, PrimState m ~ s) => GRef_ s f a -> m (f a)
+    gCopyRef_         :: (PrimMonad m, PrimState m ~ s) => GRef_ s f a -> f a -> m ()
+    gMoveRef_         :: (PrimMonad m, PrimState m ~ s) => GRef_ s f a -> GRef_ s f a -> m ()
+    gCloneRef_        :: (PrimMonad m, PrimState m ~ s) => GRef_ s f a -> m (GRef_ s f a)
+    gUnsafeThawRef_   :: (PrimMonad m, PrimState m ~ s) => f a -> m (GRef_ s f a)
+    gUnsafeFreezeRef_ :: (PrimMonad m, PrimState m ~ s) => GRef_ s f a -> m (f a)
 
-instance Mutable m c => GMutable m (K1 i c) where
-    type GRef_ m (K1 i c) = K1 i (Ref m c)
+instance Mutable s c => GMutable s (K1 i c) where
+    type GRef_ s (K1 i c) = K1 i (Ref s c)
 
     gThawRef_               = fmap K1 . thawRef . unK1
     gFreezeRef_             = fmap K1 . freezeRef . unK1
@@ -819,8 +824,8 @@ instance Mutable m c => GMutable m (K1 i c) where
     gUnsafeThawRef_         = fmap K1 . unsafeThawRef . unK1
     gUnsafeFreezeRef_       = fmap K1 . unsafeFreezeRef . unK1
 
-instance Monad m => GMutable m U1 where
-    type GRef_ m U1 = U1
+instance GMutable s U1 where
+    type GRef_ s U1 = U1
 
     gThawRef_   _       = pure U1
     gFreezeRef_ _       = pure U1
@@ -830,8 +835,8 @@ instance Monad m => GMutable m U1 where
     gUnsafeThawRef_   _ = pure U1
     gUnsafeFreezeRef_ _ = pure U1
 
-instance Monad m => GMutable m V1 where
-    type GRef_ m V1 = V1
+instance GMutable s V1 where
+    type GRef_ s V1 = V1
 
     gThawRef_         = \case {}
     gFreezeRef_       = \case {}
@@ -841,8 +846,8 @@ instance Monad m => GMutable m V1 where
     gUnsafeThawRef_   = \case {}
     gUnsafeFreezeRef_ = \case {}
 
-instance (GMutable m f, GMutable m g) => GMutable m (f :*: g) where
-    type GRef_ m (f :*: g) = GRef_ m f :*: GRef_ m g
+instance (GMutable s f, GMutable s g) => GMutable s (f :*: g) where
+    type GRef_ s (f :*: g) = GRef_ s f :*: GRef_ s g
 
     gThawRef_ (x :*: y)             = (:*:) <$> gThawRef_ x <*> gThawRef_ y
     gFreezeRef_ (v :*: u)           = (:*:) <$> gFreezeRef_ v <*> gFreezeRef_ u
@@ -852,8 +857,8 @@ instance (GMutable m f, GMutable m g) => GMutable m (f :*: g) where
     gUnsafeThawRef_ (x :*: y)       = (:*:) <$> gUnsafeThawRef_ x <*> gUnsafeThawRef_ y
     gUnsafeFreezeRef_ (v :*: u)     = (:*:) <$> gUnsafeFreezeRef_ v <*> gUnsafeFreezeRef_ u
 
-instance GMutable m f => GMutable m (M1 i c f) where
-    type GRef_ m (M1 i c f) = M1 i c (GRef_ m f)
+instance GMutable s f => GMutable s (M1 i c f) where
+    type GRef_ s (M1 i c f) = M1 i c (GRef_ s f)
 
     gThawRef_               = fmap M1 . gThawRef_ . unM1
     gFreezeRef_             = fmap M1 . gFreezeRef_ . unM1
@@ -865,10 +870,10 @@ instance GMutable m f => GMutable m (M1 i c f) where
 
 -- | Wraps ':+:' in a mutable reference.  Used internally to represent
 -- generic sum references.
-newtype MutSumF m f g a = MutSumF { getMutSumF :: MutVar (PrimState m) ((f :+: g) a) }
+newtype MutSumF s f g a = MutSumF { getMutSumF :: MutVar s ((f :+: g) a) }
 
-instance (GMutable m f, GMutable m g, PrimMonad m) => GMutable m (f :+: g) where
-    type GRef_ m (f :+: g) = MutSumF m (GRef_ m f) (GRef_ m g)
+instance (GMutable s f, GMutable s g) => GMutable s (f :+: g) where
+    type GRef_ s (f :+: g) = MutSumF s (GRef_ s f) (GRef_ s g)
     -- MutVar (PrimState m) :.: (GRef_ m f :+: GRef_ m g)
 
     gThawRef_ = \case
@@ -904,34 +909,34 @@ instance (GMutable m f, GMutable m g, PrimMonad m) => GMutable m (f :+: g) where
 
 -- | A 'Ref' for instances of 'GMutable', which are the "GHC.Generics"
 -- combinators.
-newtype GMutableRef m f a = GMutableRef { getGMutableRef :: GRef_ m f a }
+newtype GMutableRef s f a = GMutableRef { getGMutableRef :: GRef_ s f a }
 
-deriving instance Eq (GRef_ m f a) => Eq (GMutableRef m f a)
-deriving instance Ord (GRef_ m f a) => Ord (GMutableRef m f a)
+deriving instance Eq (GRef_ s f a) => Eq (GMutableRef s f a)
+deriving instance Ord (GRef_ s f a) => Ord (GMutableRef s f a)
 
-thawGMutableRef :: GMutable m f => f a -> m (GMutableRef m f a)
+thawGMutableRef :: (GMutable s f, PrimMonad m, PrimState m ~ s) => f a -> m (GMutableRef s f a)
 thawGMutableRef = fmap GMutableRef . gThawRef_
 
-freezeGMutableRef :: GMutable m f => GMutableRef m f a -> m (f a)
+freezeGMutableRef :: (GMutable s f, PrimMonad m, PrimState m ~ s) => GMutableRef s f a -> m (f a)
 freezeGMutableRef = gFreezeRef_ . getGMutableRef
 
-copyGMutableRef :: GMutable m f => GMutableRef m f a -> f a -> m ()
+copyGMutableRef :: (GMutable s f, PrimMonad m, PrimState m ~ s) => GMutableRef s f a -> f a -> m ()
 copyGMutableRef (GMutableRef r) = gCopyRef_ r
 
-moveGMutableRef :: GMutable m f => GMutableRef m f a -> GMutableRef m f a -> m ()
+moveGMutableRef :: (GMutable s f, PrimMonad m, PrimState m ~ s) => GMutableRef s f a -> GMutableRef s f a -> m ()
 moveGMutableRef (GMutableRef r) (GMutableRef s) = gMoveRef_ r s
 
-cloneGMutableRef :: GMutable m f => GMutableRef m f a -> m (GMutableRef m f a)
+cloneGMutableRef :: (GMutable s f, PrimMonad m, PrimState m ~ s) => GMutableRef s f a -> m (GMutableRef s f a)
 cloneGMutableRef (GMutableRef r) = GMutableRef <$> gCloneRef_ r
 
-unsafeThawGMutableRef :: GMutable m f => f a -> m (GMutableRef m f a)
+unsafeThawGMutableRef :: (GMutable s f, PrimMonad m, PrimState m ~ s) => f a -> m (GMutableRef s f a)
 unsafeThawGMutableRef = fmap GMutableRef . gUnsafeThawRef_
 
-unsafeFreezeGMutableRef :: GMutable m f => GMutableRef m f a -> m (f a)
+unsafeFreezeGMutableRef :: (GMutable s f, PrimMonad m, PrimState m ~ s) => GMutableRef s f a -> m (f a)
 unsafeFreezeGMutableRef = gUnsafeFreezeRef_ . getGMutableRef
 
-instance Mutable m c => Mutable m (K1 i c a) where
-    type Ref m (K1 i c a) = GMutableRef m (K1 i c) a
+instance Mutable s c => Mutable s (K1 i c (a :: Type)) where
+    type Ref s (K1 i c a) = GMutableRef s (K1 i c) a
     thawRef         = thawGMutableRef
     freezeRef       = freezeGMutableRef
     copyRef         = copyGMutableRef
@@ -940,8 +945,8 @@ instance Mutable m c => Mutable m (K1 i c a) where
     unsafeThawRef   = unsafeThawGMutableRef
     unsafeFreezeRef = unsafeFreezeGMutableRef
 
-instance Monad m => Mutable m (U1 a) where
-    type Ref m (U1 a) = GMutableRef m U1 a
+instance Mutable s (U1 (a :: Type)) where
+    type Ref s (U1 a) = GMutableRef s U1 a
     thawRef         = thawGMutableRef
     freezeRef       = freezeGMutableRef
     copyRef         = copyGMutableRef
@@ -950,8 +955,8 @@ instance Monad m => Mutable m (U1 a) where
     unsafeThawRef   = unsafeThawGMutableRef
     unsafeFreezeRef = unsafeFreezeGMutableRef
 
-instance Monad m => Mutable m (V1 a) where
-    type Ref m (V1 a) = GMutableRef m V1 a
+instance Mutable s (V1 (a :: Type)) where
+    type Ref s (V1 a) = GMutableRef s V1 a
     thawRef         = thawGMutableRef
     freezeRef       = freezeGMutableRef
     copyRef         = copyGMutableRef
@@ -960,8 +965,8 @@ instance Monad m => Mutable m (V1 a) where
     unsafeThawRef   = unsafeThawGMutableRef
     unsafeFreezeRef = unsafeFreezeGMutableRef
 
-instance (GMutable m f, GMutable m g) => Mutable m ((f :*: g) a) where
-    type Ref m ((f :*: g) a) = GMutableRef m (f :*: g) a
+instance (GMutable s f, GMutable s g) => Mutable s ((f :*: g) a) where
+    type Ref s ((f :*: g) a) = GMutableRef s (f :*: g) a
     thawRef         = thawGMutableRef
     freezeRef       = freezeGMutableRef
     copyRef         = copyGMutableRef
@@ -970,15 +975,15 @@ instance (GMutable m f, GMutable m g) => Mutable m ((f :*: g) a) where
     unsafeThawRef   = unsafeThawGMutableRef
     unsafeFreezeRef = unsafeFreezeGMutableRef
 
-instance (GMutable m f, GMutable m g, PrimMonad m) => Mutable m ((f :+: g) a) where
-    type Ref m ((f :+: g) a) = GMutableRef m (f :+: g) a
-    thawRef         = thawGMutableRef
-    freezeRef       = freezeGMutableRef
-    copyRef         = copyGMutableRef
-    moveRef         = moveGMutableRef
-    cloneRef        = cloneGMutableRef
-    unsafeThawRef   = unsafeThawGMutableRef
-    unsafeFreezeRef = unsafeFreezeGMutableRef
+-- instance (GMutable s f, GMutable s g) => Mutable s ((f :+: g) a) where
+--     type Ref s ((f :+: g) a) = GMutableRef s (f :+: g) a
+--     thawRef         = thawGMutableRef
+--     freezeRef       = freezeGMutableRef
+--     copyRef         = copyGMutableRef
+--     moveRef         = moveGMutableRef
+--     cloneRef        = cloneGMutableRef
+--     unsafeThawRef   = unsafeThawGMutableRef
+--     unsafeFreezeRef = unsafeFreezeGMutableRef
 
 
 -- | Automatically generate a piecewise mutable reference for any 'Generic'
@@ -1029,9 +1034,9 @@ deriving instance Ord (GRef_ m (Rep a) ()) => Ord (GRef m a)
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'GRef' for more information.
 gThawRef
-    :: (Generic a, GMutable m (Rep a))
+    :: (Generic a, GMutable s (Rep a), PrimMonad m, PrimState m ~ s)
     => a
-    -> m (GRef m a)
+    -> m (GRef s a)
 gThawRef = fmap GRef . gThawRef_ . from
 
 -- | Default 'freezeRef' for 'GRef'.
@@ -1042,8 +1047,8 @@ gThawRef = fmap GRef . gThawRef_ . from
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'GRef' for more information.
 gFreezeRef
-    :: (Generic a, GMutable m (Rep a))
-    => GRef m a
+    :: (Generic a, GMutable s (Rep a), PrimMonad m, PrimState m ~ s)
+    => GRef s a
     -> m a
 gFreezeRef = fmap to . gFreezeRef_ . unGRef
 
@@ -1055,8 +1060,8 @@ gFreezeRef = fmap to . gFreezeRef_ . unGRef
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'GRef' for more information.
 gCopyRef
-    :: (Generic a, GMutable m (Rep a))
-    => GRef m a
+    :: (Generic a, GMutable s (Rep a), PrimMonad m, PrimState m ~ s)
+    => GRef s a
     -> a
     -> m ()
 gCopyRef (GRef v) x = gCopyRef_ v (from x)
@@ -1069,9 +1074,9 @@ gCopyRef (GRef v) x = gCopyRef_ v (from x)
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'GRef' for more information.
 gMoveRef
-    :: GMutable m (Rep a)
-    => GRef m a
-    -> GRef m a
+    :: (GMutable s (Rep a), PrimMonad m, PrimState m ~ s)
+    => GRef s a
+    -> GRef s a
     -> m ()
 gMoveRef (GRef v) (GRef u) = gMoveRef_ v u
 
@@ -1083,9 +1088,9 @@ gMoveRef (GRef v) (GRef u) = gMoveRef_ v u
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'GRef' for more information.
 gCloneRef
-    :: GMutable m (Rep a)
-    => GRef m a
-    -> m (GRef m a)
+    :: (GMutable s (Rep a), PrimMonad m, PrimState m ~ s)
+    => GRef s a
+    -> m (GRef s a)
 gCloneRef (GRef v) = GRef <$> gCloneRef_ v
 
 -- | Default 'unsafeThawRef' for 'GRef'.
@@ -1096,9 +1101,9 @@ gCloneRef (GRef v) = GRef <$> gCloneRef_ v
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'GRef' for more information.
 gUnsafeThawRef
-    :: (Generic a, GMutable m (Rep a))
+    :: (Generic a, GMutable s (Rep a), PrimMonad m, PrimState m ~ s)
     => a
-    -> m (GRef m a)
+    -> m (GRef s a)
 gUnsafeThawRef = fmap GRef . gUnsafeThawRef_ . from
 
 -- | Default 'unsafeFreezeRef' for 'GRef'.
@@ -1109,8 +1114,8 @@ gUnsafeThawRef = fmap GRef . gUnsafeThawRef_ . from
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'GRef' for more information.
 gUnsafeFreezeRef
-    :: (Generic a, GMutable m (Rep a))
-    => GRef m a
+    :: (Generic a, GMutable s (Rep a), PrimMonad m, PrimState m ~ s)
+    => GRef s a
     -> m a
 gUnsafeFreezeRef = fmap to . gUnsafeFreezeRef_ . unGRef
 
@@ -1124,14 +1129,16 @@ gUnsafeFreezeRef = fmap to . gUnsafeFreezeRef_ . unGRef
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'Mutable' for more information.
 thawHKD
-    :: forall z m.
+    :: forall z m s.
     ( Generic (z Identity)
-    , Generic (z (RefFor m))
-    , GMutable m (Rep (z Identity))
-    , GRef_ m (Rep (z Identity)) ~ Rep (z (RefFor m))
+    , Generic (z (RefFor s))
+    , GMutable s (Rep (z Identity))
+    , GRef_ s (Rep (z Identity)) ~ Rep (z (RefFor s))
+    , PrimMonad m
+    , PrimState m ~ s
     )
     => z Identity
-    -> m (z (RefFor m))
+    -> m (z (RefFor s))
 thawHKD = fmap to . gThawRef_ . from
 
 -- | Default 'freezeRef' for the higher-kinded data pattern, a la
@@ -1143,13 +1150,15 @@ thawHKD = fmap to . gThawRef_ . from
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'Mutable' for more information.
 freezeHKD
-    :: forall z m.
+    :: forall z m s.
     ( Generic (z Identity)
-    , Generic (z (RefFor m))
-    , GMutable m (Rep (z Identity))
-    , GRef_ m (Rep (z Identity)) ~ Rep (z (RefFor m))
+    , Generic (z (RefFor s))
+    , GMutable s (Rep (z Identity))
+    , GRef_ s (Rep (z Identity)) ~ Rep (z (RefFor s))
+    , PrimMonad m
+    , PrimState m ~ s
     )
-    => z (RefFor m)
+    => z (RefFor s)
     -> m (z Identity)
 freezeHKD = fmap to . gFreezeRef_ . from
 
@@ -1162,13 +1171,15 @@ freezeHKD = fmap to . gFreezeRef_ . from
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'Mutable' for more information.
 copyHKD
-    :: forall z m.
+    :: forall z m s.
     ( Generic (z Identity)
-    , Generic (z (RefFor m))
-    , GMutable m (Rep (z Identity))
-    , GRef_ m (Rep (z Identity)) ~ Rep (z (RefFor m))
+    , Generic (z (RefFor s))
+    , GMutable s (Rep (z Identity))
+    , GRef_ s (Rep (z Identity)) ~ Rep (z (RefFor s))
+    , PrimMonad m
+    , PrimState m ~ s
     )
-    => z (RefFor m)
+    => z (RefFor s)
     -> z Identity
     -> m ()
 copyHKD r x = gCopyRef_ (from r) (from x)
@@ -1182,13 +1193,15 @@ copyHKD r x = gCopyRef_ (from r) (from x)
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'Mutable' for more information.
 moveHKD
-    :: forall z m.
-    ( Generic (z (RefFor m))
-    , GMutable m (Rep (z Identity))
-    , GRef_ m (Rep (z Identity)) ~ Rep (z (RefFor m))
+    :: forall z m s.
+    ( Generic (z (RefFor s))
+    , GMutable s (Rep (z Identity))
+    , GRef_ s (Rep (z Identity)) ~ Rep (z (RefFor s))
+    , PrimMonad m
+    , PrimState m ~ s
     )
-    => z (RefFor m)
-    -> z (RefFor m)
+    => z (RefFor s)
+    -> z (RefFor s)
     -> m ()
 moveHKD r x = gMoveRef_ (from r) (from x)
 
@@ -1201,13 +1214,15 @@ moveHKD r x = gMoveRef_ (from r) (from x)
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'Mutable' for more information.
 cloneHKD
-    :: forall z m.
-    ( Generic (z (RefFor m))
-    , GMutable m (Rep (z Identity))
-    , GRef_ m (Rep (z Identity)) ~ Rep (z (RefFor m))
+    :: forall z m s.
+    ( Generic (z (RefFor s))
+    , GMutable s (Rep (z Identity))
+    , GRef_ s (Rep (z Identity)) ~ Rep (z (RefFor s))
+    , PrimMonad m
+    , PrimState m ~ s
     )
-    => z (RefFor m)
-    -> m (z (RefFor m))
+    => z (RefFor s)
+    -> m (z (RefFor s))
 cloneHKD = fmap to . gCloneRef_ . from
 
 -- | Default 'unsafeThawRef' for the higher-kinded data pattern, a la
@@ -1219,14 +1234,16 @@ cloneHKD = fmap to . gCloneRef_ . from
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'Mutable' for more information.
 unsafeThawHKD
-    :: forall z m.
+    :: forall z m s.
     ( Generic (z Identity)
-    , Generic (z (RefFor m))
-    , GMutable m (Rep (z Identity))
-    , GRef_ m (Rep (z Identity)) ~ Rep (z (RefFor m))
+    , Generic (z (RefFor s))
+    , GMutable s (Rep (z Identity))
+    , GRef_ s (Rep (z Identity)) ~ Rep (z (RefFor s))
+    , PrimMonad m
+    , PrimState m ~ s
     )
     => z Identity
-    -> m (z (RefFor m))
+    -> m (z (RefFor s))
 unsafeThawHKD = fmap to . gUnsafeThawRef_ . from
 
 -- | Default 'unsafeFreezeRef' for the higher-kinded data pattern, a la
@@ -1238,12 +1255,14 @@ unsafeThawHKD = fmap to . gUnsafeThawRef_ . from
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'Mutable' for more information.
 unsafeFreezeHKD
-    :: forall z m.
+    :: forall z m s.
     ( Generic (z Identity)
-    , Generic (z (RefFor m))
-    , GMutable m (Rep (z Identity))
-    , GRef_ m (Rep (z Identity)) ~ Rep (z (RefFor m))
+    , Generic (z (RefFor s))
+    , GMutable s (Rep (z Identity))
+    , GRef_ s (Rep (z Identity)) ~ Rep (z (RefFor s))
+    , PrimMonad m
+    , PrimState m ~ s
     )
-    => z (RefFor m)
+    => z (RefFor s)
     -> m (z Identity)
 unsafeFreezeHKD = fmap to . gUnsafeFreezeRef_ . from

@@ -44,8 +44,9 @@ library:
   dependencies:
   - base >= 4.11 && < 5
   - constraints
-  - generic-lens-core >= 2.0
   - generic-lens >= 2.0
+  - generic-lens-core >= 2.0
+  - microlens
   - primitive >= 0.6.4
   - reflection
   - transformers

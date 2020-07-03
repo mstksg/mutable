@@ -458,25 +458,25 @@ data MyType = MT
   deriving (Show, Generic)
 </code></pre>
 <p>Then you can give it an automatically derived mutable version:</p>
-<pre class="haskell"><code>instance PrimMonad m =&gt; Mutable m MyType where
-    type Ref m MyType = GRef m MyType
+<pre class="haskell"><code>instance Mutable s MyType where
+    type Ref s MyType = GRef s MyType
 </code></pre>
-<p><code>Ref m MyType</code> is now a &quot;mutable <code>MyType</code>&quot;, like how <code>MVector s a</code> is a
+<p><code>Ref s MyType</code> is now a &quot;mutable <code>MyType</code>&quot;, like how <code>MVector s a</code> is a
 &quot;mutable <code>Vector a</code>&quot;.</p>
 <p>We now have some nice operations:</p>
 <h2>Whole-wise operations</h2>
 <p>Sometimes you just want to operate on the whole <code>MyType</code>. Well, you now have:</p>
 <pre class="haskell"><code>-- | Allocate a mutable &#39;MyType&#39; in the monad m
-thawRef :: MyType -&gt; Ref m MyType
+thawRef :: MyType -&gt; m (Ref s MyType)
 
 -- | &quot;Freeze&quot; a mutable &#39;MyType&#39;
-freezeRef :: Ref m MyType -&gt; m MyType
+freezeRef :: Ref s MyType -&gt; m MyType
 
 -- | Overwrite a mutable &#39;MyType&#39; with the contents of a pure one.
-copyRef :: Ref m MyType -&gt; MyType -&gt; m ()
+copyRef :: Ref s MyType -&gt; MyType -&gt; m ()
 
 -- | Run an updating function on a whole &#39;MyType&#39;
-modifyRef :: Ref m MyType -&gt; (MyType -&gt; MyType) -&gt; m ()
+modifyRef :: Ref s MyType -&gt; (MyType -&gt; MyType) -&gt; m ()
 </code></pre>
 <h2>Piecewise Operations</h2>
 <p>This is nice, but we really the juicy stuff: a way to modify each part
@@ -485,29 +485,29 @@ ones (using <code>-XOverloadedLabels</code>), and the position based ones (using
 <code>-XTypeApplications</code>). We have the continuation-based combinators:</p>
 <pre class="haskell"><code>-- | Do something with the &#39;Int&#39; field
 withField #mtInt
-    :: (PrimMonad m, s ~ PrimState m)
-    =&gt; Ref m MyType
+    :: (PrimMonad m, PrimState m ~ s)
+    =&gt; Ref s MyType
     -&gt; (MutVar s Int -&gt; m r)
     -&gt; m r
 
 -- | Do something with the &#39;Vector&#39; field
 withField #mtVec
-    :: (PrimMonad m, s ~ PrimState m)
-    =&gt; Ref m MyType
+    :: (PrimMonad m, PrimState m ~ s)
+    =&gt; Ref s MyType
     -&gt; (MVector s Double -&gt; m r)
     -&gt; m r
 
 -- | Do something with the second field, the Double
 withPos @2
-    :: (PrimMonad m, s ~ PrimState m)
-    =&gt; Ref m MyType
+    :: (PrimMonad m, PrimState m ~ s)
+    =&gt; Ref s MyType
     -&gt; (MutVar s Double -&gt; m r)
     -&gt; m r
 
 -- | Do something with a tuple of each ref in the type
 withTuple
-    :: (PrimMonad m, s ~ PrimState m)
-    =&gt; Ref m MyType
+    :: (PrimMonad m, PrimState m ~ s)
+    =&gt; Ref s MyType
     -&gt; ((MutVar s Int, MutVar s Double, MVector s Double) -&gt; m r)
     -&gt; m r
 </code></pre>
@@ -516,22 +516,22 @@ into&quot; a mutable <code>a</code>, if you have a mutable <code>s</code>), whic
 functions like <code>modifyPart</code> and <code>freezePart</code>:</p>
 <pre class="haskell"><code>-- | Data type to &quot;focus in&quot; on the &#39;mtDouble&#39; field in a &#39;MyType&#39;
 fieldMut #mtDouble
-    :: MutPart m MyType Double
+    :: MutPart s MyType Double
 
 -- | Modify the &#39;Double&#39; in the mutable &#39;MyType&#39;
 modifyPart (fieldMut #mtDouble)
-    :: Ref m MyType
+    :: Ref s MyType
     -&gt; (Double -&gt; Double)
     -&gt; m ()
 </code></pre>
 <pre class="haskell"><code>-- | Data type to &quot;focus in&quot; on the first item in a &#39;MyType&#39;
 posMut @1
-    :: MutPart m MyType Int
+    :: MutPart s MyType Int
 
 -- | Read out the &#39;Int&#39; in the mutable &#39;MyType&#39;
 freezePart (posMut @1)
-    :: Ref m MyPart
-    -&gt; m Int
+    :: Ref s MyPart
+    -&gt; s Int
 </code></pre>
 <h2>Sum Types</h2>
 <p>We can get <code>GRef</code> for sum types too. As shown earlier, we get a mutable linked
@@ -540,17 +540,17 @@ list type for free, and a nice &quot;pop&quot; function if we utilize <code>cons
   deriving (Show, Generic)
 infixr 5 `Cons`
 
-instance (Mutable m a, PrimMonad m) =&gt; Mutable m (List a) where
-    type Ref m (List a) = GRef m (List a)
+instance Mutable s a =&gt; Mutable s (List a) where
+    type Ref s (List a) = GRef s (List a)
 
 consBranch
-    :: (PrimMonad m, Mutable m a)
-    =&gt; MutBranch m (List a) (a, List a)
+    :: Mutable s a
+    =&gt; MutBranch s (List a) (a, List a)
 consBranch = constrMB #_Cons
 
 popStack
-    :: (PrimMonad m, Mutable m a)
-    =&gt; Ref m (List a)
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    =&gt; Ref s (List a)
     -&gt; m (Maybe a)
 popStack xs = do
     c &lt;- projectBranch consBranch xs

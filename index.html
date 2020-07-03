@@ -467,13 +467,13 @@ for you.</p>
     }
   deriving (Show, Generic)
 
-instance PrimMonad m =&gt; Mutable m MyType where
-    type Ref m MyType = GRef m MyType
+instance Mutable s MyType where
+    type Ref s MyType = GRef s MyType
 </code></pre>
-<p>The type <code>Ref m MyType</code> is now a &quot;mutable <code>MyType</code>&quot;, just like how <code>MVector s
+<p>The type <code>Ref s MyType</code> is now a &quot;mutable <code>MyType</code>&quot;, just like how <code>MVector s
 a</code> is a &quot;mutable <code>Vector a</code>&quot;. You have:</p>
-<pre class="haskell"><code>thawRef   :: MyType -&gt; m (Ref m MyType)
-freezeRef :: Ref m MyType -&gt; m MyType
+<pre class="haskell"><code>thawRef   :: MyType -&gt; m (Ref s MyType)
+freezeRef :: Ref s MyType -&gt; m MyType
 </code></pre>
 <p>You can use <code>thawRef</code> to allocate a mutable <code>MyType</code> that essentially consists
 of a mutable <code>Int</code>, a mutable <code>Double</code>, and a mutable <code>Vector</code> (an <code>MVector</code>)
@@ -514,14 +514,14 @@ definition of a <em><a href="https://en.wikipedia.org/wiki/Linked_list">mutable 
   deriving (Show, Generic)
 infixr 5 `Cons`
 
-instance (Mutable m a, PrimMonad m) =&gt; Mutable m (List a) where
-    type Ref m (List a) = GRef m (List a)
+instance Mutable s a =&gt; Mutable s (List a) where
+    type Ref s (List a) = GRef s (List a)
 </code></pre>
 <p>We can write a function to &quot;pop&quot; out the top value and shift the rest of the
 list up:</p>
 <pre class="haskell"><code>popStack
-    :: (PrimMonad m, Mutable m a)
-    =&gt; Ref m (List a)
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    =&gt; Ref s (List a)
     -&gt; m (Maybe a)
 popStack xs = do
     c &lt;- projectBranch (constrMB #_Cons) xs

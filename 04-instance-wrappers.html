@@ -469,8 +469,8 @@ your data type but want to override the &quot;default&quot; behavior of a compon
     }
   deriving Generic
 
-instance PrimMonad m =&gt; Mutable m MyType where
-    type Ref m MyType = GRef m MyType
+instance Mutable s MyType where
+    type Ref s MyType = GRef s MyType
 </code></pre>
 <p>This leverages the <code>Mutable</code> instances of <code>Int</code>, <code>Double</code>, and <code>String</code>.
 However, the normal <code>Mutable</code> instance for <code>String</code> isn&#39;t too great: it uses a
@@ -484,8 +484,8 @@ as a single object to be modified whole-wise instead of piecewise:</p>
     }
   deriving Generic
 
-instance PrimMonad m =&gt; Mutable m MyType where
-    type Ref m MyType = GRef m MyType
+instance Mutable s MyType where
+    type Ref s MyType = GRef s MyType
 </code></pre>
 <p>Now <code>Ref m MyType</code> is a composite data type of a <code>MutVar s Int</code>, a <code>MutVar s
 Double</code>, and <code>MutVar s String</code>. <code>VarMut</code> overrides with a &quot;whole-wise
@@ -536,8 +536,8 @@ into it to be ignored and all freezes to return the original <code>String</code>
     }
   deriving Generic
 
-instance PrimMonad m =&gt; Mutable m MyType where
-    type Ref m MyType = GRef m MyType
+instance Mutable s MyType where
+    type Ref s MyType = GRef s MyType
 </code></pre>
 <p>And now <code>Ref m MyType</code> will basically be a tupling of <code>MutVar s Int</code>, <code>MutVar s
 Double</code>, and an immutable <code>String</code>. If you try to modify it, modifications

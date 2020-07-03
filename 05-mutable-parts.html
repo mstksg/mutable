@@ -449,33 +449,33 @@ footer .site-generated-message
 <p>The <em><a href="https://hackage.haskell.org/package/mutable/docs/Data-Mutable-Parts.html">Data.Mutable.Parts</a></em> module has some mechanisms for accessing specific
 parts of mutable references, to take full advantage of piecewise-mutability.</p>
 <p>The main data type is <code>MutPart</code>:</p>
-<pre class="haskell"><code>data MutPart m s a = MutPart { getMutPart :: Ref m s -&gt; Ref m a }
+<pre class="haskell"><code>data MutPart s b a = MutPart { getMutPart :: Ref s b -&gt; Ref m a }
 </code></pre>
-<p>You can sort of imagine <code>MutPart m s a</code> as spiritually similar to a <code>Lens&#39; s
-a</code>: it&#39;s a way to access and modify an <code>a</code> &quot;inside&quot; some <code>s</code>. It allows you to
-access or modify an <code>a</code> part of the <code>s</code>, without touching the rest of the <code>s</code>.</p>
+<p>You can sort of imagine <code>MutPart s b a</code> as spiritually similar to a <code>Lens&#39; b
+a</code>: it&#39;s a way to access and modify an <code>a</code> &quot;inside&quot; some <code>b</code>. It allows you to
+access or modify an <code>a</code> part of the <code>b</code>, without touching the rest of the <code>b</code>.</p>
 <h2>Usage</h2>
 <p>Once you <em>have</em> a <code>MutPart</code>, you can use it with some simple utilities:</p>
 <pre class="haskell"><code>-- | With a &#39;MutPart&#39;, read out a specific part of a &#39;Ref&#39;.
-freezePart :: Mutable m a =&gt; MutPart m s a -&gt; Ref m s -&gt; m a
+freezePart :: Mutable s a =&gt; MutPart s b a -&gt; Ref s b -&gt; m a
 
 -- | With a &#39;MutPart&#39;, overwrite into a specific part of a &#39;Ref&#39;.
-copyPart :: Mutable m a =&gt; MutPart m s a -&gt; Ref m s -&gt; a -&gt; m ()
+copyPart :: Mutable s a =&gt; MutPart s b a -&gt; Ref s b -&gt; a -&gt; m ()
 
 -- | With a &#39;MutPart&#39;, modify a specific part of a &#39;Ref&#39; with a pure
 -- function.
-modifyPart :: Mutable m a =&gt; MutPart m s a -&gt; Ref m s -&gt; (a -&gt; a) -&gt; m ()
+modifyPart :: Mutable s a =&gt; MutPart s b a -&gt; Ref s b -&gt; (a -&gt; a) -&gt; m ()
 </code></pre>
 <p><code>freezePart</code>, <code>copyPart</code>, and <code>modifyPart</code> act like &quot;focused&quot; versions of
 <code>freezeRef</code>, <code>copyRef</code>, and <code>modifyRef</code>. There&#39;s also a continuation-like
 combinator to work directly with the smaller sub-reference:</p>
-<pre class="haskell"><code>-- | Using a &#39;MutPart&#39;, perform a function on a `Ref m s` as if you had
--- a `Ref m a`.
+<pre class="haskell"><code>-- | Using a &#39;MutPart&#39;, perform a function on a `Ref s b` as if you had
+-- a `Ref s a`.
 withPart
-    :: MutPart m s a        -- ^ How to zoom into an `a` from an `s`
-    -&gt; Ref m s              -- ^ The larger reference of `s`
-    -&gt; (Ref m a -&gt; m b)     -- ^ What do do with the smaller sub-reference of `a`
-    -&gt; m b
+    :: MutPart s b a        -- ^ How to zoom into an `a` from an `s`
+    -&gt; Ref s b              -- ^ The larger reference of `s`
+    -&gt; (Ref m a -&gt; m r)     -- ^ What do do with the smaller sub-reference of `a`
+    -&gt; m r
 </code></pre>
 <p><code>MutPart</code>s also have a <code>Category</code> instance, so you can compose them with <code>.</code>
 from <em>Control.Category</em>.</p>
@@ -490,29 +490,29 @@ different situations.</p>
     }
   deriving (Show, Generic)
 
-instance PrimMonad m =&gt; Mutable m MyType where
-    type Ref m MyType = GRef m MyType
+instance Mutable s MyType where
+    type Ref s MyType = GRef s MyType
 </code></pre>
 <p>We are able to access each field:</p>
-<pre class="haskell"><code>fieldMut #mtInt    :: MutPart m MyType Int
-fieldMut #mtDouble :: MutPart m MyType Double
-fieldMut #mtVec    :: MutPart m MyType (V.Vector Double)
+<pre class="haskell"><code>fieldMut #mtInt    :: MutPart s MyType Int
+fieldMut #mtDouble :: MutPart s MyType Double
+fieldMut #mtVec    :: MutPart s MyType (V.Vector Double)
 </code></pre>
 <p>and also each position:</p>
-<pre class="haskell"><code>posMut @1 :: MutPart m MyType Int
-posMut @2 :: MutPart m MyType Double
-posMut @3 :: MutPart m MyType (V.Vector Double)
+<pre class="haskell"><code>posMut @1 :: MutPart s MyType Int
+posMut @2 :: MutPart s MyType Double
+posMut @3 :: MutPart s MyType (V.Vector Double)
 </code></pre>
 <p>We can also get a <code>MutPart</code> into a view of your data type as a tuple:</p>
-<pre class="haskell"><code>tupleMut :: MutPart m MyType (Int, Double, V.Vector Double)
+<pre class="haskell"><code>tupleMut :: MutPart s MyType (Int, Double, V.Vector Double)
 </code></pre>
 <p>Because the instance of <code>Ref</code> for tuples, this just turns a <code>Ref m MyType</code> into
 a <code>(MutVar s Int, MutVar s Double, MVector s Double)</code>. This is arguably easier
 to use continuation-style, so there is a nice helper <code>withTuple = withPart
 tupleMut</code></p>
 <pre class="haskell"><code>withTuple
-    :: (PrimMonad m, s ~ PrimState m)
-    =&gt; MutPart m MyType
+    :: (PrimMonad m, PrimState m ~ s)
+    =&gt; MutPart s MyType
     -&gt; ((MutVar s Int, MutVar s Double, MVector s Double) -&gt; m r)
     -&gt; m r
 </code></pre>
@@ -529,8 +529,8 @@ Instance Options</a>), you can use
 
 type MyType&#39; = MyTypeF Identity
 
-instance PrimMonad m =&gt; Mutable m MyType&#39; where
-    type Ref m MyType&#39; = MyTypeF (RefFor m)
+instance Mutable s MyType&#39; where
+    type Ref s MyType&#39; = MyTypeF (RefFor s)
 </code></pre>
 <pre class="haskell"><code>MTF mpInt mpDouble mpVec = hkdMutParts @MyTypeF
 </code></pre>
@@ -538,7 +538,7 @@ instance PrimMonad m =&gt; Mutable m MyType&#39; where
 MyType Double</code>, and <code>mpVec :: MutPart m MyType (V.Vector Double)</code>, in a way
 that is nice to pattern match out of. You can also access the
 <code>MutPart</code>s:</p>
-<pre class="haskell"><code>mpInt :: MutPart m MyType Int
+<pre class="haskell"><code>mpInt :: MutPart s MyType Int
 mpInt = mtfInt (hkdMutParts @MyTypeF)
 </code></pre>
 </div></div></div></div></div></section><div class="tintin-doc-footer clear-fix"><div class="row next-prev"><div class="col-md-4 offset-md-4"><a href="04-instance-wrappers.html">&lt; Previous: Instance Wrappers</a></div><div class="col-md-4 ml-auto"><a href="06-mutable-branches.html">Next: Mutable Branches &gt;</a></div></div><footer><div class="container"><div class="row"><div class="col"><p class="author">Developed by <span>Justin Le</span></p><p class="site-generated-message">Site generated with <a href="https://theam.github.io/tintin" class="tintin-logo"><img src="https://s3-eu-west-1.amazonaws.com/worldwideapps/assets/logo.svg" class="filter-gray"></a><span>&mdash; &copy; 2019 </span><a href="https://www.theagilemonkeys.com">The Agile Monkeys</a></p></div></div></div></footer></div></div><script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script><script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/haskell.min.js"></script><script src="https://cdn.rawgit.com/icons8/bower-webicon/v0.10.7/jquery-webicon.min.js"></script><script>hljs.initHighlightingOnLoad()</script><script>$(function () {$("#menu-toggle").click(function(e) {e.preventDefault();$("#wrapper").toggleClass("toggled");$("#menu-toggle img").toggleClass("rotateIn rotateOut");})});</script><script src="https://cdn.jsdelivr.net/npm/katex@0.10.0-alpha/dist/katex.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.9.0/contrib/auto-render.min.js"></script><script>renderMathInElement(document.body);</script></body></html>

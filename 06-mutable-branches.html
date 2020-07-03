@@ -467,28 +467,28 @@ branches</em>.</p>
 <pre class="haskell"><code>data List a = Nil | Cons a (List a)
   deriving (Show, Generic)
 
-instance (Mutable m a, PrimMonad m) =&gt; Mutable m (List a) where
-    type Ref m (List a) = GRef m (List a)
+instance Mutable s a =&gt; Mutable s (List a) where
+    type Ref s (List a) = GRef s (List a)
 </code></pre>
-<p>The <code>GRef m (List a)</code> is now a <em><a href="https://en.wikipedia.org/wiki/Linked_list">mutable linked list</a></em> --- the good old
+<p>The <code>GRef s (List a)</code> is now a <em><a href="https://en.wikipedia.org/wiki/Linked_list">mutable linked list</a></em> --- the good old
 fashioned data type that people learn to implement in Java or C++ or what have
 you. It&#39;s a reference to a cell that is either a <code>Nil</code> cell or a <code>Cons</code> cell
 with a reference to an <code>a</code> and a reference to another list cell.</p>
 <p>The main tool to work with mutable branches is to use the <code>MutBranch</code> data
 type, from <em><a href="https://hackage.haskell.org/package/mutable/docs/Data-Mutable-Branches.html">Data.Mutable.Branches</a></em>, which specifies which &quot;branch&quot; on mutable
 sum type to work with. In the case of <code>IntOrBool</code>, it we might have a
-<code>MutBranch m IntOrBool Int</code> for the <code>Int</code> case and a <code>MutBranch m IntOrBool
+<code>MutBranch s IntOrBool Int</code> for the <code>Int</code> case and a <code>MutBranch s IntOrBool
 Bool</code> for the <code>Bool</code> case. In the case of <code>List</code>, since it has a <code>Generic</code>
 instance, we can use <code>constrMB</code> to create a <code>MutBranch</code> based on the
 constructor name.</p>
 <pre class="haskell"><code>nilBranch
-    :: (PrimMonad m, Mutable m a)
-    =&gt; MutBranch m (List a) ()
+    :: Mutable s a
+    =&gt; MutBranch s (List a) ()
 nilBranch = constrMB #_Nil
 
 consBranch
-    :: (PrimMonad m, Mutable m a)
-    =&gt; MutBranch m (List a) (a, List a)
+    :: Mutable s a
+    =&gt; MutBranch s (List a) (a, List a)
 consBranch = constrMB #_Cons
 </code></pre>
 <p><code>nilBranch</code> represents the <code>Nil</code> constructor (containing nothing, <code>()</code>), and
@@ -501,8 +501,8 @@ you&#39;d have to do something like <code>constrMB (CLabel @&quot;:&quot;)</code
 on that branch, with <code>hasBranch</code>:</p>
 <pre class="haskell"><code>-- | Check if a mutable linked list is currently empty
 isEmpty
-    :: (PrimMonad m, Mutable m a)
-    =&gt; Ref m (List a)
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    =&gt; Ref s (List a)
     -&gt; m Bool
 isEmpty = hasBranch nilBranch
 </code></pre>
@@ -510,8 +510,8 @@ isEmpty = hasBranch nilBranch
 mutable linked list, giving us the first value and shifting the rest of the
 list up.</p>
 <pre class="haskell"><code>popStack
-    :: (PrimMonad m, Mutable m a)
-    =&gt; Ref m (List a)
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    =&gt; Ref s (List a)
     -&gt; m (Maybe a)
 popStack xs = do
     c &lt;- projectBranch consBranch xs
@@ -523,9 +523,9 @@ popStack xs = do
 <p>And here is a function to concatenate a second linked list to the end of a
 first one.</p>
 <pre class="haskell"><code>concatLists
-    :: (PrimMonad m, Mutable m a)
-    =&gt; Ref m (List a)
-    -&gt; Ref m (List a)
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    =&gt; Ref s (List a)
+    -&gt; Ref s (List a)
     -&gt; m ()
 concatLists l1 l2 = do
     c &lt;- projectBranch consBranch l1

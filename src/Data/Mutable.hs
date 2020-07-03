@@ -24,7 +24,10 @@ module Data.Mutable (
   , CoerceRef(..)
   , TraverseRef(..)
   , GMutableRef(..)
+  , RecRef(..)
   , HListRef(..)
+  , UnitRef(..)
+  , VoidRef
   -- * Providing/overriding instances
   , VarMut(..)
   , CoerceMut(..)

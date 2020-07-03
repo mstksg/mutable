@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes    #-}
+{-# LANGUAGE DeriveGeneric          #-}
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -59,6 +60,7 @@ module Data.Mutable.Branches (
 import           Control.Monad
 import           Control.Monad.Primitive
 import           Data.Generics.Product.Internal.HList
+import           Data.Kind
 import           Data.Maybe
 import           Data.Mutable.Class
 import           Data.Mutable.Instances
@@ -288,7 +290,7 @@ freezeBranch mb = mapM freezeRef <=< projectBranch mb
 
 -- | Check if an @s@ is currently a certain branch @a@.
 hasBranch
-    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    :: (PrimMonad m, PrimState m ~ s)
     => MutBranch s b a
     -> Ref s b
     -> m Bool
@@ -296,7 +298,7 @@ hasBranch mb = fmap isJust . projectBranch mb
 
 -- | Check if an @s@ is /not/ currently a certain branch @a@.
 hasn'tBranch
-    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    :: (PrimMonad m, PrimState m ~ s)
     => MutBranch s b a
     -> Ref s b
     -> m Bool
@@ -413,7 +415,7 @@ unsafeThawBranch mb = embedBranch mb <=< unsafeThawRef
 -- Nothing
 -- @
 withBranch
-    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    :: (PrimMonad m, PrimState m ~ s)
     => MutBranch s b a    -- ^ How to check if is @s@ is an @a@
     -> Ref s b            -- ^ Structure to read out of and write into
     -> (Ref s a -> m r)   -- ^ Action to perform on the @a@ branch of @s@
@@ -422,7 +424,7 @@ withBranch mb r f = mapM f =<< projectBranch mb r
 
 -- | 'withBranch', but discarding the returned value.
 withBranch_
-    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    :: (PrimMonad m, PrimState m ~ s)
     => MutBranch s b a    -- ^ How to check if is @s@ is an @a@
     -> Ref s b            -- ^ Structure to read out of and write into
     -> (Ref s a -> m r)   -- ^ Action to perform on the @a@ branch of @s@
@@ -561,20 +563,22 @@ class (GMutable s f, Mutable s a) => GMutBranchConstructor (ctor :: Symbol) s f 
     gmbcEmbed :: (PrimMonad m, PrimState m ~ s) => CLabel ctor -> Ref s a -> m (GRef_ s f x)
 
 instance
-      ( GMutable m f
-      , Mutable m a
-      , GIsList (GRef_ m f) (GRef_ m f) (MapRef m as) (MapRef m as)
+      ( GMutable s f
+      , Mutable s a
+      , GIsList (GRef_ s f) (GRef_ s f) (MapRef s as) (MapRef s as)
       , GIsList f f as as
       , ListTuple a a as as
-      , ListTuple b b (MapRef m as) (MapRef m as)
-      , Ref m a ~ b
+      , ListRefTuple s b as
+      , Ref s a ~ b
       )
-      => GMutBranchConstructor ctor m (M1 C ('MetaCons ctor fixity fields) f) a where
+      => GMutBranchConstructor ctor s (M1 C ('MetaCons ctor fixity fields) f) a where
     gmbcProj _  = pure . Just
-                . listToTuple @b @b @(MapRef m as) @(MapRef m as)
-                . GLP.view glist . unM1
-    gmbcEmbed _ = pure . M1 . GLP.view (GL.fromIso glist)
-                . tupleToList @b @_ @(MapRef m as)
+                . GLP.view (glist . tupledRef @s @b @as)
+                . unM1
+    gmbcEmbed _ = pure
+                . M1
+                . GLP.view (GL.fromIso (glist . tupledRef @s @b @as))
+
 
 instance GMutBranchConstructor ctor m f a => GMutBranchConstructor ctor m (M1 D meta f) a where
     gmbcProj  lb = gmbcProj lb . unM1
@@ -609,15 +613,15 @@ instance
       , GIsList (GRef_ s l) (GRef_ s l) (MapRef s as) (MapRef s as)
       , GIsList l l as as
       , ListTuple a a as as
-      , ListTuple b b (MapRef s as) (MapRef s as)
+      , ListRefTuple s b as
       , Ref s a ~ b
       )
       => GMutBranchSum ctor 'True s l r a where
     gmbsProj lb (MutSumF r) = readMutVar r >>= \case
       L1 x -> gmbcProj lb x
       R1 _ -> pure Nothing
-    gmbsEmbed _ = fmap MutSumF . newMutVar . L1 . GLP.view (GL.fromIso glist)
-                . tupleToList @b @_ @(MapRef s as)
+    gmbsEmbed _ = fmap MutSumF . newMutVar . L1
+                . GLP.view (GL.fromIso (glist . tupledRef @s @b @as))
 
 instance
       ( GMutable s l
@@ -625,15 +629,15 @@ instance
       , GIsList (GRef_ s r) (GRef_ s r) (MapRef s as) (MapRef s as)
       , GIsList r r as as
       , ListTuple a a as as
-      , ListTuple b b (MapRef s as) (MapRef s as)
+      , ListRefTuple s b as
       , Ref s a ~ b
       )
       => GMutBranchSum ctor 'False s l r a where
     gmbsProj lb (MutSumF r) = readMutVar r >>= \case
       L1 _ -> pure Nothing
       R1 x -> gmbcProj lb x
-    gmbsEmbed _ = fmap MutSumF . newMutVar . R1 . GLP.view (GL.fromIso glist)
-                . tupleToList @b @_ @(MapRef s as)
+    gmbsEmbed _ = fmap MutSumF . newMutVar . R1
+                . GLP.view (GL.fromIso (glist . tupledRef @s @b @as))
 
 -- | Create a 'MutBranch' for any data type with a 'Generic' instance by
 -- specifying the constructor name using OverloadedLabels
@@ -671,7 +675,7 @@ constrMB l = MutBranch
     }
 
 -- | 'MutBranch' focusing on the nil case of a list
-nilMB :: Mutable s a => MutBranch s [a] (Proxy s)
+nilMB :: Mutable s a => MutBranch s [a] ()
 nilMB = constrMB (CLabel @"[]")
 
 -- | 'MutBranch' focusing on the cons case of a list
@@ -679,7 +683,7 @@ consMB :: Mutable s a => MutBranch s [a] (a, [a])
 consMB = constrMB (CLabel @":")
 
 -- | 'MutBranch' focusing on the 'Nothing' case of a 'Maybe'
-nothingMB :: Mutable s a => MutBranch s (Maybe a) (Proxy s)
+nothingMB :: Mutable s a => MutBranch s (Maybe a) ()
 nothingMB = constrMB #_Nothing
 
 -- | 'MutBranch' focusing on the 'Just' case of a 'Maybe'
@@ -693,3 +697,25 @@ leftMB = constrMB #_Left
 -- | 'MutBranch' focusing on the 'Right' case of an 'Either'
 rightMB :: (Mutable s a, Mutable s b) => MutBranch s (Either a b) b
 rightMB = constrMB #_Right
+
+class ListRefTuple (s :: Type) (b :: Type) (as :: [Type]) | as s -> b where
+    tupledRef :: GL.Iso' (HList (MapRef s as)) b
+    tupledRef = GL.iso (listRefToTuple @s @b @as) (tupleToListRef @s @b @as)
+    {-# INLINE tupledRef #-}
+    tupleToListRef :: b -> HList (MapRef s as)
+    listRefToTuple :: HList (MapRef s as) -> b
+
+instance ListRefTuple s (UnitRef s) '[] where
+    tupleToListRef _ = Nil
+    listRefToTuple _ = UnitRef
+instance (Ref s a ~ ra) => ListRefTuple s ra '[a] where
+    tupleToListRef x = x :> Nil
+    listRefToTuple (x :> _) = x
+instance (Ref s a ~ ra, Ref s b ~ rb) => ListRefTuple s (ra, rb) '[a, b] where
+    tupleToListRef (x, y) = x :> y :> Nil
+    listRefToTuple (x :> y :> _) = (x, y)
+
+
+
+
+

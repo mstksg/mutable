@@ -57,6 +57,7 @@ module Data.Mutable.Parts (
   , MapRef
   ) where
 
+import           Control.Monad.Primitive
 import           Data.Coerce
 import           Data.Generics.Product.Internal.HList
 import           Data.Kind
@@ -160,11 +161,20 @@ withPart
 withPart mp x f = f (getMutPart mp x)
 
 -- | With a 'MutPart', read out a specific part of a 'Ref'.
-freezePart :: Mutable m a => MutPart m s a -> Ref m s -> m a
+freezePart
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutPart s b a
+    -> Ref s b
+    -> m a
 freezePart mp = freezeRef . getMutPart mp
 
 -- | With a 'MutPart', overwrite into a specific part of a 'Ref'.
-copyPart :: Mutable m a => MutPart m s a -> Ref m s -> a -> m ()
+copyPart
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutPart s b a
+    -> Ref s b
+    -> a
+    -> m ()
 copyPart mp = copyRef . getMutPart mp
 
 -- | With a 'MutPart', copy a 'Ref' containing a subvalue into a specific
@@ -186,10 +196,10 @@ copyPart mp = copyRef . getMutPart mp
 -- MyType 100 4.5
 -- @
 movePartInto
-    :: Mutable m a
-    => MutPart m s a
-    -> Ref m s          -- ^ bigger type (destination)
-    -> Ref m a          -- ^ smaller type (source)
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutPart s b a
+    -> Ref s b          -- ^ bigger type (destination)
+    -> Ref s a          -- ^ smaller type (source)
     -> m ()
 movePartInto mp = moveRef . getMutPart mp
 
@@ -212,10 +222,10 @@ movePartInto mp = moveRef . getMutPart mp
 -- 3
 -- @
 movePartOver
-    :: Mutable m a
-    => MutPart m s a
-    -> Ref m a          -- ^ smaller type (destination)
-    -> Ref m s          -- ^ bigger type (source)
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutPart s b a
+    -> Ref s a          -- ^ smaller type (destination)
+    -> Ref s b          -- ^ bigger type (source)
     -> m ()
 movePartOver mp r = moveRef r . getMutPart mp
 
@@ -238,19 +248,19 @@ movePartOver mp r = moveRef r . getMutPart mp
 -- MyType 100 4.5
 -- @
 movePartWithin
-    :: Mutable m a
-    => MutPart m s a
-    -> Ref m s              -- ^ destination
-    -> Ref m s              -- ^ source
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutPart s b a
+    -> Ref s b              -- ^ destination
+    -> Ref s b              -- ^ source
     -> m ()
 movePartWithin mp r v = moveRef (getMutPart mp r) (getMutPart mp v)
 
 -- | Clone out a subvalue of a larger 'Ref'.
 clonePart
-    :: Mutable m a
-    => MutPart m s a
-    -> Ref m s
-    -> m (Ref m a)
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutPart s b a
+    -> Ref s b
+    -> m (Ref s a)
 clonePart mp = cloneRef . getMutPart mp
 
 -- | A non-copying version of 'unsafeFreezeRef' that can be more efficient for
@@ -260,50 +270,94 @@ clonePart mp = cloneRef . getMutPart mp
 -- This is safe as long as you never again modify the mutable
 -- reference, since it can potentially directly mutate the frozen value
 -- magically.
-unsafeFreezePart :: Mutable m a => MutPart m s a -> Ref m s -> m a
+unsafeFreezePart
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutPart s b a
+    -> Ref s b
+    -> m a
 unsafeFreezePart mp = unsafeFreezeRef . getMutPart mp
 
 
 
 -- | With a 'MutPart', modify a specific part of a 'Ref' with a pure
 -- function.
-modifyPart :: Mutable m a => MutPart m s a -> Ref m s -> (a -> a) -> m ()
+modifyPart
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutPart s b a
+    -> Ref s b
+    -> (a -> a)
+    -> m ()
 modifyPart mp = modifyRef . getMutPart mp
 
 -- | 'modifyPart', but forces the result before storing it back in the
 -- reference.
-modifyPart' :: Mutable m a => MutPart m s a -> Ref m s -> (a -> a) -> m ()
+modifyPart'
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutPart s b a
+    -> Ref s b
+    -> (a -> a)
+    -> m ()
 modifyPart' mp = modifyRef' . getMutPart mp
 
 -- | 'updateRef', under a 'MutPart' to only modify a specific part of
 -- a 'Ref'.
-updatePart :: Mutable m a => MutPart m s a -> Ref m s -> (a -> (a, b)) -> m b
+updatePart
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutPart s b a
+    -> Ref s b
+    -> (a -> (a, r))
+    -> m r
 updatePart mp = updateRef . getMutPart mp
 
 -- | 'updatePart', but forces the result before storing it back in the
 -- reference.
-updatePart' :: Mutable m a => MutPart m s a -> Ref m s -> (a -> (a, b)) -> m b
+updatePart'
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutPart s b a
+    -> Ref s b
+    -> (a -> (a, r))
+    -> m r
 updatePart' mp = updateRef' . getMutPart mp
 
 -- | With a 'MutPart', modify a specific part of a 'Ref' with a monadic
 -- function.  Uses 'copyRef' into the reference after the action is
 -- completed.
-modifyPartM :: Mutable m a => MutPart m s a -> Ref m s -> (a -> m a) -> m ()
+modifyPartM
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutPart s b a
+    -> Ref s b
+    -> (a -> m a)
+    -> m ()
 modifyPartM mp = modifyRefM . getMutPart mp
 
 -- | 'modifyPartM', but forces the result before storing it back in the
 -- reference.
-modifyPartM' :: Mutable m a => MutPart m s a -> Ref m s -> (a -> m a) -> m ()
+modifyPartM'
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutPart s b a
+    -> Ref s b
+    -> (a -> m a)
+    -> m ()
 modifyPartM' mp = modifyRefM' . getMutPart mp
 
 -- | 'updateRefM', under a 'MutPart' to only modify a specific part of
 -- a 'Ref'.  'copyRef' into the reference after the action is completed.
-updatePartM :: Mutable m a => MutPart m s a -> Ref m s -> (a -> m (a, b)) -> m b
+updatePartM
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutPart s b a
+    -> Ref s b
+    -> (a -> m (a, r))
+    -> m r
 updatePartM mp = updateRefM . getMutPart mp
 
 -- | 'updatePartM', but forces the result before storing it back in the
 -- reference.
-updatePartM' :: Mutable m a => MutPart m s a -> Ref m s -> (a -> m (a, b)) -> m b
+updatePartM'
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => MutPart s b a
+    -> Ref s b
+    -> (a -> m (a, r))
+    -> m r
 updatePartM' mp = updateRefM' . getMutPart mp
 
 -- | A 'MutPart' for a field in a vinyl 'Data.Vinyl.Rec', automatically
@@ -331,8 +385,8 @@ coerceRef = MutPart coerce
 
 -- | Handy wrapper over @'getMutPart' 'coerceRef'@.
 withCoerceRef
-    :: CoerceRef m s a
-    -> (Ref m a -> m r)
+    :: CoerceRef s b a
+    -> (Ref s a -> m r)
     -> m r
 withCoerceRef x f = f (coerce x)
 
@@ -465,11 +519,11 @@ type instance GL.Eval (HasTotalFieldPSym sym) tt = GL.HasTotalFieldP sym tt
 -- | A helpful wrapper over @'withPart' ('fieldMut' #blah)@.  Create
 -- a 'fieldMut' and directly use it.
 withField
-    :: FieldMut fld m s a
+    :: FieldMut fld s b a
     => Label fld            -- ^ field label (usually given using OverloadedLabels, @#blah)
-    -> Ref m s              -- ^ Larger record reference
-    -> (Ref m a -> m b)     -- ^ What to do with the mutable field
-    -> m b
+    -> Ref s b              -- ^ Larger record reference
+    -> (Ref s a -> m r)     -- ^ What to do with the mutable field
+    -> m r
 withField l = withPart (fieldMut l)
 
 -- | A helpful wrapper around @'getMutPart' ('fieldMut' #blah)@.  Directly
@@ -513,7 +567,7 @@ class (Mutable s b, Mutable s a) => PosMut (i :: Nat) s b a | i b -> a where
     -- a type whose mutable reference is 'GRef'.  Note that because all of
     -- the lookups are done at compile-time, 'posMut' and 'fieldMut' have
     -- more or less identical performance characteristics.
-    posMut :: MutPart m s a
+    posMut :: MutPart s b a
 
 instance
       ( Mutable s b
@@ -521,7 +575,7 @@ instance
       , Ref s b ~ GRef s b
       , gref ~ Fst (Traverse (GRef_ s (GL.CRep b)) 1)
       , Coercible (GRef_ s (Rep b) ()) (gref ())
-      , GL.GLens' (HasTotalPositionPSym i) gref (Ref m a)
+      , GL.GLens' (HasTotalPositionPSym i) gref (Ref s a)
       , GL.HasPosition' i b a
       )
       => PosMut i s b a where
@@ -533,19 +587,19 @@ type instance GL.Eval (HasTotalPositionPSym t) tt = GL.HasTotalPositionP t tt
 -- | A helpful wrapper over @'withPart' ('posMut' \@n)@.  Create
 -- a 'posMut' and directly use it.
 withPos
-    :: forall i m s a r. PosMut i m s a
-    => Ref m s              -- ^ Larger record reference
-    -> (Ref m a -> m r)     -- ^ What to do with the mutable field
+    :: forall i s m b a r. PosMut i s b a
+    => Ref s b              -- ^ Larger record reference
+    -> (Ref s a -> m r)     -- ^ What to do with the mutable field
     -> m r
 withPos = withPart (posMut @i)
 
 -- | A helpful wrapper around @'getMutPart' ('posMut' \@n)@.  Directly
 -- use a 'posMut' to access a mutable field.
 mutPos
-    :: forall i m s a. PosMut i m s a
-    => Ref m s              -- ^ Larger record reference
-    -> Ref m a              -- ^ Internal mutable field
-mutPos = getMutPart (posMut @i @m)
+    :: forall i s b a. PosMut i s b a
+    => Ref s b              -- ^ Larger record reference
+    -> Ref s a              -- ^ Internal mutable field
+mutPos = getMutPart (posMut @i @s)
 
 -- | Create a 'MutPart' splitting out a product type into a tuple of refs
 -- for every field in that product type. Should work for any type with one

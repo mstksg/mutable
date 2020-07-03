@@ -1,18 +1,19 @@
-{-# LANGUAGE BangPatterns          #-}
-{-# LANGUAGE DeriveFoldable        #-}
-{-# LANGUAGE DeriveTraversable     #-}
-{-# LANGUAGE EmptyCase             #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE StandaloneDeriving    #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE TypeInType            #-}
-{-# LANGUAGE TypeOperators         #-}
-{-# LANGUAGE UndecidableInstances  #-}
-{-# OPTIONS_GHC -fno-warn-orphans  #-}
+{-# LANGUAGE BangPatterns           #-}
+{-# LANGUAGE DeriveFoldable         #-}
+{-# LANGUAGE DeriveTraversable      #-}
+{-# LANGUAGE EmptyCase              #-}
+{-# LANGUAGE EmptyDataDeriving      #-}
+{-# LANGUAGE FlexibleContexts       #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE GADTs                  #-}
+{-# LANGUAGE LambdaCase             #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE StandaloneDeriving     #-}
+{-# LANGUAGE TypeFamilies           #-}
+{-# LANGUAGE TypeInType             #-}
+{-# LANGUAGE TypeOperators          #-}
+{-# LANGUAGE UndecidableInstances   #-}
+{-# OPTIONS_GHC -fno-warn-orphans   #-}
 
 -- |
 -- Module      : Data.Mutable.Instances
@@ -23,12 +24,14 @@
 -- Stability   : experimental
 -- Portability : non-portable
 --
--- Provides 'Ref' instances for various data types, as well as automatic
--- derivation of instances.  See "Data.Mutable" for more information.
+-- Exports 'Ref' data types for various common data types, and also the
+-- tools for automatic derivation of instances.  See "Data.Mutable" for
+-- more information.
 module Data.Mutable.Instances (
     RecRef(..)
   , HListRef(..)
   , UnitRef(..)
+  , VoidRef
   -- * Generic
   , GRef(..)
   , gThawRef, gFreezeRef
@@ -59,7 +62,6 @@ module Data.Mutable.Instances (
   ) where
 
 import           Control.Applicative
-import           Control.Monad.Primitive
 import           Data.Complex
 import           Data.Functor.Compose
 import           Data.Functor.Identity
@@ -138,7 +140,7 @@ instance Mutable s CSUSeconds
 instance Mutable s CFloat
 instance Mutable s CDouble
 
-instance Mutable s (Identity a) where
+instance Mutable s a => Mutable s (Identity a) where
     type Ref s (Identity a) = CoerceRef s (Identity a) a
 
 instance Mutable s a => Mutable s (Const a b) where
@@ -314,17 +316,18 @@ instance Prim a => Mutable s (PrimArray a) where
     unsafeFreezeRef = unsafeFreezePrimArray
 
 
-    
+data VoidRef s
+  deriving (Show, Read, Eq, Ord, Functor, Traversable, Foldable)
 
--- instance Mutable s Void where
---     type Ref s Void = Void
---     thawRef         = \case {}
---     freezeRef       = \case {}
---     copyRef         = \case {}
---     moveRef         = \case {}
---     cloneRef        = \case {}
---     unsafeThawRef   = \case {}
---     unsafeFreezeRef = \case {}
+instance Mutable s Void where
+    type Ref s Void = VoidRef s
+    thawRef         = \case {}
+    freezeRef       = \case {}
+    copyRef         = \case {}
+    moveRef         = \case {}
+    cloneRef        = \case {}
+    unsafeThawRef   = \case {}
+    unsafeFreezeRef = \case {}
 
 data UnitRef s = UnitRef
   deriving (Show, Read, Eq, Ord, Functor, Traversable, Foldable)

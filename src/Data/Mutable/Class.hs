@@ -40,8 +40,6 @@ module Data.Mutable.Class (
   , CoerceMut(..)
   , TraverseMut(..)
   , Immutable(..)
-  -- * Changing underlying monad
-  -- , reMutable, reMutableConstraint
   -- * Util
   , MapRef
   ) where
@@ -49,16 +47,11 @@ module Data.Mutable.Class (
 import           Control.Monad
 import           Control.Monad.Primitive
 import           Data.Coerce
-import           Data.Constraint
-import           Data.Constraint.Unsafe
-import           Data.Kind
 import           Data.Mutable.Instances
 import           Data.Mutable.Internal
 import           Data.Primitive.MutVar
-import           Data.Proxy
-import           Data.Reflection
 import           GHC.Generics
-import qualified Data.Vinyl.XRec         as X
+import qualified Data.Vinyl.XRec           as X
 
 -- | Apply a pure function on an immutable value onto a value stored in
 -- a mutable reference.
@@ -332,57 +325,5 @@ instance X.IsoHKD (Immutable s) a where
 
 
 instance Mutable s (Immutable s a) where
-    type Ref s (Immutable s a) = ImmutableRef (Immutable s a)
-
-
--- newtype ReMutable (s :: Type) m a = ReMutable a
--- newtype ReMutableTrans m n = RMT { runRMT :: forall x. m x -> n x }
-
--- instance (Monad n, Mutable m a, Reifies s (ReMutableTrans m n)) => Mutable n (ReMutable s m a) where
---     type Ref n (ReMutable s m a) = ReMutable s m (Ref m a)
---     thawRef (ReMutable x) = runRMT rmt $ ReMutable <$> thawRef @m @a x
---       where
---         rmt = reflect (Proxy @s)
---     freezeRef (ReMutable v) = runRMT rmt $ ReMutable <$> freezeRef @m @a v
---       where
---         rmt = reflect (Proxy @s)
---     copyRef (ReMutable x) (ReMutable v) = runRMT rmt $ copyRef @m @a x v
---       where
---         rmt = reflect (Proxy @s)
---     moveRef (ReMutable x) (ReMutable v) = runRMT rmt $ moveRef @m @a x v
---       where
---         rmt = reflect (Proxy @s)
---     cloneRef (ReMutable x) = runRMT rmt $ ReMutable <$> cloneRef @m @a x
---       where
---         rmt = reflect (Proxy @s)
---     unsafeThawRef (ReMutable x) = runRMT rmt $ ReMutable <$> unsafeThawRef @m @a x
---       where
---         rmt = reflect (Proxy @s)
---     unsafeFreezeRef (ReMutable v) = runRMT rmt $ ReMutable <$> unsafeFreezeRef @m @a v
---       where
---         rmt = reflect (Proxy @s)
-
--- unsafeReMutable :: forall s m n a. Mutable n (ReMutable s m a) :- Mutable n a
--- unsafeReMutable = unsafeCoerceConstraint
-
--- -- | If you can provice a natural transformation from @m@ to @n@, you
--- -- should be able to use a value as if it had @'Mutable' n a@ if you have
--- -- @'Mutable' m a@.
--- reMutable
---     :: forall m n a r. (Mutable m a, Monad n)
---     => (forall x. m x -> n x)
---     -> (Mutable n a => r)
---     -> r
--- reMutable f x = x \\ reMutableConstraint @m @n @a f
-
--- -- | If you can provice a natural transformation from @m@ to @n@, then
--- -- @'Mutable' m a@ should also imply @'Mutable' n a@.
--- reMutableConstraint
---     :: forall m n a. (Mutable m a, Monad n)
---     => (forall x. m x -> n x)
---     -> Mutable m a :- Mutable n a
--- reMutableConstraint f = reify (RMT f) $ \(Proxy :: Proxy s) ->
---     case unsafeReMutable @s @m @n @a of
---       Sub Data.Constraint.Dict -> Sub Data.Constraint.Dict
-
+    type Ref s (Immutable s a) = ImmutableRef s (Immutable s a)
 

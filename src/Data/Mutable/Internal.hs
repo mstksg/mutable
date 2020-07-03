@@ -58,9 +58,7 @@ import           Data.List
 import           Data.Primitive.MutVar
 import           Data.Vinyl.Functor
 import           GHC.Generics
-import           Lens.Micro                (Lens')
 import qualified Data.Vinyl.XRec           as X
-import qualified GHC.Exts as Exts
 
 -- | An instance of @'Mutable' m a@ means that @a@ can be stored
 -- a mutable reference in monad @m@.
@@ -260,7 +258,7 @@ class Mutable s a where
     -- See <https://mutable.jle.im/02-mutable-and-ref.html> for more
     -- information on this type family and how to define instances
     -- automatically.
-    type Ref s a = (v :: Type) | v -> s a
+    type Ref s a = (v :: Type) | v -> a s
     type Ref s a = MutVar s a
 
     -- | "Thaw" a pure/persistent value into its mutable version, which can
@@ -374,19 +372,19 @@ class Mutable s a where
     -- magically.
     unsafeFreezeRef :: (PrimMonad m, PrimState m ~ s) => Ref s a -> m a
 
-    default thawRef :: DefaultMutable s a (Ref s a) => a -> m (Ref s a)
+    default thawRef :: (DefaultMutable s a (Ref s a), PrimMonad m, PrimState m ~ s) => a -> m (Ref s a)
     thawRef   = defaultThawRef
-    default freezeRef :: DefaultMutable s a (Ref s a) => Ref s a -> m a
+    default freezeRef :: (DefaultMutable s a (Ref s a), PrimMonad m, PrimState m ~ s) => Ref s a -> m a
     freezeRef = defaultFreezeRef
-    default copyRef :: DefaultMutable s a (Ref s a) => Ref s a -> a -> m ()
+    default copyRef :: (DefaultMutable s a (Ref s a), PrimMonad m, PrimState m ~ s) => Ref s a -> a -> m ()
     copyRef   = defaultCopyRef
-    default moveRef :: DefaultMutable s a (Ref s a) => Ref s a -> Ref s a -> m ()
+    default moveRef :: (DefaultMutable s a (Ref s a), PrimMonad m, PrimState m ~ s) => Ref s a -> Ref s a -> m ()
     moveRef   = defaultMoveRef
-    default cloneRef :: DefaultMutable s a (Ref s a) => Ref s a -> m (Ref s a)
+    default cloneRef :: (DefaultMutable s a (Ref s a), PrimMonad m, PrimState m ~ s) => Ref s a -> m (Ref s a)
     cloneRef  = defaultCloneRef
-    default unsafeThawRef :: DefaultMutable s a (Ref s a) => a -> m (Ref s a)
+    default unsafeThawRef :: (DefaultMutable s a (Ref s a), PrimMonad m, PrimState m ~ s) => a -> m (Ref s a)
     unsafeThawRef   = defaultUnsafeThawRef
-    default unsafeFreezeRef :: DefaultMutable s a (Ref s a) => Ref s a -> m a
+    default unsafeFreezeRef :: (DefaultMutable s a (Ref s a), PrimMonad m, PrimState m ~ s) => Ref s a -> m a
     unsafeFreezeRef = defaultUnsafeFreezeRef
 
 -- | The default implementations of 'thawRef', 'freezeRef', and 'copyRef'
@@ -441,7 +439,7 @@ class Mutable s a where
 --     type Ref m (MyContainer a) = TraverseRef m MyContainer a
 -- @
 --
-class DefaultMutable s a r | r -> a where
+class DefaultMutable s a r | r -> a s where
     defaultThawRef         :: (PrimMonad m, PrimState m ~ s) => a -> m r
     defaultFreezeRef       :: (PrimMonad m, PrimState m ~ s) => r -> m a
     defaultCopyRef         :: (PrimMonad m, PrimState m ~ s) => r -> a -> m ()
@@ -496,7 +494,7 @@ instance (Coercible b a, Mutable s a) => DefaultMutable s b (CoerceRef s b a) wh
     defaultUnsafeThawRef   = unsafeThawCoerce
     defaultUnsafeFreezeRef = unsafeFreezeCoerce
 
-instance DefaultMutable s a (ImmutableRef a) where
+instance DefaultMutable s a (ImmutableRef s a) where
     defaultThawRef         = thawImmutable
     defaultFreezeRef       = freezeImmutable
     defaultCopyRef         = copyImmutable
@@ -736,11 +734,11 @@ unsafeFreezeCoerce = fmap coerce . unsafeFreezeRef . getCoerceRef
 -- be ignored, and 'freezeRef' will just get the original thawed value.
 --
 -- Really only exists to be used with 'Data.Mutable.Class.Immutable'.
-newtype ImmutableRef a = ImmutableRef { getImmutableRef :: a }
+newtype ImmutableRef s a = ImmutableRef { getImmutableRef :: a }
 
 -- | Use a @'ImmutableRef' a@ as if it were an @a@
-instance X.IsoHKD ImmutableRef a where
-    type HKD ImmutableRef a = a
+instance X.IsoHKD (ImmutableRef s) a where
+    type HKD (ImmutableRef s) a = a
     unHKD = ImmutableRef
     toHKD = getImmutableRef
 
@@ -751,7 +749,7 @@ instance X.IsoHKD ImmutableRef a where
 -- However, it can be useful if you are using a @'ImmutableRef' s b a@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'ImmutableRef' for more information.
-thawImmutable :: Applicative m => a -> m (ImmutableRef a)
+thawImmutable :: Applicative m => a -> m (ImmutableRef s a)
 thawImmutable = pure . ImmutableRef
 
 -- | Default 'freezeRef' for 'ImmutableRef'.  This will always return the
@@ -762,7 +760,7 @@ thawImmutable = pure . ImmutableRef
 -- However, it can be useful if you are using a @'ImmutableRef' s b a@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'ImmutableRef' for more information.
-freezeImmutable :: Applicative m => ImmutableRef a -> m a
+freezeImmutable :: Applicative m => ImmutableRef s a -> m a
 freezeImmutable = pure . getImmutableRef
 
 -- | Default 'copyRef' for 'ImmutableRef'.  This is a no-op and does
@@ -773,7 +771,7 @@ freezeImmutable = pure . getImmutableRef
 -- However, it can be useful if you are using a @'ImmutableRef' s b a@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'ImmutableRef' for more information.
-copyImmutable :: Applicative m => ImmutableRef a -> a -> m ()
+copyImmutable :: Applicative m => ImmutableRef s a -> a -> m ()
 copyImmutable _ _ = pure ()
 
 -- | Default 'moveRef' for 'ImmutableRef'.  This is a no-op and does
@@ -784,7 +782,7 @@ copyImmutable _ _ = pure ()
 -- However, it can be useful if you are using a @'ImmutableRef' s b a@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'ImmutableRef' for more information.
-moveImmutable :: Applicative m => ImmutableRef a -> ImmutableRef a -> m ()
+moveImmutable :: Applicative m => ImmutableRef s a -> ImmutableRef s a -> m ()
 moveImmutable _ _ = pure ()
 
 -- | Default 'cloneRef' for 'ImmutableRef'.  'freezeRef' on this value will
@@ -795,7 +793,7 @@ moveImmutable _ _ = pure ()
 -- However, it can be useful if you are using a @'ImmutableRef' s b a@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'ImmutableRef' for more information.
-cloneImmutable :: Applicative m => ImmutableRef a -> m (ImmutableRef a)
+cloneImmutable :: Applicative m => ImmutableRef s a -> m (ImmutableRef s a)
 cloneImmutable = pure
 
 
@@ -975,15 +973,15 @@ instance (GMutable s f, GMutable s g) => Mutable s ((f :*: g) a) where
     unsafeThawRef   = unsafeThawGMutableRef
     unsafeFreezeRef = unsafeFreezeGMutableRef
 
--- instance (GMutable s f, GMutable s g) => Mutable s ((f :+: g) a) where
---     type Ref s ((f :+: g) a) = GMutableRef s (f :+: g) a
---     thawRef         = thawGMutableRef
---     freezeRef       = freezeGMutableRef
---     copyRef         = copyGMutableRef
---     moveRef         = moveGMutableRef
---     cloneRef        = cloneGMutableRef
---     unsafeThawRef   = unsafeThawGMutableRef
---     unsafeFreezeRef = unsafeFreezeGMutableRef
+instance (GMutable s f, GMutable s g) => Mutable s ((f :+: g) a) where
+    type Ref s ((f :+: g) a) = GMutableRef s (f :+: g) a
+    thawRef         = thawGMutableRef
+    freezeRef       = freezeGMutableRef
+    copyRef         = copyGMutableRef
+    moveRef         = moveGMutableRef
+    cloneRef        = cloneGMutableRef
+    unsafeThawRef   = unsafeThawGMutableRef
+    unsafeFreezeRef = unsafeFreezeGMutableRef
 
 
 -- | Automatically generate a piecewise mutable reference for any 'Generic'

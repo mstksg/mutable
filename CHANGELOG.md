@@ -1,6 +1,16 @@
 Changelog
 =========
 
+Version 0.2.0.0
+---------------
+
+*July 3, 2020*
+
+<https://github.com/mstksg/mutable/releases/tag/v0.2.0.0>
+
+*   Demonadification: Revamp the typeclass system to be parameterized on the
+    `s` `PrimState` state token, and not the monad itself.
+
 Version 0.1.0.1
 ---------------
 

@@ -51,8 +51,8 @@ data V4 a = V4 { _v4X :: !a
   deriving (Show, Generic, Functor, Foldable, Traversable)
 
 instance NFData a => NFData (V4 a)
-instance Mutable m a => Mutable m (V4 a) where
-    type Ref m (V4 a) = GRef m (V4 a)
+instance Mutable s a => Mutable s (V4 a) where
+    type Ref s (V4 a) = GRef s (V4 a)
 instance Applicative V4 where
     pure x = V4 x x x x
     V4 a b c d <*> V4 x y z w = V4 (a x) (b y) (c z) (d w)
@@ -62,8 +62,8 @@ newtype V256 a = V256 { _v256 :: V4 (V4 (V4 (V4 a))) }
   deriving (Show, Generic, Functor, Foldable, Traversable)
   deriving Applicative via (V4 :.: V4 :.: V4 :.: V4)
 instance NFData a => NFData (V256 a)
-instance Mutable m a => Mutable m (V256 a) where
-    type Ref m (V256 a) = CoerceRef m (V256 a) (V4 (V4 (V4 (V4 a))))
+instance Mutable s a => Mutable s (V256 a) where
+    type Ref s (V256 a) = CoerceRef s (V256 a) (V4 (V4 (V4 (V4 a))))
 makeLenses 'V256
 
 -- HKD variant of V4
@@ -74,16 +74,16 @@ data V4F a f = V4F { _vf4X :: !(f a)
                    }
   deriving (Show, Generic)
 instance NFData (f a) => NFData (V4F a f)
-instance Mutable m a => Mutable m (V4F a Identity) where
-    type Ref m (V4F a Identity) = V4F a (RefFor m)
+instance Mutable s a => Mutable s (V4F a Identity) where
+    type Ref s (V4F a Identity) = V4F a (RefFor s)
 
 -- HKD variant of V256
 newtype V256F a = V256F { _v256F :: V4F (V4F (V4F (V4F a Identity) Identity) Identity) Identity }
   deriving (Show, Generic)
 instance NFData a => NFData (Identity a)
 instance NFData a => NFData (V256F a)
-instance Mutable m a => Mutable m (V256F a) where
-    type Ref m (V256F a) = CoerceRef m (V256F a) (V4F (V4F (V4F (V4F a Identity) Identity) Identity) Identity)
+instance Mutable s a => Mutable s (V256F a) where
+    type Ref s (V256F a) = CoerceRef s (V256F a) (V4F (V4F (V4F (V4F a Identity) Identity) Identity) Identity)
 
 
 type ADT  = V256 Double
@@ -113,7 +113,7 @@ modifyWholePureV = pureLoop $ (fmap . fmap) (+ 1)
 
 
 
-mutLoop :: (forall s. Mutable (ST s) a) => (forall s. Ref (ST s) a -> ST s ()) -> Int -> a -> a
+mutLoop :: (forall s. Mutable s a) => (forall s. Ref s a -> ST s ()) -> Int -> a -> a
 mutLoop f n x0 = runST $ do
     r <- thawRef x0
     let go !i
@@ -124,10 +124,10 @@ mutLoop f n x0 = runST $ do
     go 0
     unsafeFreezeRef r
 
-modifyPartMut :: (forall s. Mutable (ST s) a) => (forall s. MutPart (ST s) a Double) -> Int -> a -> a
+modifyPartMut :: (forall s. Mutable s a) => (forall s. MutPart s a Double) -> Int -> a -> a
 modifyPartMut f = mutLoop $ \r -> modifyPart' f r (+1)
 
-modifyWholeMut :: (forall s b. Mutable (ST s) b => Ref (ST s) (V4 b) -> ContT () (ST s) (Ref (ST s) b)) -> Int -> ADT -> ADT
+modifyWholeMut :: (forall s b. Mutable s b => Ref s (V4 b) -> ContT () (ST s) (Ref s b)) -> Int -> ADT -> ADT
 modifyWholeMut f = mutLoop          $ \r ->
                      withAllRefV256 f r $ \s ->
                        modifyRef s (+ 1)
@@ -137,11 +137,11 @@ modifyWholeMutHKD = mutLoop          $ \r ->
                       withAllRefV256HKD r $ \s ->
                         modifyRef s (+ 1)
 
-modifyPartMutV :: (forall s. Mutable (ST s) a) => (forall s. MutPart (ST s) a (Vector Double)) -> Int -> a -> a
+modifyPartMutV :: (forall s. Mutable s a) => (forall s. MutPart s a (Vector Double)) -> Int -> a -> a
 modifyPartMutV f = mutLoop $ \r -> withPart f r $ \mv ->
                      (MV.write mv 0 $!) . (+ 1) =<< MV.read mv 0
 
-modifyWholeMutV :: (forall s. Mutable (ST s) a) => (forall s. Ref (ST s) a -> ContT () (ST s) (MV.MVector s Double)) -> Int -> a -> a
+modifyWholeMutV :: (forall s. Mutable s a) => (forall s. Ref s a -> ContT () (ST s) (MV.MVector s Double)) -> Int -> a -> a
 modifyWholeMutV f = mutLoop $ \r -> runContT (f r) $ \mv -> do
     forM_ [0 .. MV.length mv - 1] $ \i ->
       (MV.write mv i $!) . (+ 1) =<< MV.read mv i
@@ -220,16 +220,16 @@ toADTF = V256F
 toVF :: V4 a -> V4F a Identity
 toVF (V4 a b c d) = V4F (Identity a) (Identity b) (Identity c) (Identity d)
 
-vfParts :: forall m a. Mutable m a => V4F a (MutPart m (V4F a Identity))
+vfParts :: forall s a. Mutable s a => V4F a (MutPart s (V4F a Identity))
 vfParts = hkdMutParts @(V4F a)
 
-partRep :: Mutable m a => (forall b. Mutable m b => MutPart m (V4 b) b) -> MutPart m (V256 a) a
+partRep :: Mutable s a => (forall b. Mutable s b => MutPart s (V4 b) b) -> MutPart s (V256 a) a
 partRep f = f . f . f . f . coerceRef
 
-firstTuple :: Mutable m a => MutPart m (V4 a) a
+firstTuple :: Mutable s a => MutPart s (V4 a) a
 firstTuple = MutPart (\(x,_,_,_) -> x) . tupleMut
 
-modPartHKD :: forall m a. Mutable m a => MutPart m (V256F a) a
+modPartHKD :: Mutable s a => MutPart s (V256F a) a
 modPartHKD = _vf4X vfParts
            . _vf4X vfParts
            . _vf4X vfParts
@@ -238,21 +238,21 @@ modPartHKD = _vf4X vfParts
 
 
 
-withAllRefV4Field :: Mutable m a => Ref m (V4 a) -> ContT () m (Ref m a)
+withAllRefV4Field :: (Mutable s a, Monad m) => Ref s (V4 a) -> ContT () m (Ref s a)
 withAllRefV4Field r = ContT $ \f -> do
     withPart (fieldMut #_v4X) r f
     withPart (fieldMut #_v4Y) r f
     withPart (fieldMut #_v4Z) r f
     withPart (fieldMut #_v4W) r f
 
-withAllRefV4Pos :: Mutable m a => Ref m (V4 a) -> ContT () m (Ref m a)
+withAllRefV4Pos :: (Mutable s a, Monad m) => Ref s (V4 a) -> ContT () m (Ref s a)
 withAllRefV4Pos r = ContT $ \f -> do
     withPart (posMut @1) r f
     withPart (posMut @2) r f
     withPart (posMut @3) r f
     withPart (posMut @4) r f
 
-withAllRefV4Tuple :: Mutable m a => Ref m (V4 a) -> ContT () m (Ref m a)
+withAllRefV4Tuple :: (Mutable s a, Monad m) => Ref s (V4 a) -> ContT () m (Ref s a)
 withAllRefV4Tuple r = ContT       $ \f ->
                         withTuple r $ \(x, y, z, w) -> do
       f x
@@ -260,7 +260,7 @@ withAllRefV4Tuple r = ContT       $ \f ->
       f z
       f w
 
-withAllRefV4HKD :: forall m a. Mutable m a => V4F a (RefFor m) -> ContT () m (Ref m a)
+withAllRefV4HKD :: forall m s a. (Mutable s a, Monad m) => V4F a (RefFor s) -> ContT () m (Ref s a)
 withAllRefV4HKD r = ContT $ \f -> do
     withPart (_vf4X vfParts) r f
     withPart (_vf4Y vfParts) r f
@@ -268,10 +268,10 @@ withAllRefV4HKD r = ContT $ \f -> do
     withPart (_vf4W vfParts) r f
 
 withAllRefV256
-    :: Mutable m a
-    => (forall b. Mutable m b => Ref m (V4 b) -> ContT () m (Ref m b))
-    -> Ref m (V256 a)
-    -> (Ref m a -> m ())
+    :: (Mutable s a, Monad m)
+    => (forall b. Mutable s b => Ref s (V4 b) -> ContT () m (Ref s b))
+    -> Ref s (V256 a)
+    -> (Ref s a -> m ())
     -> m ()
 withAllRefV256 a r f = flip runContT pure $ do
     s   <- a =<< a =<< a =<< a
@@ -279,7 +279,7 @@ withAllRefV256 a r f = flip runContT pure $ do
     lift $ f s
 
 
-withAllRefV256HKD :: Mutable m a => Ref m (V256F a) -> (Ref m a -> m ()) -> m ()
+withAllRefV256HKD :: (Mutable s a, Monad m) => Ref s (V256F a) -> (Ref s a -> m ()) -> m ()
 withAllRefV256HKD r f = flip runContT pure $ do
     s   <- withAllRefV4HKD
        =<< withAllRefV4HKD

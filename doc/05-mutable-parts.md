@@ -37,12 +37,12 @@ parts of mutable references, to take full advantage of piecewise-mutability.
 The main data type is `MutPart`:
 
 ```haskell
-data MutPart m s a = MutPart { getMutPart :: Ref m s -> Ref m a }
+data MutPart s b a = MutPart { getMutPart :: Ref s b -> Ref s a }
 ```
 
-You can sort of imagine `MutPart m s a` as spiritually similar to a `Lens' s
-a`: it's a way to access and modify an `a` "inside" some `s`.  It allows you to
-access or modify an `a` part of the `s`, without touching the rest of the `s`.
+You can sort of imagine `MutPart s b a` as spiritually similar to a `Lens' b
+a`: it's a way to access and modify an `a` "inside" some `b`.  It allows you to
+access or modify an `a` part of the `b`, without touching the rest of the `b`.
 
 Usage
 -----
@@ -51,14 +51,14 @@ Once you *have* a `MutPart`, you can use it with some simple utilities:
 
 ```haskell
 -- | With a 'MutPart', read out a specific part of a 'Ref'.
-freezePart :: Mutable m a => MutPart m s a -> Ref m s -> m a
+freezePart :: Mutable s a => MutPart s b a -> Ref s b -> m a
 
 -- | With a 'MutPart', overwrite into a specific part of a 'Ref'.
-copyPart :: Mutable m a => MutPart m s a -> Ref m s -> a -> m ()
+copyPart :: Mutable s a => MutPart s b a -> Ref s b -> a -> m ()
 
 -- | With a 'MutPart', modify a specific part of a 'Ref' with a pure
 -- function.
-modifyPart :: Mutable m a => MutPart m s a -> Ref m s -> (a -> a) -> m ()
+modifyPart :: Mutable s a => MutPart s b a -> Ref s b -> (a -> a) -> m ()
 ```
 
 `freezePart`, `copyPart`, and `modifyPart` act like "focused" versions of
@@ -66,13 +66,13 @@ modifyPart :: Mutable m a => MutPart m s a -> Ref m s -> (a -> a) -> m ()
 combinator to work directly with the smaller sub-reference:
 
 ```haskell
--- | Using a 'MutPart', perform a function on a `Ref m s` as if you had
--- a `Ref m a`.
+-- | Using a 'MutPart', perform a function on a `Ref s b` as if you had
+-- a `Ref s a`.
 withPart
-    :: MutPart m s a        -- ^ How to zoom into an `a` from an `s`
-    -> Ref m s              -- ^ The larger reference of `s`
-    -> (Ref m a -> m b)     -- ^ What do do with the smaller sub-reference of `a`
-    -> m b
+    :: MutPart s b a        -- ^ How to zoom into an `a` from an `s`
+    -> Ref s b              -- ^ The larger reference of `s`
+    -> (Ref s a -> m r)     -- ^ What do do with the smaller sub-reference of `a`
+    -> m r
 ```
 
 `MutPart`s also have a `Category` instance, so you can compose them with `.`
@@ -94,41 +94,41 @@ data MyType = MT
     }
   deriving (Show, Generic)
 
-instance PrimMonad m => Mutable m MyType where
-    type Ref m MyType = GRef m MyType
+instance Mutable s MyType where
+    type Ref s MyType = GRef s MyType
 ```
 
 We are able to access each field:
 
 ```haskell
-fieldMut #mtInt    :: MutPart m MyType Int
-fieldMut #mtDouble :: MutPart m MyType Double
-fieldMut #mtVec    :: MutPart m MyType (V.Vector Double)
+fieldMut #mtInt    :: MutPart s MyType Int
+fieldMut #mtDouble :: MutPart s MyType Double
+fieldMut #mtVec    :: MutPart s MyType (V.Vector Double)
 ```
 
 and also each position:
 
 ```haskell
-posMut @1 :: MutPart m MyType Int
-posMut @2 :: MutPart m MyType Double
-posMut @3 :: MutPart m MyType (V.Vector Double)
+posMut @1 :: MutPart s MyType Int
+posMut @2 :: MutPart s MyType Double
+posMut @3 :: MutPart s MyType (V.Vector Double)
 ```
 
 We can also get a `MutPart` into a view of your data type as a tuple:
 
 ```haskell
-tupleMut :: MutPart m MyType (Int, Double, V.Vector Double)
+tupleMut :: MutPart s MyType (Int, Double, V.Vector Double)
 ```
 
-Because the instance of `Ref` for tuples, this just turns a `Ref m MyType` into
+Because the instance of `Ref` for tuples, this just turns a `Ref s MyType` into
 a `(MutVar s Int, MutVar s Double, MVector s Double)`.  This is arguably easier
 to use continuation-style, so there is a nice helper `withTuple = withPart
 tupleMut`
 
 ```haskell
 withTuple
-    :: (PrimMonad m, s ~ PrimState m)
-    => MutPart m MyType
+    :: (PrimMonad m, PrimState m ~ s)
+    => MutPart s MyType
     -> ((MutVar s Int, MutVar s Double, MVector s Double) -> m r)
     -> m r
 ```
@@ -150,20 +150,20 @@ data MyTypeF f = MTF
 
 type MyType' = MyTypeF Identity
 
-instance PrimMonad m => Mutable m MyType' where
-    type Ref m MyType' = MyTypeF (RefFor m)
+instance Mutable s MyType' where
+    type Ref s MyType' = MyTypeF (RefFor s)
 ````
 
 ```haskell
 MTF mpInt mpDouble mpVec = hkdMutParts @MyTypeF
 ```
 
-That will give you `mpInt :: MutPart m MyType Int`, `mpDouble :: MutPart m
-MyType Double`, and `mpVec :: MutPart m MyType (V.Vector Double)`, in a way
+That will give you `mpInt :: MutPart s MyType Int`, `mpDouble :: MutPart s
+MyType Double`, and `mpVec :: MutPart s MyType (V.Vector Double)`, in a way
 that is nice to pattern match out of.  You can also access the
 `MutPart`s:
 
 ```haskell
-mpInt :: MutPart m MyType Int
+mpInt :: MutPart s MyType Int
 mpInt = mtfInt (hkdMutParts @MyTypeF)
 ```

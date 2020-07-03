@@ -24,22 +24,32 @@ Let's go over the high level view of what's going on.  Conceptually, the entire
 library revolves around the `Mutable` typeclass and the `Ref` associated type.
 
 ```haskell
-class Mutable m a where
-    type Ref m a = v     | v -> a
+class Mutable s a where
+    type Ref s a = v     | v -> a s
 
-    thawRef   :: a -> m (Ref m a)
-    freezeRef :: Ref m a -> m a
-    copyRef   :: Ref m a -> a -> m ()
+    thawRef   :: (PrimMonad m, PrimState m ~ s) => a -> m (Ref s a)
+    freezeRef :: (PrimMonad m, PrimState m ~ s) => Ref s a -> m a
+    copyRef   :: (PrimMonad m, PrimState m ~ s) => Ref s a -> a -> m ()
 
     -- ... plus some more methods that can be implemented using
     -- the others in most cases
 ```
 
-An instance of `Mutable m a` is an `a` that has a "mutable version" that can be
-updated/mutated in the `m` Monad.
+An instance of `Mutable s a` is an `a` that has a "mutable version" that can be
+updated/mutated in a "mutable `PrimMonad m`" (like `IO` or `ST`) that has a
+state token `s`.
 
 The (injective) type family `Ref` associates every type `a` with its "mutable
 version".
+
+(A quick note on `PrimMonad` --- it comes from the *[primitive][]* library and
+is used across the ecosystem; it's a typeclass that abstracts over all "impure"
+monads like `IO`, `ST s`, `ReaderT r IO`, etc.  You can think of it as an
+expanded version of `MonadIO` to also include monads that use `ST s`.
+`PrimState` is what you give to `MutVar` and `MVector` to make things "work
+properly")
+
+[primitive]: https://hackage.haskell.org/package/primitive
 
 For example, for *[Vector][]*, the "mutable version" is an *[MVector][]*:
 
@@ -47,8 +57,8 @@ For example, for *[Vector][]*, the "mutable version" is an *[MVector][]*:
 [MVector]: https://hackage.haskell.org/package/vector/docs/Data-Vector-Mutable.html
 
 ```haskell
-class PrimMonad m => Mutable m (Vector a) where
-    type Ref m (Vector a) = MVector (PrimState m) a
+class Mutable s (Vector a) where
+    type Ref s (Vector a) = MVector s a
 
     thawRef   = V.thaw
     freezeRef = V.freeze
@@ -61,30 +71,20 @@ For simple non-composite data types like `Int`, you can just use a
 [MutVar]: https://hackage.haskell.org/package/primitive/docs/Data-Primitive-MutVar.html
 
 ```haskell
-class PrimMonad m => Mutable m Int where
-    type Ref m Int = MutVar (PrimState m) Int
+class Mutable s Int where
+    type Ref s Int = MutVar s Int
 
     thawRef   = newMutVar
     freezeRef = readMutVar
     copyRef   = writeMutVar
 
-class PrimMonad m => Mutable m Double where
-    type Ref m Int = MutVar (PrimState m) Double
+class Mutable s Double where
+    type Ref s Int = MutVar s Double
 
     thawRef   = newMutVar
     freezeRef = readMutVar
     copyRef   = writeMutVar
 ```
-
-(A quick note on `PrimMonad` --- it comes from the *[primitive][]* library and
-is used across the ecosystem; it's a typeclass that abstracts over all "impure"
-monads like `IO`, `ST s`, `ReaderT r IO`, etc.  You can think of it as an
-expanded version of `MonadIO` to also include monads that use `ST s`.
-`PrimState` is what you give to `MutVar` and `MVector` to make things "work
-properly")
-
-[primitive]: https://hackage.haskell.org/package/primitive
-
 
 All we are doing so far is associating a type with its "mutable" version.  But,
 what happens if we had some composite type?
@@ -108,8 +108,8 @@ data MyTypeRef s = MTR
     , mtrVec    :: MV.MVector s Double
     }
 
-instance PrimMonad m => Mutable m MyType where
-    type Ref m MyType = MyTypeRef (PrimState m)
+instance Mutable s MyType where
+    type Ref s MyType = MyTypeRef s
 
     thawRef (MT x y z) = MTR <$> newMutVar x
                              <*> newMutVar y
@@ -132,19 +132,18 @@ Well, we're in luck.  If `MyType` is an instance of `Generic`, then we can just
 write:
 
 ```haskell
-instance PrimMonad m => Mutable m MyType where
-    type Ref MyType = GRef m MyType
+instance Mutable s MyType where
+    type Ref MyType = GRef s MyType
 ```
 
 We can now leave the rest of the typeclass body blank...and the *mutable*
 library will do the rest for us!
 
-*   `GRef m MyType` is an automatically derived type that is equivalent to
+*   `GRef s MyType` is an automatically derived type that is equivalent to
     the `MyTypeRef` that we wrote earlier.  It leverages the power of GHC
     generics and typeclasses.  Every field of type `X` turns into a field of
-    type `Ref m X`.  This "does the right thing" as long as all your fields are
+    type `Ref s X`.  This "does the right thing" as long as all your fields are
     instances of `Mutable`.
 *   The mechanisms in `DefaultMutable` will automatically fill in the rest of
     the typeclass for you.
-
 

@@ -61,8 +61,8 @@ data MyType = MT
     }
   deriving Generic
 
-instance PrimMonad m => Mutable m MyType where
-    type Ref m MyType = GRef m MyType
+instance Mutable s MyType where
+    type Ref s MyType = GRef s MyType
 ```
 
 This leverages the `Mutable` instances of `Int`, `Double`, and `String`.
@@ -79,11 +79,11 @@ data MyType = MT
     }
   deriving Generic
 
-instance PrimMonad m => Mutable m MyType where
-    type Ref m MyType = GRef m MyType
+instance Mutable s MyType where
+    type Ref s MyType = GRef s MyType
 ```
 
-Now `Ref m MyType` is a composite data type of a `MutVar s Int`, a `MutVar s
+Now `Ref s MyType` is a composite data type of a `MutVar s Int`, a `MutVar s
 Double`, and `MutVar s String`.  `VarMut` overrides with a "whole-wise
 mutation" instance.
 
@@ -121,7 +121,7 @@ details for how this instance works.
 
 For example, the `Mutable` instance for `Vector a` is an `MVector s a`, where
 each item is included in its "pure" form.  But wouldn't it be nice if we
-instead had a mutable `Vector a` instead be `Vector (Ref m a)`, where every
+instead had a mutable `Vector a` instead be `Vector (Ref s a)`, where every
 slot contains a mutable value?
 
 You can get that behavior with `TraverseMut Vector a`.
@@ -157,13 +157,13 @@ data MyType = MT
     }
   deriving Generic
 
-instance PrimMonad m => Mutable m MyType where
-    type Ref m MyType = GRef m MyType
+instance Mutable s MyType where
+    type Ref s MyType = GRef s MyType
 ```
 
-And now `Ref m MyType` will basically be a tupling of `MutVar s Int`, `MutVar s
+And now `Ref s MyType` will basically be a tupling of `MutVar s Int`, `MutVar s
 Double`, and an immutable `String`.  If you try to modify it, modifications
-will be ignored.  Freezing a `Ref m MyType` will get the original string back.
+will be ignored.  Freezing a `Ref s MyType` will get the original string back.
 
 This does break a lot of the expectations of mutability, but sometimes this
 can be useful for low-level optimizations or hacks.

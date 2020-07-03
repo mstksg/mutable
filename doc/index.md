@@ -49,20 +49,20 @@ data MyType = MT
     }
   deriving (Show, Generic)
 
-instance PrimMonad m => Mutable m MyType where
-    type Ref m MyType = GRef m MyType
+instance Mutable s MyType where
+    type Ref s MyType = GRef s MyType
 ```
 
 ```haskell top hide
 instance AskInliterate MyType
 ```
 
-The type `Ref m MyType` is now a "mutable `MyType`", just like how `MVector s
+The type `Ref s MyType` is now a "mutable `MyType`", just like how `MVector s
 a` is a "mutable `Vector a`".  You have:
 
 ```haskell
-thawRef   :: MyType -> m (Ref m MyType)
-freezeRef :: Ref m MyType -> m MyType
+thawRef   :: MyType -> m (Ref s MyType)
+freezeRef :: Ref s MyType -> m MyType
 ```
 
 You can use `thawRef` to allocate a mutable `MyType` that essentially consists
@@ -114,8 +114,8 @@ data List a = Nil | Cons a (List a)
   deriving (Show, Generic)
 infixr 5 `Cons`
 
-instance (Mutable m a, PrimMonad m) => Mutable m (List a) where
-    type Ref m (List a) = GRef m (List a)
+instance Mutable s a => Mutable s (List a) where
+    type Ref s (List a) = GRef s (List a)
 ```
 
 ```haskell top hide
@@ -128,8 +128,8 @@ list up:
 
 ```haskell top
 popStack
-    :: (PrimMonad m, Mutable m a)
-    => Ref m (List a)
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => Ref s (List a)
     -> m (Maybe a)
 popStack xs = do
     c <- projectBranch (constrMB #_Cons) xs

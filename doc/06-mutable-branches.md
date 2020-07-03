@@ -65,11 +65,11 @@ This is probably *most useful* when thinking about recursive types, like lists:
 data List a = Nil | Cons a (List a)
   deriving (Show, Generic)
 
-instance (Mutable m a, PrimMonad m) => Mutable m (List a) where
-    type Ref m (List a) = GRef m (List a)
+instance Mutable s a => Mutable s (List a) where
+    type Ref s (List a) = GRef s (List a)
 ```
 
-The `GRef m (List a)` is now a *[mutable linked list][ll]* --- the good old
+The `GRef s (List a)` is now a *[mutable linked list][ll]* --- the good old
 fashioned data type that people learn to implement in Java or C++ or what have
 you.  It's a reference to a cell that is either a `Nil` cell or a `Cons` cell
 with a reference to an `a` and a reference to another list cell.
@@ -79,20 +79,20 @@ with a reference to an `a` and a reference to another list cell.
 The main tool to work with mutable branches is to use the `MutBranch` data
 type, from *[Data.Mutable.Branches][DMB]*, which specifies which "branch" on mutable
 sum type to work with.  In the case of `IntOrBool`, it we might have a
-`MutBranch m IntOrBool Int` for the `Int` case and a `MutBranch m IntOrBool
+`MutBranch s IntOrBool Int` for the `Int` case and a `MutBranch s IntOrBool
 Bool` for the `Bool` case.  In the case of `List`, since it has a `Generic`
 instance, we can use `constrMB` to create a `MutBranch` based on the
 constructor name.
 
 ```haskell top
 nilBranch
-    :: (PrimMonad m, Mutable m a)
-    => MutBranch m (List a) ()
+    :: Mutable s a
+    => MutBranch s (List a) ()
 nilBranch = constrMB #_Nil
 
 consBranch
-    :: (PrimMonad m, Mutable m a)
-    => MutBranch m (List a) (a, List a)
+    :: Mutable s a
+    => MutBranch s (List a) (a, List a)
 consBranch = constrMB #_Cons
 ```
 
@@ -110,8 +110,8 @@ on that branch, with `hasBranch`:
 ```haskell top
 -- | Check if a mutable linked list is currently empty
 isEmpty
-    :: (PrimMonad m, Mutable m a)
-    => Ref m (List a)
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => Ref s (List a)
     -> m Bool
 isEmpty = hasBranch nilBranch
 ```
@@ -123,8 +123,8 @@ list up.
 
 ```haskell top
 popStack
-    :: (PrimMonad m, Mutable m a)
-    => Ref m (List a)
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => Ref s (List a)
     -> m (Maybe a)
 popStack xs = do
     c <- projectBranch consBranch xs
@@ -139,9 +139,9 @@ first one.
 
 ```haskell top
 concatLists
-    :: (PrimMonad m, Mutable m a)
-    => Ref m (List a)
-    -> Ref m (List a)
+    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    => Ref s (List a)
+    -> Ref s (List a)
     -> m ()
 concatLists l1 l2 = do
     c <- projectBranch consBranch l1

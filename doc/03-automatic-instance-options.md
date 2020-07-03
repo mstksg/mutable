@@ -40,8 +40,8 @@ Picking an automatic derived behavior is as easy as specifying what the `Ref`
 instance is:
 
 ```haskell
-instance Mutable m MyType where
-    type Ref m MyType = ....
+instance Mutable s MyType where
+    type Ref s MyType = ....
 ```
 
 If you set the `Ref` to a known "auto-derivable" type, then the library will
@@ -59,15 +59,15 @@ non-composite data types like `Int`:
 ```haskell top
 data WholeType = WT { wtInt :: Int, wtDouble :: Double }
 
-instance PrimMonad m => Mutable m WholeType
+instance Mutable s WholeType
 ```
 
 If you just leave the instance blank, this will be the automatic default
 behavior.  You can also be explicit:
 
 ```haskell
-instance PrimMonad m => Mutable m WholeType where
-    type Ref m WholeType = MutVar (PrimState m) WholeType
+instance Mutable s WholeType where
+    type Ref s WholeType = MutVar s WholeType
 ```
 
 and that would do the same thing.
@@ -78,7 +78,7 @@ Generic Instance
 This is the main thing the library is useful for.  Get an automatic
 "piecewise-mutable" form of any ADT with a `Generic` instance.
 
-Dispatch this behavior by using `GRef m X` as your type's `Ref`:
+Dispatch this behavior by using `GRef s X` as your type's `Ref`:
 
 ```haskell top
 data MyType = MT
@@ -88,13 +88,13 @@ data MyType = MT
     }
   deriving Generic
 
-instance PrimMonad m => Mutable m MyType where
-    type Ref m MyType = GRef m MyType
+instance Mutable s MyType where
+    type Ref s MyType = GRef s MyType
 ```
 
-The data type `GRef m MyType` is essentially equivalent to the same type as
+The data type `GRef s MyType` is essentially equivalent to the same type as
 `MyType` with all the fields replaced with their mutable versions.  That is,
-`GRef m MyType` is equivalent to `MyTypeRef`, if we wanted to define it
+`GRef s MyType` is equivalent to `MyTypeRef`, if we wanted to define it
 manually:
 
 ```haskell
@@ -104,8 +104,8 @@ data MyTypeRef s = MTR
     , mtrVec    :: MV.MVector s Double
     }
 
-instance PrimMonad m => Mutable m MyType where
-    type Ref m MyType = MyTypeRef (PrimState m)
+instance Mutable s MyType where
+    type Ref s MyType = MyTypeRef s
 
     thawRef (MT x y z) = MTR <$> newMutVar x
                              <*> newMutVar y
@@ -125,8 +125,8 @@ The above snippet is the equivalent code to what is generated in the simple
 line
 
 ```haskell
-instance PrimMonad m => Mutable m MyType where
-    type Ref m MyType = GRef m MyType
+instance Mutable s MyType where
+    type Ref s MyType = GRef s MyType
 ```
 
 The semantics for mutability is that a record type essentially becomes a record
@@ -149,17 +149,17 @@ data IntOrBool = IBInt  Int
                | IBBool Bool
     deriving Generic
 
-instance PrimMonad m => Mutable m IntOrBool where
-    type Ref m IntOrBool = GRef m IntOrBool
+instance Mutable s IntOrBool where
+    type Ref s IntOrBool = GRef s IntOrBool
 ```
 
 then we get to "access" each potential branch with `constrMB`:
 
 ```haskell top
-ibInt :: PrimMonad m => MutBranch m IntOrBool Int
+ibInt :: MutBranch s IntOrBool Int
 ibInt = constrMB #_IBInt
 
-ibBool :: PrimMonad m => MutBranch m IntOrBool Bool
+ibBool :: MutBranch s IntOrBool Bool
 ibBool = constrMB #_IBBool
 ```
 
@@ -179,25 +179,25 @@ underlying type by using `CoerceRef`
 ```haskell top
 newtype VecD = VecD (V.Vector Double)
 
-instance PrimMonad m => Mutable m VecD where
-    type Ref m VecD = CoerceRef m VecD (V.Vector Double)
+instance Mutable s VecD where
+    type Ref s VecD = CoerceRef s VecD (V.Vector Double)
 ```
 
 This will appropriately have `VecD` be using `MVector` as its mutable version.
 
 To get an instance for a newtype `X` wrapping underlying type `Y` using the
-`Mutable` instance for `Y`, use `CoerceRef m X Y`.
+`Mutable` instance for `Y`, use `CoerceRef s X Y`.
 
 You can access the underlying `Ref` using `coerceRef` or `withCoerceRef`:
 
 ```haskell
 withCoerceRef
-    :: Ref m VecD
+    :: Ref s VecD
     -> (MV.Vector s Double -> m r)
     -> m r
 
 freezePart coerceRef
-    :: Ref m VecD
+    :: Ref s VecD
     -> m (V.Vector Double)
 ```
 
@@ -211,17 +211,17 @@ just swapping out all its leaves for `Ref`.  You can use `TraverseRef`:
 data V4 a = V4 a a a a
   deriving (Functor, Foldable, Traversable)
 
-instance Mutable m a => Mutable m (V4 a) where
-    type Ref m (V4 a) = TraverseRef m V4 a
+instance Mutable s a => Mutable s (V4 a) where
+    type Ref s (V4 a) = TraverseRef s V4 a
 ```
 
 
-Basically, this just uses `V4 (Ref m a)` as your mutable reference:
+Basically, this just uses `V4 (Ref s a)` as your mutable reference:
 
 ```haskell
 getTraverseRef
-    :: Ref m (V4 a)
-    -> V4 (Ref m a)
+    :: Ref s (V4 a)
+    -> V4 (Ref s a)
 ```
 
 so you can directly access the parts by just accessing your `Traversable`
@@ -249,8 +249,8 @@ data MyTypeF f = MTF
 
 type MyType' = MyTypeF Identity
 
-instance PrimMonad m => Mutable m MyType' where
-    type Ref m MyType' = MyTypeF (RefFor m)
+instance Mutable s MyType' where
+    type Ref s MyType' = MyTypeF (RefFor s)
 ````
 
 ```haskell top hide
@@ -266,20 +266,20 @@ MTF 3 4.5 (V.fromList [1..100])
     :: MyType'
 ```
 
-But now, `MyTypeF (RefFor m)` literally has mutable references as its fields.
+But now, `MyTypeF (RefFor s)` literally has mutable references as its fields.
 You can pattern match to get `rI :: MutVar s Int`, `rD :: MutVar s Double`, and
 `rV :: MVector s Double`
 
 ```haskell
-MTF rI rD rV :: MyTypeF (RefFor m)
+MTF rI rD rV :: MyTypeF (RefFor s)
 ```
 
 and the accessors work as well:
 
 ```haskell
 mtfVec
-    :: (s ~ PrimState m)
-    -> MyTypeF (RefFor m)
+    :: (PrimState m ~ s)
+    -> MyTypeF (RefFor s)
     -> MVector s Double
 ```
 

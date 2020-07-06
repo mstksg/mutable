@@ -61,9 +61,13 @@ The type `Ref s MyType` is now a "mutable `MyType`", just like how `MVector s
 a` is a "mutable `Vector a`".  You have:
 
 ```haskell
-thawRef   :: MyType -> m (Ref s MyType)
-freezeRef :: Ref s MyType -> m MyType
+thawRef   :: MyType -> ST s (Ref s MyType)
+freezeRef :: Ref s MyType -> ST s MyType
 ```
+
+(These actions are in `ST`, the mutable memory monad that comes with GHC.  The
+real types of these are more polymorphic and are generalized to work for all
+mutable monads with `PrimMonad` instance.)
 
 You can use `thawRef` to allocate a mutable `MyType` that essentially consists
 of a mutable `Int`, a mutable `Double`, and a mutable `Vector` (an `MVector`)
@@ -128,9 +132,9 @@ list up:
 
 ```haskell top
 popStack
-    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    :: Mutable s a
     => Ref s (List a)
-    -> m (Maybe a)
+    -> ST s (Maybe a)
 popStack xs = do
     c <- projectBranch (constrMB #_Cons) xs
     forM c $ \(y, ys) -> do

@@ -51,17 +51,60 @@ Whole-wise operations
 Sometimes you just want to operate on the whole `MyType`.  Well, you now have:
 
 ```haskell
--- | Allocate a mutable 'MyType' in the monad m
-thawRef :: MyType -> m (Ref s MyType)
+-- | Allocate a mutable 'MyType' in 'ST'
+thawRef
+    :: MyType
+    -> ST s (Ref s MyType)
 
 -- | "Freeze" a mutable 'MyType'
-freezeRef :: Ref s MyType -> m MyType
+freezeRef
+    :: Ref s MyType
+    -> ST s MyType
 
 -- | Overwrite a mutable 'MyType' with the contents of a pure one.
-copyRef :: Ref s MyType -> MyType -> m ()
+copyRef
+    :: Ref s MyType
+    -> MyType
+    -> ST s ()
 
 -- | Run an updating function on a whole 'MyType'
-modifyRef :: Ref s MyType -> (MyType -> MyType) -> m ()
+modifyRef
+    :: Ref s MyType
+    -> (MyType -> MyType)
+    -> ST s ()
+```
+
+These actions are the types specialized `ST`, the mutable memory monad that
+comes with GHC.  In truth, the types of these are more polymorphic and are
+generalized to work for all mutable monads with `PrimMonad` instance.  The
+fully general types are:
+
+```haskell
+-- | Allocate a mutable 'MyType' in the monad m
+thawRef
+    :: (PrimMonad m, PrimState m ~ s)
+    => MyType
+    -> m (Ref s MyType)
+
+-- | "Freeze" a mutable 'MyType'
+freezeRef
+    :: (PrimMonad m, PrimState m ~ s)
+    => Ref s MyType
+    -> m MyType
+
+-- | Overwrite a mutable 'MyType' with the contents of a pure one.
+copyRef
+    :: (PrimMonad m, PrimState m ~ s)
+    => Ref s MyType
+    -> MyType
+    -> m ()
+
+-- | Run an updating function on a whole 'MyType'
+modifyRef
+    :: (PrimMonad m, PrimState m ~ s)
+    => Ref s MyType
+    -> (MyType -> MyType)
+    -> m ()
 ```
 
 Piecewise Operations

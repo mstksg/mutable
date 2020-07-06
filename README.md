@@ -76,6 +76,8 @@ addFirst xs = runST $ do
     V.freeze v
 ```
 
+(running this in `ST`, the mutable memory monad that comes with GHC)
+
 This is because all of the other items in the vector are kept the same and not
 copied-over over the course of one million updates.  It is `O(n+l)` in memory
 updates.  It is very good even for long vectors or large matrices.
@@ -105,11 +107,11 @@ isn't composable.  If only there was some equivalent of `MVector` for
 That's where this library comes in.
 
 ```haskell
-instance PrimMonad m => Mutable m TwoVec where
-    type Ref m TwoVec = GRef m TwoVec
+instance Mutable s TwoVec where
+    type Ref s TwoVec = GRef s TwoVec
 ```
 
-This gives us `thawRef :: TwoVec -> m (GRef m TwoVec)`, where `GRef m TwoVec`
+This gives us `thawRef :: TwoVec -> m (GRef s TwoVec)`, where `GRef s TwoVec`
 is a mutable version of `TwoVec`, like how `MVector s Double` is a mutable
 version of `Vector Double`.  It stores each field `tv1` and `tv2` as a seaprate
 `MVector` in memory that can be modified independently.
@@ -132,7 +134,7 @@ gives you a version of `TwoVec`  that you can modify in-place piecewise.  You
 can compose two functions that each work piecewise on `TwoVec`:
 
 ```haskell
-mut1 :: PrimMonad m => Ref m TwoVec -> m ()
+mut1 :: Ref s TwoVec -> ST s ()
 mut1 v = do
     withField #tv1 v $ \u ->
       MV.modify u 0 (+ 1)
@@ -141,7 +143,7 @@ mut1 v = do
       MV.modify u 2 (+ 3)
       MV.modify u 3 (+ 4)
 
-mut2 :: PrimMonad m => Ref m TwoVec -> m ()
+mut2 :: Ref s TwoVec -> ST s ()
 mut2 v = do
     withField #tv1 v $ \u ->
       MV.modify u 4 (+ 1)
@@ -176,8 +178,8 @@ data List a = Nil | Cons a (List a)
   deriving (Show, Generic)
 infixr 5 `Cons`
 
-instance (Mutable m a, PrimMonad m) => Mutable m (List a) where
-    type Ref m (List a) = GRef m (List a)
+instance Mutable s a => Mutable s (List a) where
+    type Ref s (List a) = GRef s (List a)
 ```
 
 We can write a function to "pop" out the top value and shift the rest of the
@@ -185,9 +187,9 @@ list up:
 
 ```haskell
 popStack
-    :: (PrimMonad m, Mutable m a)
-    => Ref m (List a)
-    -> m (Maybe a)
+    :: Mutable s a
+    => Ref s (List a)
+    -> ST s (Maybe a)
 popStack xs = do
     c <- projectBranch (constrMB #_Cons) xs
     forM c $ \(y, ys) -> do

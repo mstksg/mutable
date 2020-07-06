@@ -78,10 +78,10 @@ import qualified Data.Vinyl.TypeLevel                     as V
 import qualified Data.Vinyl.XRec                          as X
 
 
--- | A @'MutPart' m s a@ is a way to "zoom into" an @a@, as a part of
--- a mutable reference on @s@.  This allows you to only modify a single
--- @a@ part of the @s@, without touching the rest.  It's spiritually
--- similar to a @Lens' s a@.
+-- | A @'MutPart' s b a@ is a way to "zoom into" an @a@, as a part of
+-- a mutable reference on @b@.  This allows you to only modify a single
+-- @a@ part of the @b@, without touching the rest.  It's spiritually
+-- similar to a @Lens' b a@.
 --
 -- If 'Data.Mutable.Branches.MutBranch' is for sum types, then 'MutPart' is
 -- for product types.
@@ -103,8 +103,8 @@ import qualified Data.Vinyl.XRec                          as X
 -- tuples:
 --
 -- @
--- 'mutFst' :: 'MutPart' m (a, b) a
--- 'mutSnd' :: MutPart m (a, b) b
+-- 'mutFst' :: 'MutPart' s (a, b) a
+-- 'mutSnd' :: MutPart s (a, b) b
 -- @
 --
 -- @
@@ -151,8 +151,8 @@ mutFst = MutPart fst
 mutSnd :: MutPart s (a, b) b
 mutSnd = MutPart snd
 
--- | Using a 'MutPart', perform a function on a @'Ref' m s@ as if you had
--- a @'Ref' m a@.
+-- | Using a 'MutPart', perform a function on a @'Ref' s s@ as if you had
+-- a @'Ref' s a@.
 withPart
     :: MutPart s b a        -- ^ How to zoom into an @a@ from an @s@
     -> Ref s b              -- ^ The larger reference of @s@
@@ -184,8 +184,8 @@ copyPart mp = copyRef . getMutPart mp
 -- data MyType = MT { mtInt :: Int, mtDouble :: Double }
 --   deriving Generic
 --
--- instance Mutable m MyType where
---     type Ref m MyType = GRef m MyType
+-- instance Mutable s MyType where
+--     type Ref s MyType = GRef s MyType
 -- @
 --
 -- @
@@ -210,8 +210,8 @@ movePartInto mp = moveRef . getMutPart mp
 -- data MyType = MT { mtInt :: Int, mtDouble :: Double }
 --   deriving Generic
 --
--- instance Mutable m MyType where
---     type Ref m MyType = GRef m MyType
+-- instance Mutable s MyType where
+--     type Ref s MyType = GRef s MyType
 -- @
 --
 -- @
@@ -236,8 +236,8 @@ movePartOver mp r = moveRef r . getMutPart mp
 -- data MyType = MT { mtInt :: Int, mtDouble :: Double }
 --   deriving Generic
 --
--- instance Mutable m MyType where
---     type Ref m MyType = GRef m MyType
+-- instance Mutable s MyType where
+--     type Ref s MyType = GRef s MyType
 -- @
 --
 -- @
@@ -371,16 +371,16 @@ updatePartM' mp = updateRefM' . getMutPart mp
 -- [1,2,3] :& [False, True] :& RNil
 -- @
 mutRec
-    :: forall a as f rec m.
-     ( Ref m (rec f as) ~ rec (RecRef m f) as
+    :: forall a as f rec s.
+     ( Ref s (rec f as) ~ rec (RecRef s f) as
      , RecElem rec a a as as (V.RIndex a as)
-     , RecElemFCtx rec (RecRef m f)
+     , RecElemFCtx rec (RecRef s f)
      )
-    => MutPart m (rec f as) (f a)
-mutRec = MutPart $ getRecRef . rget @a @as @(RecRef m f) @rec
+    => MutPart s (rec f as) (f a)
+mutRec = MutPart $ getRecRef . rget @a @as @(RecRef s f) @rec
 
 -- | A 'MutPart' to get into a 'CoerceRef'.
-coerceRef :: (Ref m s ~ CoerceRef m s a) => MutPart m s a
+coerceRef :: (Ref s b ~ CoerceRef s b a) => MutPart s b a
 coerceRef = MutPart coerce
 
 -- | Handy wrapper over @'getMutPart' 'coerceRef'@.
@@ -392,25 +392,25 @@ withCoerceRef x f = f (coerce x)
 
 -- | Typeclass used to implement 'hkdMutParts'.  See documentation of
 -- 'hkdMutParts' for more information.
-class (Mutable m (z Identity), Ref m (z Identity) ~ z (RefFor m)) => HKDMutParts m z i o where
-    hkdMutParts_ :: (z (RefFor m) -> i a) -> o a
+class (Mutable s (z Identity), Ref s (z Identity) ~ z (RefFor s)) => HKDMutParts s z i o where
+    hkdMutParts_ :: (z (RefFor s) -> i a) -> o a
 
-instance (Mutable m (z Identity), Ref m (z Identity) ~ z (RefFor m)) => HKDMutParts m z (K1 i (RefFor m c)) (K1 i (MutPart m (z Identity) c)) where
+instance (Mutable s (z Identity), Ref s (z Identity) ~ z (RefFor s)) => HKDMutParts s z (K1 i (RefFor s c)) (K1 i (MutPart s (z Identity) c)) where
     hkdMutParts_ f = K1 $ MutPart $ getRefFor . unK1 . f
 
-instance (Mutable m (z Identity), Ref m (z Identity) ~ z (RefFor m)) => HKDMutParts m z U1 U1 where
+instance (Mutable s (z Identity), Ref s (z Identity) ~ z (RefFor s)) => HKDMutParts s z U1 U1 where
     hkdMutParts_ _ = U1
 
-instance (Mutable m (z Identity), Ref m (z Identity) ~ z (RefFor m), TypeError ('Text "Cannot use hkdMutParts for uninhabited types: " ':<>: 'ShowType z)) => HKDMutParts m z V1 V1 where
+instance (Mutable s (z Identity), Ref s (z Identity) ~ z (RefFor s), TypeError ('Text "Cannot use hkdMutParts for uninhabited types: " ':<>: 'ShowType z)) => HKDMutParts s z V1 V1 where
     hkdMutParts_ _ = undefined
 
-instance HKDMutParts m z i o => HKDMutParts m z (M1 a b i) (M1 a b o) where
-    hkdMutParts_ f = M1 $ hkdMutParts_ @m (unM1 . f)
+instance HKDMutParts s z i o => HKDMutParts s z (M1 a b i) (M1 a b o) where
+    hkdMutParts_ f = M1 $ hkdMutParts_ @s (unM1 . f)
 
-instance (HKDMutParts m z i o, HKDMutParts m z i' o') => HKDMutParts m z (i :*: i') (o :*: o') where
-    hkdMutParts_ f = hkdMutParts_ @m ((\(x:*:_)->x) . f) :*: hkdMutParts_ @m ((\(_:*:y)->y) . f)
+instance (HKDMutParts s z i o, HKDMutParts s z i' o') => HKDMutParts s z (i :*: i') (o :*: o') where
+    hkdMutParts_ f = hkdMutParts_ @s ((\(x:*:_)->x) . f) :*: hkdMutParts_ @s ((\(_:*:y)->y) . f)
 
-instance (Mutable m (z Identity), Ref m (z Identity) ~ z (RefFor m), TypeError ('Text "Cannot use hkdMutParts for sum types: " ':<>: 'ShowType z)) => HKDMutParts m z (i :+: i') o where
+instance (Mutable s (z Identity), Ref s (z Identity) ~ z (RefFor s), TypeError ('Text "Cannot use hkdMutParts for sum types: " ':<>: 'ShowType z)) => HKDMutParts s z (i :+: i') o where
     hkdMutParts_ _ = undefined
 
 -- | If you are using the "higher-kinded data" pattern, a la
@@ -429,8 +429,8 @@ instance (Mutable m (z Identity), Ref m (z Identity) ~ z (RefFor m), TypeError (
 -- instance Mutable (MyTypeF 'Identity') where
 --     type Ref (MyTypeF 'Identity') = MyTypeF ('RefFor' m)
 --
--- mx :: MutPart m (MyTypeF Identity) ('V.Vector' Int)
--- my :: MutPart m (MyTypeF Identity) (Vector Double)
+-- mx :: MutPart s (MyTypeF Identity) ('V.Vector' Int)
+-- my :: MutPart s (MyTypeF Identity) (Vector Double)
 -- MT mx my = hkdMutParts @MyTypeF
 -- @
 --
@@ -451,20 +451,20 @@ instance (Mutable m (z Identity), Ref m (z Identity) ~ z (RefFor m), TypeError (
 -- shallow access is often faster with 'hkdMutParts'...but this probably
 -- does vary on a case-by-case basis.
 hkdMutParts
-    :: forall z m.
-     ( Generic (z (RefFor m))
-     , Generic (z (MutPart m (z Identity)))
-     , HKDMutParts m z (Rep (z (RefFor m))) (Rep (z (MutPart m (z Identity))))
+    :: forall z s.
+     ( Generic (z (RefFor s))
+     , Generic (z (MutPart s (z Identity)))
+     , HKDMutParts s z (Rep (z (RefFor s))) (Rep (z (MutPart s (z Identity))))
      )
-    => z (MutPart m (z Identity))
-hkdMutParts = to $ hkdMutParts_ @m @z from
+    => z (MutPart s (z Identity))
+hkdMutParts = to $ hkdMutParts_ @s @z from
 
 -- | Create a 'MutPart' for a field name.  Should work for any type with
 -- one constructor whose mutable reference is 'GRef'.  See 'fieldMut' for
 -- usage directions.
 --
 -- Mostly leverages the power of "Data.Generics.Product.Fields".
-class (Mutable m s, Mutable m a) => FieldMut (fld :: Symbol) m s a | fld s -> a where
+class (Mutable s b, Mutable s a) => FieldMut (fld :: Symbol) s b a | fld b -> a where
     -- | Create a 'MutPart' for a field name.  Should work for any type with
     -- one constructor whose mutable reference is 'GRef'.
     --
@@ -474,8 +474,8 @@ class (Mutable m s, Mutable m a) => FieldMut (fld :: Symbol) m s a | fld s -> a 
     -- data MyType = MyType { mtInt :: Int, mtDouble :: Double }
     --   deriving (Generic, Show)
     --
-    -- instance Mutable m MyType where
-    --     type Ref m MyType = 'GRef' m MyType
+    -- instance Mutable s MyType where
+    --     type Ref s MyType = 'GRef' s MyType
     -- @
     --
     -- @
@@ -501,16 +501,16 @@ class (Mutable m s, Mutable m a) => FieldMut (fld :: Symbol) m s a | fld s -> a 
     -- more or less identical performance characteristics.
     fieldMut
         :: Label fld        -- ^ field label (usually given using OverloadedLabels, @#blah)
-        -> MutPart m s a
+        -> MutPart s b a
 
 instance
-      ( Mutable m s
-      , Mutable m a
-      , Ref m s ~ GRef m s
-      , GL.GLens' (HasTotalFieldPSym fld) (GRef_ m (Rep s)) (Ref m a)
-      , GL.HasField' fld s a
+      ( Mutable s b
+      , Mutable s a
+      , Ref s b ~ GRef s b
+      , GL.GLens' (HasTotalFieldPSym fld) (GRef_ s (Rep b)) (Ref s a)
+      , GL.HasField' fld b a
       )
-      => FieldMut fld m s a where
+      => FieldMut fld s b a where
     fieldMut _ = MutPart $ GLP.view (GL.glens @(HasTotalFieldPSym fld)) . unGRef
 
 data HasTotalFieldPSym :: Symbol -> GL.TyFun (Type -> Type) (Maybe Type)
@@ -529,11 +529,11 @@ withField l = withPart (fieldMut l)
 -- | A helpful wrapper around @'getMutPart' ('fieldMut' #blah)@.  Directly
 -- use a 'fieldMut' to access a mutable field.
 mutField
-    :: forall fld m s a. FieldMut fld m s a
+    :: forall fld s b a. FieldMut fld s b a
     => Label fld            -- ^ field label (usually given using OverloadedLabels, @#blah)
-    -> Ref m s              -- ^ Larger record reference
-    -> Ref m a              -- ^ Internal mutable field
-mutField = getMutPart . fieldMut @_ @m
+    -> Ref s b              -- ^ Larger record reference
+    -> Ref s a              -- ^ Internal mutable field
+mutField = getMutPart . fieldMut @_ @s
 
 -- | Create a 'MutPart' for a position in a product type.  Should work for any
 -- type with one constructor whose mutable reference is 'GRef'.  See
@@ -550,8 +550,8 @@ class (Mutable s b, Mutable s a) => PosMut (i :: Nat) s b a | i b -> a where
     -- data MyType = MyType Int Double
     --   deriving (Generic, Show)
     --
-    -- instance Mutable m MyType where
-    --     type Ref m MyType = 'GRef' m MyType
+    -- instance Mutable s MyType where
+    --     type Ref s MyType = 'GRef' s MyType
     -- @
     --
     -- @
@@ -618,8 +618,8 @@ class (Mutable s b, Mutable s a) => TupleMut s b a | b -> a where
     -- data MyType = MyType Int Double
     --   deriving (Generic, Show)
     --
-    -- instance Mutable m MyType where
-    --     type Ref m MyType = 'GRef' m MyType
+    -- instance Mutable s MyType where
+    --     type Ref s MyType = 'GRef' s MyType
     -- @
     --
     -- Now there is an instance of @'TupleMut' m MyType (Int, Double)@.
@@ -664,8 +664,8 @@ instance
 -- data MyType = MyType Int Double
 --   deriving (Generic, Show)
 --
--- instance Mutable m MyType where
---     type Ref m MyType = 'GRef' m MyType
+-- instance Mutable s MyType where
+--     type Ref s MyType = 'GRef' s MyType
 -- @
 --
 -- @
@@ -680,7 +680,7 @@ withTuple
     :: TupleMut s b a
     => Ref s b              -- ^ Larger record reference
     -> (Ref s a -> m r)     -- ^ What to do with each mutable field.  The
-                            -- @'Ref' m a@ will be a tuple of every field's ref.
+                            -- @'Ref' s a@ will be a tuple of every field's ref.
     -> m r
 withTuple = withPart tupleMut
 

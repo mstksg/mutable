@@ -60,10 +60,11 @@ import           Data.Vinyl.Functor
 import           GHC.Generics
 import qualified Data.Vinyl.XRec           as X
 
--- | An instance of @'Mutable' m a@ means that @a@ can be stored
--- a mutable reference in monad @m@.
+-- | An instance of @'Mutable' s a@ means that @a@ can be stored
+-- a mutable reference in a 'PrimMonad' @m@ (where @s@ is the mutable state
+-- token 'PrimState' of that monad).
 --
--- The associated type @'Ref' m a@ links any @a@ to the type of its
+-- The associated type @'Ref' s a@ links any @a@ to the type of its
 -- canonical mutable version.
 --
 -- The /benefit/ of this typeclass, instead of just using
@@ -81,7 +82,7 @@ import qualified Data.Vinyl.XRec           as X
 --     instance
 --
 --     @
---     instance (Mutable m a, Mutable m b) => Mutable m (a, b)
+--     instance (Mutable s a, Mutable s b) => Mutable s (a, b)
 --     @
 --
 --     If @a@ and @b@ are piecwise-mutable, then the instance here will
@@ -102,18 +103,18 @@ import qualified Data.Vinyl.XRec           as X
 --     }
 --   deriving Generic
 --
--- instance Mutable m TwoVectors where
---     type Ref m TwoVectors = 'GRef' m TwoVectors
+-- instance Mutable s TwoVectors where
+--     type Ref s TwoVectors = 'GRef' s TwoVectors
 -- @
 --
 -- Then now we get:
 --
 -- @
--- 'thawRef'   :: TwoVectors -> m ('GRef' m TwoVectors)
--- 'freezeRef' :: 'GRef' m TwoVectors -> m TwoVectors
+-- 'thawRef'   :: TwoVectors -> m ('GRef' s TwoVectors)
+-- 'freezeRef' :: 'GRef' s TwoVectors -> m TwoVectors
 -- @
 --
--- And @'GRef' m TwoVectors@ is now a piecewise-mutable reference storing each
+-- And @'GRef' s TwoVectors@ is now a piecewise-mutable reference storing each
 -- part in a way that can be modified separately (for example, with tools
 -- from "Data.Mutable.Parts").  It does this by internally allocating two
 -- 'MV.MVector's.  If the two vectors are large, this can be much more
@@ -133,7 +134,7 @@ import qualified Data.Vinyl.XRec           as X
 --   deriving Generic
 --
 -- instance Mutable (TwoVectors 'Identity') where
---     type Ref (TwoVectors 'Identity') = TwoVectors ('RefFor' m)
+--     type Ref (TwoVectors 'Identity') = TwoVectors ('RefFor' s)
 -- @
 --
 -- And now your mutable ref is literally going to be a product of the
@@ -142,11 +143,11 @@ import qualified Data.Vinyl.XRec           as X
 -- @
 -- ghci> tvr@(TV is ds) <- thawRef (TV xs ys)
 -- ghci> :t tvr
--- TV ('RefFor' IO)
+-- TV ('RefFor' 'RealWorld')
 -- ghci> :t is
 -- 'MV.MVector' RealWorld Int
 -- ghci> :t ds
--- 'MV.MVector' RealWorld Double
+-- MV.MVector RealWorld Double
 -- @
 --
 -- So 'thawRef' will actually just get you the same record type but with
@@ -162,14 +163,14 @@ import qualified Data.Vinyl.XRec           as X
 -- -- of the underlying type
 -- newtype MyType = MT (Vector Double)
 --
--- type Ref m MyType = CoerceRef m MyType (Vector Double)
+-- type Ref s MyType = CoerceRef s MyType (Vector Double)
 --
 -- -- Make a mutable version of any container, where the items are all
 -- -- mutable references.
 -- data MyContainer a = MC a a a a
 --   deriving (Functor, Foldable, Traversable)
 --
--- type Ref m (MyContainer a) = TraverseRef m MyContainer a
+-- type Ref s (MyContainer a) = TraverseRef s MyContainer a
 -- @
 --
 -- See <https://mutable.jle.im/02-mutable-and-ref.html> for more
@@ -187,7 +188,7 @@ class Mutable s a where
     -- we have
     --
     -- @
-    -- type Ref m ('V.Vector' a) = 'MV.MVector' ('PrimState' m) a
+    -- type Ref s ('V.Vector' a) = 'MV.MVector' s a
     -- @
     --
     -- This means that using 'thawRef' on a 'V.Vector' will give you an
@@ -196,24 +197,24 @@ class Mutable s a where
     --
     -- @
     -- 'thawRef'
-    --     :: ('PrimMonad' m, s ~ 'PrimState' m)
+    --     :: ('PrimMonad' m, 'PrimState' m ~ s)
     --     => 'V.Vector' a
     --     -> m ('MV.Vector' s a)
     --
     -- 'freezeRef'
-    --     :: ('PrimMonad' m, s ~ 'PrimState' m)
+    --     :: ('PrimMonad' m, 'PrimState' m ~ s)
     --     => 'MV.Vector' s a
     --     -> m ('V.Vector' a)
     --
     -- 'copyRef'
-    --     :: ('PrimMonad' m, s ~ 'PrimState' m)
+    --     :: ('PrimMonad' m, 'PrimState' m ~ s)
     --     => 'MV.Vector' s a
     --     -> 'V.Vector' a
     --     -> m ()
     -- @
     --
     -- This associated type must be unique for @a@, so no two types @a@ can
-    -- have the same @'Ref' m a@.  This makes type inference a lot more
+    -- have the same @'Ref' s a@.  This makes type inference a lot more
     -- useful: if you use 'freezeRef' on an 'MV.MVector', for instance, the
     -- return type will be inferred to be 'V.Vector'.
     --
@@ -230,7 +231,7 @@ class Mutable s a where
     -- @
     -- -- Works for all 'Generic' instances, preserves piecewise mutation
     -- -- for products
-    -- type Ref m a = 'GRef' m a
+    -- type Ref s a = 'GRef' s a
     -- @
     --
     -- If you just set up a blank instance, the implementations of
@@ -241,18 +242,18 @@ class Mutable s a where
     -- data MyType
     --
     -- -- The default setup is OK
-    -- instance Mutable m MyType
+    -- instance Mutable s MyType
     --
     -- -- This is equivalent to the above
-    -- instance Mutable m MyType
-    --     type Ref m MyType = 'MutVar' ('PrimState' m) MyType
+    -- instance Mutable s MyType
+    --     type Ref s MyType = 'MutVar' s MyType
     --
     -- -- any 'Generic' instance
     -- data MyType = MyType { mtInt :: Int, mtDouble :: Double }
     --   deriving Generic
     --
-    -- instance Mutable m MyType where
-    --     type Ref m MyType = 'GRef' m MyType
+    -- instance Mutable s MyType where
+    --     type Ref s MyType = 'GRef' s MyType
     -- @
     --
     -- See <https://mutable.jle.im/02-mutable-and-ref.html> for more
@@ -269,7 +270,7 @@ class Mutable s a where
     --
     -- @
     -- 'thawRef'
-    --     :: ('PrimMonad' m, s ~ 'PrimState' m)
+    --     :: ('PrimMonad' m, 'PrimState' m ~ s)
     --     => 'V.Vector' a
     --     -> m ('MV.Vector' s a)
     -- @
@@ -288,7 +289,7 @@ class Mutable s a where
     --
     -- @
     -- 'freezeRef'
-    --     :: ('PrimMonad' m, s ~ 'PrimState' m)
+    --     :: ('PrimMonad' m, 'PrimState' m ~ s)
     --     => 'MV.Vector' s a
     --     -> m ('V.Vector' a)
     -- @
@@ -305,7 +306,7 @@ class Mutable s a where
     --
     -- @
     -- 'copyRef'
-    --     :: ('PrimMonad' m, s ~ 'PrimState' m)
+    --     :: ('PrimMonad' m, 'PrimState' m ~ s)
     --     => 'MV.Vector' s a
     --     -> 'V.Vector' a
     --     -> m ()
@@ -353,7 +354,7 @@ class Mutable s a where
     -- -- of the mutable value (with things like "Data.Mutable.Parts").  If
     -- -- you attempt to 'freezeRef' (or 'modifyRef' etc.) this before setting
     -- -- all of the fields to reasonable values, this is likely to blow up.
-    -- initRef :: m (Ref m a)
+    -- initRef :: m (Ref s a)
 
     -- | A non-copying version of 'thawRef' that can be more efficient for
     -- types where the mutable representation is the same as the immutable
@@ -397,26 +398,26 @@ class Mutable s a where
 --
 -- @
 -- -- default, if you don't specify 'Ref'
--- instance Mutable m MyType
+-- instance Mutable s MyType
 --
 -- -- the above is the same as:
--- instance Mutable m MyType
---     type Ref m MyType = MutVar (PrimState m) MyType
+-- instance Mutable s MyType
+--     type Ref s MyType = MutVar s) MyType
 -- @
 --
 -- The case for any instance of 'Generic':
 --
 -- @
--- instance Mutable m MyType
---     type Ref m MyType = GRef m MyType
+-- instance Mutable s MyType
+--     type Ref s MyType = GRef s MyType
 -- @
 --
 -- The case for the "higher-kinded data" pattern a la
 -- <https://reasonablypolymorphic.com/blog/higher-kinded-data/>:
 --
 -- @
--- instance Mutable m (MyTypeF Identity)
---     type Ref m (MyTypeF Identity) = MyTypeF (RefFor s)
+-- instance Mutable s (MyTypeF Identity)
+--     type Ref s (MyTypeF Identity) = MyTypeF (RefFor s)
 -- @
 --
 -- The case for any newtype wrapper:
@@ -424,8 +425,8 @@ class Mutable s a where
 -- @
 -- newtype MyType = MT (Vector Double)
 --
--- instance Mutable m MyType where
---     type Ref m MyType = CoerceRef m MyType (Vector Double)
+-- instance Mutable s MyType where
+--     type Ref s MyType = CoerceRef s MyType (Vector Double)
 -- @
 --
 -- And the case for any 'Traversable instance, where the items will all be
@@ -435,8 +436,8 @@ class Mutable s a where
 -- data MyContainer a = MC a a a a
 --   deriving (Functor, Foldable, Traversable)
 --
--- instance Mutable m a => Mutable m (MyContainer a) where
---     type Ref m (MyContainer a) = TraverseRef m MyContainer a
+-- instance Mutable s a => Mutable s (MyContainer a) where
+--     type Ref s (MyContainer a) = TraverseRef s MyContainer a
 -- @
 --
 class DefaultMutable s a r | r -> a s where
@@ -504,16 +505,16 @@ instance DefaultMutable s a (ImmutableRef s a) where
     defaultUnsafeFreezeRef = freezeImmutable
 
 -- | A handy newtype wrapper that allows you to partially apply 'Ref'.
--- @'RefFor' m a@ is the same as @'Ref' m a@, but can be partially applied.
+-- @'RefFor' m a@ is the same as @'Ref' s a@, but can be partially applied.
 --
 -- If used with 'X.HKD', you can treat this syntactically identically as
--- a @'Ref' m a@.
+-- a @'Ref' s a@.
 newtype RefFor s a = RefFor { getRefFor :: Ref s a }
 
 deriving instance Eq (Ref s a) => Eq (RefFor s a)
 deriving instance Ord (Ref s a) => Ord (RefFor s a)
 
--- | Use a @'RefFor' m a@ as if it were a @'Ref' m a@.
+-- | Use a @'RefFor' m a@ as if it were a @'Ref' s a@.
 instance X.IsoHKD (RefFor s) a where
     type HKD (RefFor s) a = Ref s a
     unHKD = RefFor
@@ -546,7 +547,7 @@ instance X.IsoHKD (RefFor s) a where
 --
 newtype TraverseRef s f a = TraverseRef { getTraverseRef :: f (Ref s a) }
 
--- | Use a @'TraverseRef' m f a@ as if it were a @f ('Ref' m a)@
+-- | Use a @'TraverseRef' s f a@ as if it were a @f ('Ref' s a)@
 instance X.IsoHKD (TraverseRef s f) a where
     type HKD (TraverseRef s f) a = f (Ref s a)
     unHKD = TraverseRef
@@ -641,11 +642,11 @@ unsafeFreezeTraverse = traverse unsafeFreezeRef . getTraverseRef
 -- @
 -- newtype MyVec = MyVec ('V.Vector' Double)
 --
--- instance 'Mutable' m MyVec where
---     type 'Ref' m MyVec = 'CoerceRef' m s ('V.Vector' Double)
+-- instance 'Mutable' s MyVec where
+--     type 'Ref' s MyVec = 'CoerceRef' s s ('V.Vector' Double)
 -- @
 --
--- The @Ref m MyVec@ uses the a @'MV.MVector' Double@ under the hood.
+-- The @Ref s MyVec@ uses the a @'MV.MVector' Double@ under the hood.
 --
 -- It's essentially a special case of 'GRef' for newtypes.
 newtype CoerceRef s b a = CoerceRef { getCoerceRef :: Ref s a }
@@ -653,7 +654,7 @@ newtype CoerceRef s b a = CoerceRef { getCoerceRef :: Ref s a }
 deriving instance Eq (Ref s a) => Eq (CoerceRef s b a)
 deriving instance Ord (Ref s a) => Ord (CoerceRef s b a)
 
--- | Use a @'CoerceRef' s b a@ as if it were a @'Ref' m a@
+-- | Use a @'CoerceRef' s b a@ as if it were a @'Ref' s a@
 instance X.IsoHKD (CoerceRef s b) a where
     type HKD (CoerceRef s b) a = Ref s a
     unHKD = CoerceRef
@@ -872,7 +873,7 @@ newtype MutSumF s f g a = MutSumF { getMutSumF :: MutVar s ((f :+: g) a) }
 
 instance (GMutable s f, GMutable s g) => GMutable s (f :+: g) where
     type GRef_ s (f :+: g) = MutSumF s (GRef_ s f) (GRef_ s g)
-    -- MutVar (PrimState m) :.: (GRef_ m f :+: GRef_ m g)
+    -- MutVar s :.: (GRef_ s f :+: GRef_ s g)
 
     gThawRef_ = \case
       L1 x -> fmap MutSumF . newMutVar . L1 =<< gThawRef_ x
@@ -992,8 +993,8 @@ instance (GMutable s f, GMutable s g) => Mutable s ((f :+: g) a) where
 -- data MyType = MyType { mtInt :: Int, mtDouble :: Double }
 --   deriving (Generic, Show)
 --
--- instance Mutable m MyType where
---     type Ref m MyType = 'GRef' m MyType
+-- instance Mutable s MyType where
+--     type Ref s MyType = 'GRef' s MyType
 -- @
 --
 -- @
@@ -1019,16 +1020,16 @@ instance (GMutable s f, GMutable s g) => Mutable s ((f :+: g) a) where
 -- /type/ of @'unGRef' \@MyType@ should allow you to navigate what is going
 -- on, if you are familiar with "GHC.Generics".  However, ideally, you
 -- would never need to do this.
-newtype GRef m a = GRef { unGRef :: GRef_ m (Rep a) () }
+newtype GRef s a = GRef { unGRef :: GRef_ s (Rep a) () }
 
-deriving instance Eq (GRef_ m (Rep a) ()) => Eq (GRef m a)
-deriving instance Ord (GRef_ m (Rep a) ()) => Ord (GRef m a)
+deriving instance Eq (GRef_ s (Rep a) ()) => Eq (GRef s a)
+deriving instance Ord (GRef_ s (Rep a) ()) => Ord (GRef s a)
 
 -- | Default 'thawRef' for 'GRef'.
 --
 -- You likely won't ever use this directly, since it is automatically
 -- provided if you have a 'Mutable' instance with 'GRef' as the 'Ref'.
--- However, it can be useful if you are using a @'GRef' m a@ just as
+-- However, it can be useful if you are using a @'GRef' s a@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'GRef' for more information.
 gThawRef
@@ -1041,7 +1042,7 @@ gThawRef = fmap GRef . gThawRef_ . from
 --
 -- You likely won't ever use this directly, since it is automatically
 -- provided if you have a 'Mutable' instance with 'GRef' as the 'Ref'.
--- However, it can be useful if you are using a @'GRef' m a@ just as
+-- However, it can be useful if you are using a @'GRef' s a@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'GRef' for more information.
 gFreezeRef
@@ -1054,7 +1055,7 @@ gFreezeRef = fmap to . gFreezeRef_ . unGRef
 --
 -- You likely won't ever use this directly, since it is automatically
 -- provided if you have a 'Mutable' instance with 'GRef' as the 'Ref'.
--- However, it can be useful if you are using a @'GRef' m a@ just as
+-- However, it can be useful if you are using a @'GRef' s a@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'GRef' for more information.
 gCopyRef
@@ -1068,7 +1069,7 @@ gCopyRef (GRef v) x = gCopyRef_ v (from x)
 --
 -- You likely won't ever use this directly, since it is automatically
 -- provided if you have a 'Mutable' instance with 'GRef' as the 'Ref'.
--- However, it can be useful if you are using a @'GRef' m a@ just as
+-- However, it can be useful if you are using a @'GRef' s a@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'GRef' for more information.
 gMoveRef
@@ -1082,7 +1083,7 @@ gMoveRef (GRef v) (GRef u) = gMoveRef_ v u
 --
 -- You likely won't ever use this directly, since it is automatically
 -- provided if you have a 'Mutable' instance with 'GRef' as the 'Ref'.
--- However, it can be useful if you are using a @'GRef' m a@ just as
+-- However, it can be useful if you are using a @'GRef' s a@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'GRef' for more information.
 gCloneRef
@@ -1095,7 +1096,7 @@ gCloneRef (GRef v) = GRef <$> gCloneRef_ v
 --
 -- You likely won't ever use this directly, since it is automatically
 -- provided if you have a 'Mutable' instance with 'GRef' as the 'Ref'.
--- However, it can be useful if you are using a @'GRef' m a@ just as
+-- However, it can be useful if you are using a @'GRef' s a@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'GRef' for more information.
 gUnsafeThawRef
@@ -1108,7 +1109,7 @@ gUnsafeThawRef = fmap GRef . gUnsafeThawRef_ . from
 --
 -- You likely won't ever use this directly, since it is automatically
 -- provided if you have a 'Mutable' instance with 'GRef' as the 'Ref'.
--- However, it can be useful if you are using a @'GRef' m a@ just as
+-- However, it can be useful if you are using a @'GRef' s a@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'GRef' for more information.
 gUnsafeFreezeRef
@@ -1122,8 +1123,8 @@ gUnsafeFreezeRef = fmap to . gUnsafeFreezeRef_ . unGRef
 -- <https://reasonablypolymorphic.com/blog/higher-kinded-data/>.
 --
 -- You likely won't ever use this directly, since it is automatically
--- provided if you have a 'Mutable' instance with @z ('RefFor' m)@ as the 'Ref'.
--- However, it can be useful if you are using a @z ('RefFor' m)@ just as
+-- provided if you have a 'Mutable' instance with @z ('RefFor' s)@ as the 'Ref'.
+-- However, it can be useful if you are using a @z ('RefFor' s)@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'Mutable' for more information.
 thawHKD
@@ -1143,8 +1144,8 @@ thawHKD = fmap to . gThawRef_ . from
 -- <https://reasonablypolymorphic.com/blog/higher-kinded-data/>.
 --
 -- You likely won't ever use this directly, since it is automatically
--- provided if you have a 'Mutable' instance with @z ('RefFor' m)@ as the 'Ref'.
--- However, it can be useful if you are using a @z ('RefFor' m)@ just as
+-- provided if you have a 'Mutable' instance with @z ('RefFor' s)@ as the 'Ref'.
+-- However, it can be useful if you are using a @z ('RefFor' s)@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'Mutable' for more information.
 freezeHKD
@@ -1164,8 +1165,8 @@ freezeHKD = fmap to . gFreezeRef_ . from
 -- <https://reasonablypolymorphic.com/blog/higher-kinded-data/>.
 --
 -- You likely won't ever use this directly, since it is automatically
--- provided if you have a 'Mutable' instance with @z ('RefFor' m)@ as the 'Ref'.
--- However, it can be useful if you are using a @z ('RefFor' m)@ just as
+-- provided if you have a 'Mutable' instance with @z ('RefFor' s)@ as the 'Ref'.
+-- However, it can be useful if you are using a @z ('RefFor' s)@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'Mutable' for more information.
 copyHKD
@@ -1186,8 +1187,8 @@ copyHKD r x = gCopyRef_ (from r) (from x)
 -- <https://reasonablypolymorphic.com/blog/higher-kinded-data/>.
 --
 -- You likely won't ever use this directly, since it is automatically
--- provided if you have a 'Mutable' instance with @z ('RefFor' m)@ as the 'Ref'.
--- However, it can be useful if you are using a @z ('RefFor' m)@ just as
+-- provided if you have a 'Mutable' instance with @z ('RefFor' s)@ as the 'Ref'.
+-- However, it can be useful if you are using a @z ('RefFor' s)@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'Mutable' for more information.
 moveHKD
@@ -1207,8 +1208,8 @@ moveHKD r x = gMoveRef_ (from r) (from x)
 -- <https://reasonablypolymorphic.com/blog/higher-kinded-data/>.
 --
 -- You likely won't ever use this directly, since it is automatically
--- provided if you have a 'Mutable' instance with @z ('RefFor' m)@ as the 'Ref'.
--- However, it can be useful if you are using a @z ('RefFor' m)@ just as
+-- provided if you have a 'Mutable' instance with @z ('RefFor' s)@ as the 'Ref'.
+-- However, it can be useful if you are using a @z ('RefFor' s)@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'Mutable' for more information.
 cloneHKD
@@ -1227,8 +1228,8 @@ cloneHKD = fmap to . gCloneRef_ . from
 -- <https://reasonablypolymorphic.com/blog/higher-kinded-data/>.
 --
 -- You likely won't ever use this directly, since it is automatically
--- provided if you have a 'Mutable' instance with @z ('RefFor' m)@ as the 'Ref'.
--- However, it can be useful if you are using a @z ('RefFor' m)@ just as
+-- provided if you have a 'Mutable' instance with @z ('RefFor' s)@ as the 'Ref'.
+-- However, it can be useful if you are using a @z ('RefFor' s)@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'Mutable' for more information.
 unsafeThawHKD
@@ -1248,8 +1249,8 @@ unsafeThawHKD = fmap to . gUnsafeThawRef_ . from
 -- <https://reasonablypolymorphic.com/blog/higher-kinded-data/>.
 --
 -- You likely won't ever use this directly, since it is automatically
--- provided if you have a 'Mutable' instance with @z ('RefFor' m)@ as the 'Ref'.
--- However, it can be useful if you are using a @z ('RefFor' m)@ just as
+-- provided if you have a 'Mutable' instance with @z ('RefFor' s)@ as the 'Ref'.
+-- However, it can be useful if you are using a @z ('RefFor' s)@ just as
 -- a normal data type, independent of the 'Ref' class.  See documentation
 -- for 'Mutable' for more information.
 unsafeFreezeHKD

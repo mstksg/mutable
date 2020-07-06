@@ -25,7 +25,8 @@
 -- Portability : non-portable
 --
 -- Provides the 'Mutable' typeclass and various helpers.  See
--- 'Data.Mutable' for the main "entrypoint".
+-- "Data.Mutable" for the main "entrypoint".  Many of the datatypes used
+-- for 'Ref' instances are defined in "Data.Mutable.Instances"
 module Data.Mutable.Class (
     Mutable(..)
   , copyRefWhole, moveRefWhole, cloneRefWhole
@@ -201,8 +202,8 @@ cloneRefWhole = thawRef <=< freezeRef
 -- This can then be auto-derived:
 --
 -- @
--- instance Mutable m MyType where
---     type Ref m MyType = GRef m MyType
+-- instance Mutable s MyType where
+--     type Ref s MyType = GRef s MyType
 -- @
 --
 -- It can also be used to /override/ a 'Mutable' instance.  For example,
@@ -242,8 +243,8 @@ instance X.IsoHKD (TraverseMut f) a where
     unHKD = TraverseMut
     toHKD = getTraverseMut
 
-instance (Traversable f, Mutable m a) => Mutable m (TraverseMut f a) where
-    type Ref m (TraverseMut f a) = TraverseRef m (TraverseMut f) a
+instance (Traversable f, Mutable s a) => Mutable s (TraverseMut f a) where
+    type Ref s (TraverseMut f a) = TraverseRef s (TraverseMut f) a
 
 -- | Similar to 'VarMut', this allows you to overwrite the normal 'Mutable'
 -- instance of a type to utilize a coercible type's 'Mutable' instance
@@ -260,8 +261,8 @@ instance (Traversable f, Mutable m a) => Mutable m (TraverseMut f a) where
 -- 'MV.MVector'), but you don't want to write an orphan instance like
 --
 -- @
--- instance Mutable m DoubleVec where
---     type 'Ref' m DoubleVec = 'CoerceRef' m DoubleVec (Vector Double)
+-- instance Mutable s DoubleVec where
+--     type 'Ref' s DoubleVec = 'CoerceRef' s DoubleVec (Vector Double)
 -- @
 --
 -- then you can instead use @'CoerceMut' DoubleVec (Vector Double)@ as the
@@ -275,8 +276,8 @@ instance X.IsoHKD (CoerceMut s) a where
     unHKD = CoerceMut
     toHKD = getCoerceMut
 
-instance (Mutable m a, Coercible s a) => Mutable m (CoerceMut s a) where
-    type Ref m (CoerceMut s a) = CoerceRef m (CoerceMut s a) a
+instance (Mutable s a, Coercible s a) => Mutable s (CoerceMut s a) where
+    type Ref s (CoerceMut s a) = CoerceRef s (CoerceMut s a) a
 
 -- | Similar to 'VarMut', this allows you to overwrite the normal 'Mutable'
 -- instance of a type to make it /immutable/.
@@ -292,8 +293,8 @@ instance (Mutable m a, Coercible s a) => Mutable m (CoerceMut s a) where
 --     }
 --   deriving Generic
 --
--- instance Mutable m MyType where
---     type Ref m MyType = GRef m MyType
+-- instance Mutable s MyType where
+--     type Ref s MyType = GRef s MyType
 -- @
 --
 -- This basically uses three mutable references: the 'Int', the @'V.Vector'
@@ -309,12 +310,12 @@ instance (Mutable m a, Coercible s a) => Mutable m (CoerceMut s a) where
 --     }
 --   deriving Generic
 --
--- instance Mutable m MyType where
---     type Ref m MyType = GRef m MyType
+-- instance Mutable s MyType where
+--     type Ref s MyType = GRef s MyType
 -- @
 --
 -- which has that behavior.  The 'Int' and the 'V.Vector' will be mutable
--- within @'Ref' m MyType@, but not the 'String'.
+-- within @'Ref' s MyType@, but not the 'String'.
 newtype Immutable s a = Immutable { getImmutable :: a }
 
 -- | Use an @'Immutable' a@ as if it were an @a@

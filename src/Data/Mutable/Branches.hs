@@ -71,11 +71,11 @@ import           GHC.TypeLits
 import qualified Data.GenericLens.Internal              as GL
 import qualified Data.Generics.Internal.Profunctor.Lens as GLP
 
--- | A @'MutBranch' m s a@ represents the information that @s@ could
--- potentially be an @a@.  Similar in spirit to a @Prism' s a@.
+-- | A @'MutBranch' s b a@ represents the information that @b@ could
+-- potentially be an @a@.  Similar in spirit to a @Prism' b a@.
 --
--- @'MutBranch' m s a@ means that @a@ is one potential option that @s@
--- could be in, or that @s@ is a sum type and @a@ is one of the
+-- @'MutBranch' s b a@ means that @a@ is one potential option that @b@
+-- could be in, or that @b@ is a sum type and @a@ is one of the
 -- branches/constructors.
 --
 -- See <https://mutable.jle.im/06-mutable-branches.html> for an
@@ -91,8 +91,8 @@ import qualified Data.Generics.Internal.Profunctor.Lens as GLP
 -- get the two branches of an 'Either':
 --
 -- @
--- constrMB #_Left   :: MutBranch m (Either a b) a
--- constrMB #_Right  :: MutBranch m (Either a b) b
+-- constrMB #_Left   :: MutBranch s (Either a b) a
+-- constrMB #_Right  :: MutBranch s (Either a b) b
 -- @
 --
 -- @
@@ -131,18 +131,18 @@ import qualified Data.Generics.Internal.Profunctor.Lens as GLP
 -- data List a = Nil | Cons a (List a)
 --   deriving Generic
 --
--- instance Mutable m a => 'Mutable' m (List a) where
---     type Ref m (List a) = 'GRef' m (List a)
+-- instance Mutable s a => 'Mutable' s (List a) where
+--     type Ref s (List a) = 'GRef' s (List a)
 -- @
 --
--- @'GRef' m (List a)@ is now a mutable linked list!  Once we make the
+-- @'GRef' s (List a)@ is now a mutable linked list!  Once we make the
 -- 'MutBranch' for the nil and cons cases:
 --
 -- @
--- nilBranch :: MutBranch m (List a) ()
+-- nilBranch :: MutBranch s (List a) ()
 -- nilBranch = constrMB #_Nil
 --
--- consBranch :: MutBranch m (List a) (a, List a)
+-- consBranch :: MutBranch s (List a) (a, List a)
 -- consBranch = constrMB #_Cons
 -- @
 --
@@ -151,8 +151,8 @@ import qualified Data.Generics.Internal.Profunctor.Lens as GLP
 --
 -- @
 -- isEmpty
---     :: (PrimMonad m, Mutable m a)
---     => Ref m (List a)
+--     :: (PrimMonad m, Mutable s a)
+--     => Ref s (List a)
 --     -> m Bool
 -- isEmpty = hasBranch nilBranch
 -- @
@@ -162,8 +162,8 @@ import qualified Data.Generics.Internal.Profunctor.Lens as GLP
 --
 -- @
 -- popStack
---     :: (PrimMonad m, Mutable m a)
---     => Ref m (List a)
+--     :: (PrimMonad m, Mutable s a)
+--     => Ref s (List a)
 --     -> m (Maybe a)
 -- popStack r = do
 --     c <- projectBranch consBranch r
@@ -179,9 +179,9 @@ import qualified Data.Generics.Internal.Profunctor.Lens as GLP
 --
 -- @
 -- concatLists
---     :: (PrimMonad m, Mutable m a)
---     => Ref m (List a)
---     -> Ref m (List a)
+--     :: (PrimMonad m, Mutable s a)
+--     => Ref s (List a)
+--     -> Ref s (List a)
 --     -> m ()
 -- concatLists l1 l2 = do
 --     c <- projectBranch consBranch l1
@@ -255,7 +255,7 @@ compMB mb1 mb2 = MutBranch
 
 -- | An identity 'MutBranch', treating the item itself as a whole branch.
 -- 'cloneBranch' will always "match".
-idMB :: MutBranch m a a
+idMB :: MutBranch s a a
 idMB = MutBranch (pure . Just) pure
 
 -- | With a 'MutBranch', thaw an @a@ into a mutable @s@ on that branch.
@@ -659,7 +659,7 @@ instance
 --
 -- @
 -- -- | 'MutBranch' focusing on the cons case of a list
--- consMB :: (PrimMonad m, Mutable m a) => MutBranch m [a] (a, [a])
+-- consMB :: (PrimMonad m, Mutable s a) => MutBranch s [a] (a, [a])
 -- consMB = 'constrMB' ('CLabel' @":")
 -- @
 constrMB

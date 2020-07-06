@@ -4,7 +4,7 @@ Changelog
 Version 0.2.0.0
 ---------------
 
-*July 3, 2020*
+*July 5, 2020*
 
 <https://github.com/mstksg/mutable/releases/tag/v0.2.0.0>
 

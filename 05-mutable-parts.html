@@ -449,7 +449,7 @@ footer .site-generated-message
 <p>The <em><a href="https://hackage.haskell.org/package/mutable/docs/Data-Mutable-Parts.html">Data.Mutable.Parts</a></em> module has some mechanisms for accessing specific
 parts of mutable references, to take full advantage of piecewise-mutability.</p>
 <p>The main data type is <code>MutPart</code>:</p>
-<pre class="haskell"><code>data MutPart s b a = MutPart { getMutPart :: Ref s b -&gt; Ref m a }
+<pre class="haskell"><code>data MutPart s b a = MutPart { getMutPart :: Ref s b -&gt; Ref s a }
 </code></pre>
 <p>You can sort of imagine <code>MutPart s b a</code> as spiritually similar to a <code>Lens&#39; b
 a</code>: it&#39;s a way to access and modify an <code>a</code> &quot;inside&quot; some <code>b</code>. It allows you to
@@ -474,7 +474,7 @@ combinator to work directly with the smaller sub-reference:</p>
 withPart
     :: MutPart s b a        -- ^ How to zoom into an `a` from an `s`
     -&gt; Ref s b              -- ^ The larger reference of `s`
-    -&gt; (Ref m a -&gt; m r)     -- ^ What do do with the smaller sub-reference of `a`
+    -&gt; (Ref s a -&gt; m r)     -- ^ What do do with the smaller sub-reference of `a`
     -&gt; m r
 </code></pre>
 <p><code>MutPart</code>s also have a <code>Category</code> instance, so you can compose them with <code>.</code>
@@ -506,7 +506,7 @@ posMut @3 :: MutPart s MyType (V.Vector Double)
 <p>We can also get a <code>MutPart</code> into a view of your data type as a tuple:</p>
 <pre class="haskell"><code>tupleMut :: MutPart s MyType (Int, Double, V.Vector Double)
 </code></pre>
-<p>Because the instance of <code>Ref</code> for tuples, this just turns a <code>Ref m MyType</code> into
+<p>Because the instance of <code>Ref</code> for tuples, this just turns a <code>Ref s MyType</code> into
 a <code>(MutVar s Int, MutVar s Double, MVector s Double)</code>. This is arguably easier
 to use continuation-style, so there is a nice helper <code>withTuple = withPart
 tupleMut</code></p>
@@ -534,8 +534,8 @@ instance Mutable s MyType&#39; where
 </code></pre>
 <pre class="haskell"><code>MTF mpInt mpDouble mpVec = hkdMutParts @MyTypeF
 </code></pre>
-<p>That will give you <code>mpInt :: MutPart m MyType Int</code>, <code>mpDouble :: MutPart m
-MyType Double</code>, and <code>mpVec :: MutPart m MyType (V.Vector Double)</code>, in a way
+<p>That will give you <code>mpInt :: MutPart s MyType Int</code>, <code>mpDouble :: MutPart s
+MyType Double</code>, and <code>mpVec :: MutPart s MyType (V.Vector Double)</code>, in a way
 that is nice to pattern match out of. You can also access the
 <code>MutPart</code>s:</p>
 <pre class="haskell"><code>mpInt :: MutPart s MyType Int

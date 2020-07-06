@@ -472,9 +472,12 @@ instance Mutable s MyType where
 </code></pre>
 <p>The type <code>Ref s MyType</code> is now a &quot;mutable <code>MyType</code>&quot;, just like how <code>MVector s
 a</code> is a &quot;mutable <code>Vector a</code>&quot;. You have:</p>
-<pre class="haskell"><code>thawRef   :: MyType -&gt; m (Ref s MyType)
-freezeRef :: Ref s MyType -&gt; m MyType
+<pre class="haskell"><code>thawRef   :: MyType -&gt; ST s (Ref s MyType)
+freezeRef :: Ref s MyType -&gt; ST s MyType
 </code></pre>
+<p>(These actions are in <code>ST</code>, the mutable memory monad that comes with GHC. The
+real types of these are more polymorphic and are generalized to work for all
+mutable monads with <code>PrimMonad</code> instance.)</p>
 <p>You can use <code>thawRef</code> to allocate a mutable <code>MyType</code> that essentially consists
 of a mutable <code>Int</code>, a mutable <code>Double</code>, and a mutable <code>Vector</code> (an <code>MVector</code>)
 all tupled together. You can edit these pieces in isolation, and then
@@ -520,9 +523,9 @@ instance Mutable s a =&gt; Mutable s (List a) where
 <p>We can write a function to &quot;pop&quot; out the top value and shift the rest of the
 list up:</p>
 <pre class="haskell"><code>popStack
-    :: (Mutable s a, PrimMonad m, PrimState m ~ s)
+    :: Mutable s a
     =&gt; Ref s (List a)
-    -&gt; m (Maybe a)
+    -&gt; ST s (Maybe a)
 popStack xs = do
     c &lt;- projectBranch (constrMB #_Cons) xs
     forM c $ \(y, ys) -&gt; do

@@ -477,7 +477,7 @@ behavior. You can also be explicit:</p>
 <h2>Generic Instance</h2>
 <p>This is the main thing the library is useful for. Get an automatic
 &quot;piecewise-mutable&quot; form of any ADT with a <code>Generic</code> instance.</p>
-<p>Dispatch this behavior by using <code>GRef m X</code> as your type&#39;s <code>Ref</code>:</p>
+<p>Dispatch this behavior by using <code>GRef s X</code> as your type&#39;s <code>Ref</code>:</p>
 <pre class="haskell"><code>data MyType = MT
     { mtInt    :: Int
     , mtDouble :: Double
@@ -488,9 +488,9 @@ behavior. You can also be explicit:</p>
 instance Mutable s MyType where
     type Ref s MyType = GRef s MyType
 </code></pre>
-<p>The data type <code>GRef m MyType</code> is essentially equivalent to the same type as
+<p>The data type <code>GRef s MyType</code> is essentially equivalent to the same type as
 <code>MyType</code> with all the fields replaced with their mutable versions. That is,
-<code>GRef m MyType</code> is equivalent to <code>MyTypeRef</code>, if we wanted to define it
+<code>GRef s MyType</code> is equivalent to <code>MyTypeRef</code>, if we wanted to define it
 manually:</p>
 <pre class="haskell"><code>data MyTypeRef s = MTR
     { mtrInt    :: MutVar s Int
@@ -557,7 +557,7 @@ instance Mutable s VecD where
 </code></pre>
 <p>This will appropriately have <code>VecD</code> be using <code>MVector</code> as its mutable version.</p>
 <p>To get an instance for a newtype <code>X</code> wrapping underlying type <code>Y</code> using the
-<code>Mutable</code> instance for <code>Y</code>, use <code>CoerceRef m X Y</code>.</p>
+<code>Mutable</code> instance for <code>Y</code>, use <code>CoerceRef s X Y</code>.</p>
 <p>You can access the underlying <code>Ref</code> using <code>coerceRef</code> or <code>withCoerceRef</code>:</p>
 <pre class="haskell"><code>withCoerceRef
     :: Ref s VecD
@@ -577,7 +577,7 @@ just swapping out all its leaves for <code>Ref</code>. You can use <code>Travers
 instance Mutable s a =&gt; Mutable s (V4 a) where
     type Ref s (V4 a) = TraverseRef s V4 a
 </code></pre>
-<p>Basically, this just uses <code>V4 (Ref m a)</code> as your mutable reference:</p>
+<p>Basically, this just uses <code>V4 (Ref s a)</code> as your mutable reference:</p>
 <pre class="haskell"><code>getTraverseRef
     :: Ref s (V4 a)
     -&gt; V4 (Ref s a)
@@ -606,7 +606,7 @@ instance Mutable s MyType&#39; where
 <pre class="haskell"><code>MTF 3 4.5 (V.fromList [1..100])
     :: MyType&#39;
 </code></pre>
-<p>But now, <code>MyTypeF (RefFor m)</code> literally has mutable references as its fields.
+<p>But now, <code>MyTypeF (RefFor s)</code> literally has mutable references as its fields.
 You can pattern match to get <code>rI :: MutVar s Int</code>, <code>rD :: MutVar s Double</code>, and
 <code>rV :: MVector s Double</code></p>
 <pre class="haskell"><code>MTF rI rD rV :: MyTypeF (RefFor s)

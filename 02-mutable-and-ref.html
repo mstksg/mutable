@@ -448,23 +448,30 @@ footer .site-generated-message
 /* Generated with Clay, http://fvisser.nl/clay */</style></head><body class="h-100 tintin-fg-black tintin-bg-white"><div id="main-container" class="h-100"><section id="content"><div id="wrapper" class="toggled"><div id="sidebar-wrapper" class="h-100 tintin-bg-bronze"><div class="h-100 tintin-bg-70"><p></p></div><ul class="sidebar-nav"><li class="sidebar-brand d-flex tintin-bg-bronze"><a href="index.html" class="align-self-center tintin-fg-white">mutable</a></li><li><a href="01-getting-started.html" class="tintin-fg-disabled">Getting Started</a></li><li><a href="02-mutable-and-ref.html" class="tintin-fg-active">Mutable and Ref</a></li><li><a href="03-automatic-instance-options.html" class="tintin-fg-disabled">Automatic Instance Options</a></li><li><a href="04-instance-wrappers.html" class="tintin-fg-disabled">Instance Wrappers</a></li><li><a href="05-mutable-parts.html" class="tintin-fg-disabled">Mutable Parts</a></li><li><a href="06-mutable-branches.html" class="tintin-fg-disabled">Mutable Branches</a></li><li><a href="07-benchmarks.html" class="tintin-fg-disabled">Benchmarks</a></li><li><a href="08-resources.html" class="tintin-fg-disabled">Resources</a></li></ul></div><nav class="navbar navbar-expand-lg tintin-doc-topbar tintin-fg-white"><a href="#menu-toggle" id="menu-toggle" class><img src="https://s3-eu-west-1.amazonaws.com/worldwideapps/assets/menu.png" class="img-fluid animated rotateOut"><img src="https://s3-eu-west-1.amazonaws.com/worldwideapps/assets/close.png" class="img-fluid animated rotateIn"></a></nav><div id="page-content-wrapper"><div class="container"><div class="col"><div class="animated fadeIn"><h1>Mutable and Ref</h1>
 <p>Let&#39;s go over the high level view of what&#39;s going on. Conceptually, the entire
 library revolves around the <code>Mutable</code> typeclass and the <code>Ref</code> associated type.</p>
-<pre class="haskell"><code>class Mutable m a where
-    type Ref m a = v     | v -&gt; a
+<pre class="haskell"><code>class Mutable s a where
+    type Ref s a = v     | v -&gt; a s
 
-    thawRef   :: a -&gt; m (Ref m a)
-    freezeRef :: Ref m a -&gt; m a
-    copyRef   :: Ref m a -&gt; a -&gt; m ()
+    thawRef   :: (PrimMonad m, PrimState m ~ s) =&gt; a -&gt; m (Ref s a)
+    freezeRef :: (PrimMonad m, PrimState m ~ s) =&gt; Ref s a -&gt; m a
+    copyRef   :: (PrimMonad m, PrimState m ~ s) =&gt; Ref s a -&gt; a -&gt; m ()
 
     -- ... plus some more methods that can be implemented using
     -- the others in most cases
 </code></pre>
-<p>An instance of <code>Mutable m a</code> is an <code>a</code> that has a &quot;mutable version&quot; that can be
-updated/mutated in the <code>m</code> Monad.</p>
+<p>An instance of <code>Mutable s a</code> is an <code>a</code> that has a &quot;mutable version&quot; that can be
+updated/mutated in a &quot;mutable <code>PrimMonad m</code>&quot; (like <code>IO</code> or <code>ST</code>) that has a
+state token <code>s</code>.</p>
 <p>The (injective) type family <code>Ref</code> associates every type <code>a</code> with its &quot;mutable
 version&quot;.</p>
+<p>(A quick note on <code>PrimMonad</code> --- it comes from the <em><a href="https://hackage.haskell.org/package/primitive">primitive</a></em> library and
+is used across the ecosystem; it&#39;s a typeclass that abstracts over all &quot;impure&quot;
+monads like <code>IO</code>, <code>ST s</code>, <code>ReaderT r IO</code>, etc. You can think of it as an
+expanded version of <code>MonadIO</code> to also include monads that use <code>ST s</code>.
+<code>PrimState</code> is what you give to <code>MutVar</code> and <code>MVector</code> to make things &quot;work
+properly&quot;)</p>
 <p>For example, for <em><a href="https://hackage.haskell.org/package/vector/docs/Data-Vector.html">Vector</a></em>, the &quot;mutable version&quot; is an <em><a href="https://hackage.haskell.org/package/vector/docs/Data-Vector-Mutable.html">MVector</a></em>:</p>
-<pre class="haskell"><code>class PrimMonad m =&gt; Mutable m (Vector a) where
-    type Ref m (Vector a) = MVector (PrimState m) a
+<pre class="haskell"><code>class Mutable s (Vector a) where
+    type Ref s (Vector a) = MVector s a
 
     thawRef   = V.thaw
     freezeRef = V.freeze
@@ -472,26 +479,20 @@ version&quot;.</p>
 </code></pre>
 <p>For simple non-composite data types like <code>Int</code>, you can just use a
 <em><a href="https://hackage.haskell.org/package/primitive/docs/Data-Primitive-MutVar.html">MutVar</a></em> (a polymorphic version of <code>IORef</code>/<code>STRef</code>):</p>
-<pre class="haskell"><code>class PrimMonad m =&gt; Mutable m Int where
-    type Ref m Int = MutVar (PrimState m) Int
+<pre class="haskell"><code>class Mutable s Int where
+    type Ref s Int = MutVar s Int
 
     thawRef   = newMutVar
     freezeRef = readMutVar
     copyRef   = writeMutVar
 
-class PrimMonad m =&gt; Mutable m Double where
-    type Ref m Int = MutVar (PrimState m) Double
+class Mutable s Double where
+    type Ref s Int = MutVar s Double
 
     thawRef   = newMutVar
     freezeRef = readMutVar
     copyRef   = writeMutVar
 </code></pre>
-<p>(A quick note on <code>PrimMonad</code> --- it comes from the <em><a href="https://hackage.haskell.org/package/primitive">primitive</a></em> library and
-is used across the ecosystem; it&#39;s a typeclass that abstracts over all &quot;impure&quot;
-monads like <code>IO</code>, <code>ST s</code>, <code>ReaderT r IO</code>, etc. You can think of it as an
-expanded version of <code>MonadIO</code> to also include monads that use <code>ST s</code>.
-<code>PrimState</code> is what you give to <code>MutVar</code> and <code>MVector</code> to make things &quot;work
-properly&quot;)</p>
 <p>All we are doing so far is associating a type with its &quot;mutable&quot; version. But,
 what happens if we had some composite type?</p>
 <pre class="haskell"><code>data MyType = MT
@@ -509,8 +510,8 @@ its own mutable reference:</p>
     , mtrVec    :: MV.MVector s Double
     }
 
-instance PrimMonad m =&gt; Mutable m MyType where
-    type Ref m MyType = MyTypeRef (PrimState m)
+instance Mutable s MyType where
+    type Ref s MyType = MyTypeRef s
 
     thawRef (MT x y z) = MTR &lt;$&gt; newMutVar x
                              &lt;*&gt; newMutVar y
@@ -529,16 +530,16 @@ instance PrimMonad m =&gt; Mutable m MyType where
 if we could instead automatically derive a reference type?</p>
 <p>Well, we&#39;re in luck. If <code>MyType</code> is an instance of <code>Generic</code>, then we can just
 write:</p>
-<pre class="haskell"><code>instance PrimMonad m =&gt; Mutable m MyType where
-    type Ref MyType = GRef m MyType
+<pre class="haskell"><code>instance Mutable s MyType where
+    type Ref MyType = GRef s MyType
 </code></pre>
 <p>We can now leave the rest of the typeclass body blank...and the <em>mutable</em>
 library will do the rest for us!</p>
 <ul>
-<li><code>GRef m MyType</code> is an automatically derived type that is equivalent to
+<li><code>GRef s MyType</code> is an automatically derived type that is equivalent to
 the <code>MyTypeRef</code> that we wrote earlier. It leverages the power of GHC
 generics and typeclasses. Every field of type <code>X</code> turns into a field of
-type <code>Ref m X</code>. This &quot;does the right thing&quot; as long as all your fields are
+type <code>Ref s X</code>. This &quot;does the right thing&quot; as long as all your fields are
 instances of <code>Mutable</code>.</li>
 <li>The mechanisms in <code>DefaultMutable</code> will automatically fill in the rest of
 the typeclass for you.</li>

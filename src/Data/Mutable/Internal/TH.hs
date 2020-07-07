@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Data.Mutable.Internal.TH (
@@ -57,10 +58,14 @@ mutableTuple n = do
     instHead = tuplerT $ VarT <$> tyVars
     -- type Ref s (a, b, c) = (Ref s a, Ref s b, Ref s c)
     refImpl :: Dec
+#if MIN_VERSION_template_haskell(2,15,0)
     refImpl = TySynInstD
             . TySynEqn Nothing (refS instHead)
+#else
+    refImpl = TySynInstD ''Ref
+            . TySynEqn [VarT (mkName "s"), instHead]
+#endif
             $ tuplerT (refS . VarT <$> tyVars)
-    -- thawRef   (!x, !y, !z) = (,,) <$> thawRef x   <*> thawRef y   <*> thawRef z
     thawImpl :: [Name] -> Dec
     thawImpl valVars = FunD 'thawRef [
         Clause [TupP (BangP . VarP <$> valVars)]

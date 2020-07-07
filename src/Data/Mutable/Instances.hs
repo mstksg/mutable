@@ -425,16 +425,6 @@ instance ( RecApplicative as
     unsafeThawRef   = fmap toARec . unsafeThawRef   . fromARec
     unsafeFreezeRef = fmap toARec . unsafeFreezeRef . fromARec
 
--- | Useful type family to @'Ref' m@ over every item in a type-level list
---
--- @
--- ghci> :kind! MapRef IO '[Int, V.Vector Double]
--- '[ MutVar RealWorld Int, MVector RealWorld Double ]
--- @
-type family MapRef s as where
-    MapRef s '[] = '[]
-    MapRef s (a ': as) = Ref s a ': MapRef s as
-
 -- | The mutable reference of the 'HList' type from generic-lens.
 data HListRef :: Type -> [Type] -> Type where
     NilRef :: HListRef s '[]
@@ -470,3 +460,21 @@ instance (Mutable s a, Mutable s (HList as), Ref s (HList as) ~ HListRef s as) =
       x :> xs -> (:!>) <$> unsafeThawRef x <*> unsafeThawRef xs
     unsafeFreezeRef = \case
       v :!> vs -> (:>) <$> unsafeFreezeRef v <*> unsafeFreezeRef vs
+
+-- ListRefTuple instances
+
+-- this one instance is the reason why we have to define a new typeclass
+-- instead of using 'ListRef' -- because of @'ListRef' s () '[]@.
+instance ListRefTuple s (UnitRef s) '[] where
+    tupleToListRef _ = Nil
+    listRefToTuple _ = UnitRef
+
+instance (Ref s a ~ ra) => ListRefTuple s ra '[a] where
+    tupleToListRef x = x :> Nil
+    listRefToTuple (x :> _) = x
+
+instance (Ref s a ~ ra, Ref s b ~ rb) => ListRefTuple s (ra, rb) '[a, b] where
+    tupleToListRef (x, y) = x :> y :> Nil
+    listRefToTuple (x :> y :> _) = (x, y)
+
+listRefTuples [3..12]

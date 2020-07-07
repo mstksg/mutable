@@ -10,6 +10,7 @@
 {-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE StandaloneDeriving     #-}
+{-# LANGUAGE TypeApplications       #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE TypeInType             #-}
 {-# LANGUAGE TypeOperators          #-}
@@ -45,6 +46,9 @@ module Data.Mutable.Internal (
   -- ** Instances for Generics combinators themselves
   , GMutableRef(..)
   , MutSumF(..)
+  -- ** Needed for MutBranch
+  , ListRefTuple(..)
+  , MapRef
   ) where
 
 import           Control.Monad.Primitive
@@ -53,12 +57,14 @@ import           Control.Monad.Trans.State
 import           Data.Bifunctor
 import           Data.Coerce
 import           Data.Foldable
+import           Data.Generics.Product.Internal.HList
 import           Data.Kind
 import           Data.List
 import           Data.Primitive.MutVar
 import           Data.Vinyl.Functor
 import           GHC.Generics
-import qualified Data.Vinyl.XRec           as X
+import qualified Data.GenericLens.Internal            as GL
+import qualified Data.Vinyl.XRec                      as X
 
 -- | An instance of @'Mutable' s a@ means that @a@ can be stored
 -- a mutable reference in a 'PrimMonad' @m@ (where @s@ is the mutable state
@@ -1265,3 +1271,20 @@ unsafeFreezeHKD
     => z (RefFor s)
     -> m (z Identity)
 unsafeFreezeHKD = fmap to . gUnsafeFreezeRef_ . from
+
+-- | Useful type family to @'Ref' m@ over every item in a type-level list
+--
+-- @
+-- ghci> :kind! MapRef IO '[Int, V.Vector Double]
+-- '[ MutVar RealWorld Int, MVector RealWorld Double ]
+-- @
+type family MapRef s as where
+    MapRef s '[] = '[]
+    MapRef s (a ': as) = Ref s a ': MapRef s as
+
+class ListRefTuple (s :: Type) (b :: Type) (as :: [Type]) | as s -> b where
+    tupledRef :: GL.Iso' (HList (MapRef s as)) b
+    tupledRef = GL.iso (listRefToTuple @s @b @as) (tupleToListRef @s @b @as)
+    {-# INLINE tupledRef #-}
+    tupleToListRef :: b -> HList (MapRef s as)
+    listRefToTuple :: HList (MapRef s as) -> b

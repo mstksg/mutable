@@ -2,18 +2,24 @@
 
 module Data.Mutable.Internal.TH (
     mutableTuples
+  , listRefTuples
   ) where
 
 import           Control.Monad
+import           Data.Generics.Product.Internal.HList
 import           Data.List
 import           Data.Mutable.Internal
 import           Language.Haskell.TH
 
-tyVarNames :: [Name]
-tyVarNames = mkName . (:[]) <$> filter (/= 's') ['a' .. 'z']
+tyVarNames :: [String]
+tyVarNames = (:[]) <$> filter (/= 's') ['a' .. 'z']
 
 mutableTuples :: [Int] -> Q [Dec]
 mutableTuples = traverse mutableTuple
+
+listRefTuples :: [Int] -> Q [Dec]
+listRefTuples = traverse listRefTuple
+
 
 mutableTuple
     :: Int
@@ -38,6 +44,7 @@ mutableTuple n = do
   where
     tuplerT :: [Type] -> Type
     tuplerT = applyAllT (TupleT n)
+    tupConE :: Exp
     tupConE = ConE (tupleDataName n)
 
     mutableS :: Type -> Type
@@ -45,7 +52,7 @@ mutableTuple n = do
     refS :: Type -> Type
     refS = ((ConT ''Ref `AppT` VarT (mkName "s")) `AppT`)
     tyVars :: [Name]
-    tyVars = take n tyVarNames
+    tyVars = mkName <$> take n tyVarNames
     instHead :: Type
     instHead = tuplerT $ VarT <$> tyVars
     -- type Ref s (a, b, c) = (Ref s a, Ref s b, Ref s c)
@@ -121,6 +128,64 @@ mutableTuple n = do
                []
       ]
 
+listRefTuple
+    :: Int
+    -> Q Dec
+listRefTuple n = do
+    valVars <- replicateM n (newName "x")
+    -- instance (Ref s a ~ ra, Ref s b ~ rb) => ListRefTuple s (ra, rb) '[a, b] where
+    pure $ InstanceD
+      Nothing
+      (zipWith refConstr refVars tyVars)
+      (listRefTupleS (tuplerT (VarT <$> refVars)) `AppT`
+          (liftedList (VarT <$> tyVars))
+      )
+      [ tupToListImpl valVars
+      , listToTupImpl valVars
+      ]
+  where
+    tuplerT :: [Type] -> Type
+    tuplerT = applyAllT (TupleT n)
+    tupConE :: Exp
+    tupConE = ConE (tupleDataName n)
+
+    listRefTupleS :: Type -> Type
+    listRefTupleS = ((ConT ''ListRefTuple `AppT` VarT (mkName "s")) `AppT`)
+    refS :: Type -> Type
+    refS = ((ConT ''Ref `AppT` VarT (mkName "s")) `AppT`)
+    tyVarsStr :: [String]
+    tyVarsStr = take n tyVarNames
+    tyVars :: [Name]
+    tyVars = mkName <$> tyVarsStr
+    refVars :: [Name]
+    refVars = mkName . ("r" ++) <$> tyVarsStr
+
+    refConstr :: Name -> Name -> Pred
+    refConstr r v = (EqualityT `AppT` refS (VarT v))
+             `AppT` VarT r
+
+    -- tupleToListRef (x, y) = x :> y :> Nil
+    tupToListImpl :: [Name] -> Dec
+    tupToListImpl valVars = FunD 'tupleToListRef [
+        Clause [TupP (VarP <$> valVars)]
+               ( NormalB
+                      . foldr (\x y -> (ConE '(:>) `AppE` VarE x) `AppE` y) (ConE 'Nil)
+                      $ valVars
+               )
+               []
+      ]
+    -- listRefToTuple (x :> y :> _) = (x, y)
+    listToTupImpl :: [Name] -> Dec
+    listToTupImpl valVars = FunD 'listRefToTuple [
+        Clause [ foldr (\x y -> ConP '(:>) [VarP x, y]) (ConP 'Nil []) valVars
+               ]
+               ( NormalB . applyAllE tupConE $
+                    VarE <$> valVars
+               )
+               []
+      ]
+
+
 applyAllT
     :: Type
     -> [Type]
@@ -135,21 +200,21 @@ liftApplyAllE
 liftApplyAllE = foldl' (\t m -> (VarE '(<*>) `AppE` t) `AppE` m)
               . (VarE 'pure `AppE`)
 
--- | liftApplyAllE f [x,y,z] = f <$> x <*> y <*> z
+-- | applyAllE f [x,y,z] = f x y z
+applyAllE
+    :: Exp
+    -> [Exp]
+    -> Exp
+applyAllE = foldl' (\t m -> t `AppE` m)
+
+-- | sequenceAllE [x,y,z] = x *> y *> z
 sequenceAllE
     :: [Exp]
     -> Exp
 sequenceAllE = foldr1 (\x y -> (VarE '(*>) `AppE` x) `AppE` y)
 
-
--- applyAllE
---     :: Exp
---     -> [Exp]
---     -> Exp
--- applyAllE = foldl' (\t m -> t `AppE` m)
-
-
-
-
-
+liftedList
+    :: [Type]
+    -> Type
+liftedList = foldr (\x y -> (PromotedConsT `AppT` x) `AppT` y) PromotedNilT
 

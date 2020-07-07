@@ -1,6 +1,18 @@
 Changelog
 =========
 
+Version 0.2.1.0
+---------------
+
+*July 6, 2020*
+
+<https://github.com/mstksg/mutable/releases/tag/v0.2.1.0>
+
+*   Use TH to generate tuple instances for `Mutable` up to 12.
+*   Use TH to generate `ListRefTuple` instances for lists up to length 12.
+    Previously the instances up to the maximum length of `Mutable` tuple
+    instances were missing.
+
 Version 0.2.0.0
 ---------------
 

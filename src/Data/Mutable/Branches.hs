@@ -60,10 +60,10 @@ module Data.Mutable.Branches (
 import           Control.Monad
 import           Control.Monad.Primitive
 import           Data.Generics.Product.Internal.HList
-import           Data.Kind
 import           Data.Maybe
 import           Data.Mutable.Class
 import           Data.Mutable.Instances
+import           Data.Mutable.Internal
 import           Data.Primitive.MutVar
 import           GHC.Generics
 import           GHC.OverloadedLabels
@@ -697,25 +697,3 @@ leftMB = constrMB #_Left
 -- | 'MutBranch' focusing on the 'Right' case of an 'Either'
 rightMB :: (Mutable s a, Mutable s b) => MutBranch s (Either a b) b
 rightMB = constrMB #_Right
-
-class ListRefTuple (s :: Type) (b :: Type) (as :: [Type]) | as s -> b where
-    tupledRef :: GL.Iso' (HList (MapRef s as)) b
-    tupledRef = GL.iso (listRefToTuple @s @b @as) (tupleToListRef @s @b @as)
-    {-# INLINE tupledRef #-}
-    tupleToListRef :: b -> HList (MapRef s as)
-    listRefToTuple :: HList (MapRef s as) -> b
-
-instance ListRefTuple s (UnitRef s) '[] where
-    tupleToListRef _ = Nil
-    listRefToTuple _ = UnitRef
-instance (Ref s a ~ ra) => ListRefTuple s ra '[a] where
-    tupleToListRef x = x :> Nil
-    listRefToTuple (x :> _) = x
-instance (Ref s a ~ ra, Ref s b ~ rb) => ListRefTuple s (ra, rb) '[a, b] where
-    tupleToListRef (x, y) = x :> y :> Nil
-    listRefToTuple (x :> y :> _) = (x, y)
-
-
-
-
-

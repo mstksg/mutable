@@ -49,6 +49,7 @@ library:
   - microlens
   - primitive >= 0.6.4
   - reflection
+  - template-haskell
   - transformers
   - vector
   - vinyl

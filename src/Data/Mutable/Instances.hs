@@ -1,19 +1,20 @@
-{-# LANGUAGE BangPatterns           #-}
-{-# LANGUAGE DeriveFoldable         #-}
-{-# LANGUAGE DeriveTraversable      #-}
-{-# LANGUAGE EmptyCase              #-}
-{-# LANGUAGE EmptyDataDeriving      #-}
-{-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE GADTs                  #-}
-{-# LANGUAGE LambdaCase             #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE StandaloneDeriving     #-}
-{-# LANGUAGE TypeFamilies           #-}
-{-# LANGUAGE TypeInType             #-}
-{-# LANGUAGE TypeOperators          #-}
-{-# LANGUAGE UndecidableInstances   #-}
-{-# OPTIONS_GHC -fno-warn-orphans   #-}
+{-# LANGUAGE BangPatterns          #-}
+{-# LANGUAGE DeriveFoldable        #-}
+{-# LANGUAGE DeriveTraversable     #-}
+{-# LANGUAGE EmptyCase             #-}
+{-# LANGUAGE EmptyDataDeriving     #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeInType            #-}
+{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE UndecidableInstances  #-}
+{-# OPTIONS_GHC -fno-warn-orphans  #-}
 
 -- |
 -- Module      : Data.Mutable.Instances
@@ -70,6 +71,7 @@ import           Data.Functor.Sum
 import           Data.Generics.Product.Internal.HList      (HList(..))
 import           Data.Kind
 import           Data.Mutable.Internal
+import           Data.Mutable.Internal.TH
 import           Data.Ord
 import           Data.Primitive.Array
 import           Data.Primitive.ByteArray
@@ -361,42 +363,11 @@ instance (Mutable s a, Mutable s b) => Mutable s (a, b) where
     freezeRef (u , v ) = (,) <$> freezeRef u <*> freezeRef v
     copyRef   (u , v ) (!x, !y) = copyRef u x *> copyRef v y
     moveRef   (u , v ) ( x,  y) = moveRef u x *> moveRef v y
-    cloneRef  (x , y ) = (,) <$> cloneRef x   <*> cloneRef y
+    cloneRef  (u , v ) = (,) <$> cloneRef u   <*> cloneRef v
     unsafeThawRef   (!x, !y) = (,) <$> unsafeThawRef x   <*> unsafeThawRef y
     unsafeFreezeRef (u , v ) = (,) <$> unsafeFreezeRef u <*> unsafeFreezeRef v
 
--- | A 'Ref' of a tuple is a tuple of 'Ref's, for easy accessing.
-instance (Mutable s a, Mutable s b, Mutable s c) => Mutable s (a, b, c) where
-    type Ref s (a, b, c) = (Ref s a, Ref s b, Ref s c)
-    thawRef   (!x, !y, !z) = (,,) <$> thawRef x   <*> thawRef y   <*> thawRef z
-    freezeRef (u , v , w ) = (,,) <$> freezeRef u <*> freezeRef v <*> freezeRef w
-    copyRef   (u , v , w ) (!x, !y, !z) = copyRef u x *> copyRef v y *> copyRef w z
-    moveRef   (u , v , w ) ( x,  y,  z) = moveRef u x *> moveRef v y *> moveRef w z
-    cloneRef  (x , y , z ) = (,,) <$> cloneRef x   <*> cloneRef y   <*> cloneRef z
-    unsafeThawRef   (!x, !y, !z) = (,,) <$> unsafeThawRef x   <*> unsafeThawRef y   <*> unsafeThawRef z
-    unsafeFreezeRef (u , v , w ) = (,,) <$> unsafeFreezeRef u <*> unsafeFreezeRef v <*> unsafeFreezeRef w
-
--- | A 'Ref' of a tuple is a tuple of 'Ref's, for easy accessing.
-instance (Mutable s a, Mutable s b, Mutable s c, Mutable s d) => Mutable s (a, b, c, d) where
-    type Ref s (a, b, c, d) = (Ref s a, Ref s b, Ref s c, Ref s d)
-    thawRef   (!x, !y, !z, !a) = (,,,) <$> thawRef x   <*> thawRef y   <*> thawRef z   <*> thawRef a
-    freezeRef (u , v , w , j ) = (,,,) <$> freezeRef u <*> freezeRef v <*> freezeRef w <*> freezeRef j
-    copyRef   (u , v , w , j ) (!x, !y, !z, !a) = copyRef u x *> copyRef v y *> copyRef w z *> copyRef j a
-    moveRef   (u , v , w , j ) ( x,  y,  z,  a) = moveRef u x *> moveRef v y *> moveRef w z *> moveRef j a
-    cloneRef  (x , y , z , a ) = (,,,) <$> cloneRef x   <*> cloneRef y   <*> cloneRef z   <*> cloneRef a
-    unsafeThawRef   (!x, !y, !z, !a) = (,,,) <$> unsafeThawRef x   <*> unsafeThawRef y   <*> unsafeThawRef z   <*> unsafeThawRef a
-    unsafeFreezeRef (u , v , w , j ) = (,,,) <$> unsafeFreezeRef u <*> unsafeFreezeRef v <*> unsafeFreezeRef w <*> unsafeFreezeRef j
-
--- | A 'Ref' of a tuple is a tuple of 'Ref's, for easy accessing.
-instance (Mutable s a, Mutable s b, Mutable s c, Mutable s d, Mutable s e) => Mutable s (a, b, c, d, e) where
-    type Ref s (a, b, c, d, e) = (Ref s a, Ref s b, Ref s c, Ref s d, Ref s e)
-    thawRef   (!x, !y, !z, !a, !b) = (,,,,) <$> thawRef x   <*> thawRef y   <*> thawRef z   <*> thawRef a   <*> thawRef b
-    freezeRef (u , v , w , j , k ) = (,,,,) <$> freezeRef u <*> freezeRef v <*> freezeRef w <*> freezeRef j <*> freezeRef k
-    copyRef   (u , v , w , j , k ) (!x, !y, !z, !a, !b) = copyRef u x *> copyRef v y *> copyRef w z *> copyRef j a *> copyRef k b
-    moveRef   (u , v , w , j , k ) ( x,  y,  z,  a,  b) = moveRef u x *> moveRef v y *> moveRef w z *> moveRef j a *> moveRef k b
-    cloneRef  (x , y , z , a , b ) = (,,,,) <$> cloneRef x   <*> cloneRef y   <*> cloneRef z   <*> cloneRef a   <*> cloneRef b
-    unsafeThawRef   (!x, !y, !z, !a, !b) = (,,,,) <$> unsafeThawRef x   <*> unsafeThawRef y   <*> unsafeThawRef z   <*> unsafeThawRef a   <*> unsafeThawRef b
-    unsafeFreezeRef (u , v , w , j , k ) = (,,,,) <$> unsafeFreezeRef u <*> unsafeFreezeRef v <*> unsafeFreezeRef w <*> unsafeFreezeRef j <*> unsafeFreezeRef k
+mutableTuples [3..12]
 
 -- | 'Ref' for components in a vinyl 'Rec'.
 newtype RecRef s f a = RecRef { getRecRef :: Ref s (f a) }

@@ -1,6 +1,16 @@
 Changelog
 =========
 
+Version 0.2.2.0
+---------------
+
+*July 9, 2020*
+
+<https://github.com/mstksg/mutable/releases/tag/v0.2.2.0>
+
+*   Bugfix: *Generics* mechanisms for `MutBranch` for data types with more than
+    two constructors fixed.
+
 Version 0.2.1.0
 ---------------
 

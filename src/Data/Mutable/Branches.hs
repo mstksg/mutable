@@ -592,6 +592,7 @@ instance
     gmbcProj  = gmbsProj @ctor @(GL.HasCtorP ctor l)
     gmbcEmbed = gmbsEmbed @ctor @(GL.HasCtorP ctor l)
 
+
 class ( GMutable s l
       , GMutable s r
       , Mutable s a
@@ -626,18 +627,16 @@ instance
 instance
       ( GMutable s l
       , GMutBranchConstructor ctor s r a
-      , GIsList (GRef_ s r) (GRef_ s r) (MapRef s as) (MapRef s as)
-      , GIsList r r as as
-      , ListTuple a a as as
-      , ListRefTuple s b as
       , Ref s a ~ b
       )
       => GMutBranchSum ctor 'False s l r a where
     gmbsProj lb (MutSumF r) = readMutVar r >>= \case
       L1 _ -> pure Nothing
       R1 x -> gmbcProj lb x
-    gmbsEmbed _ = fmap MutSumF . newMutVar . R1
-                . GLP.view (GL.fromIso (glist . tupledRef @s @b @as))
+    gmbsEmbed lb r = do
+      gr <- gmbcEmbed lb r
+      MutSumF <$> newMutVar (R1 gr)
+
 
 -- | Create a 'MutBranch' for any data type with a 'Generic' instance by
 -- specifying the constructor name using OverloadedLabels

@@ -3,5 +3,5 @@ mutable.cabal
 bench-results
 /dist-newstyle
 .ghc*
-*.dump-hi
+*.dump-*
 *~

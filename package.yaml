@@ -1,5 +1,5 @@
 name:                mutable
-version:             0.2.1.0
+version:             0.2.2.0
 github:              mstksg/mutable
 license:             BSD3
 author:              Justin Le
@@ -41,14 +41,12 @@ library:
   source-dirs: src
   other-modules:
   - Data.Mutable.Internal
+  - Data.Mutable.Internal.TH
   dependencies:
-  - base >= 4.11 && < 5
-  - constraints
+  - base >= 4.12 && < 5
   - generic-lens >= 2.0
   - generic-lens-core >= 2.0
-  - microlens
   - primitive >= 0.6.4
-  - reflection
   - template-haskell
   - transformers
   - vector

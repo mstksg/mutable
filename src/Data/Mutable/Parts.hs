@@ -25,7 +25,7 @@
 -- values.
 --
 -- If "Data.Mutable.Branches" is for sum types, then "Data.Mutable.Parts"
--- is for sum types.
+-- is for product types.
 --
 -- See <https://mutable.jle.im/05-mutable-parts.html> for an introduction
 -- to this module.
